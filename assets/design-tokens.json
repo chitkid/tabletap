@@ -1,0 +1,133 @@
+{
+  "brand": "TableTap / Little Furnace",
+  "primitive": {
+    "color": {
+      "ember": {
+        "50": {
+          "$value": "#F0663D",
+          "$type": "color"
+        },
+        "100": {
+          "$value": "#F0663D",
+          "$type": "color"
+        },
+        "200": {
+          "$value": "#FFD7B1",
+          "$type": "color"
+        },
+        "300": {
+          "$value": "#FFA47E",
+          "$type": "color"
+        },
+        "400": {
+          "$value": "#F5714B",
+          "$type": "color"
+        },
+        "500": {
+          "$value": "#C23E18",
+          "$type": "color"
+        },
+        "600": {
+          "$value": "#9E3112",
+          "$type": "color"
+        },
+        "700": {
+          "$value": "#760000",
+          "$type": "color"
+        },
+        "800": {
+          "$value": "#4F0000",
+          "$type": "color"
+        },
+        "900": {
+          "$value": "#290000",
+          "$type": "color"
+        }
+      },
+      "olive": {
+        "50": {
+          "$value": "#9CAB63",
+          "$type": "color"
+        },
+        "100": {
+          "$value": "#9CAB63",
+          "$type": "color"
+        },
+        "200": {
+          "$value": "#FFFFD5",
+          "$type": "color"
+        },
+        "300": {
+          "$value": "#D1E0A2",
+          "$type": "color"
+        },
+        "400": {
+          "$value": "#9EAD6F",
+          "$type": "color"
+        },
+        "500": {
+          "$value": "#6B7A3C",
+          "$type": "color"
+        },
+        "600": {
+          "$value": "#4F5B2C",
+          "$type": "color"
+        },
+        "700": {
+          "$value": "#1F2E00",
+          "$type": "color"
+        },
+        "800": {
+          "$value": "#000700",
+          "$type": "color"
+        },
+        "900": {
+          "$value": "#000000",
+          "$type": "color"
+        }
+      },
+      "ink": {
+        "50": {
+          "$value": "#3D3631",
+          "$type": "color"
+        },
+        "100": {
+          "$value": "#3D3631",
+          "$type": "color"
+        },
+        "200": {
+          "$value": "#B5B2B0",
+          "$type": "color"
+        },
+        "300": {
+          "$value": "#827F7D",
+          "$type": "color"
+        },
+        "400": {
+          "$value": "#4F4C4A",
+          "$type": "color"
+        },
+        "500": {
+          "$value": "#1C1917",
+          "$type": "color"
+        },
+        "600": {
+          "$value": "#151311",
+          "$type": "color"
+        },
+        "700": {
+          "$value": "#000000",
+          "$type": "color"
+        },
+        "800": {
+          "$value": "#000000",
+          "$type": "color"
+        },
+        "900": {
+          "$value": "#000000",
+          "$type": "color"
+        }
+      }
+    }
+  }
+}
