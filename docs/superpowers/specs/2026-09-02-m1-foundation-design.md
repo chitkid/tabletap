@@ -233,7 +233,7 @@ Vitest 4 in every package, aggregated by `pnpm test` through Turbo. TDD (red →
 - `apps/web`: Testing Library for the login form (submits credentials, shows the 401 message, renders the signed-in state, disables the button while submitting).
 - `e2e/staff-login.spec.ts` (Playwright): against `docker compose up`, open `/login`, sign in as kitchen, see "Signed in as Theo Baptiste (kitchen)". Proves the rewrite forwards cookies.
 
-Known risk: better-auth's Drizzle adapter over PGlite is unverified. If it fails, auth-dependent API tests run against Compose Postgres via `TEST_DATABASE_URL` and the rest stay on PGlite; the outcome is recorded in ADR 0003.
+Verified on 2026-09-02 in a scratch project: better-auth 1.7.2 with `@better-auth/drizzle-adapter` over PGlite 0.5.8 handles sign-up, sign-in (200), wrong password (401), `getSession` with the `role` field, sign-out, and `disableSignUp` (400). Seeding staff by inserting a `users` row plus an `accounts` row (`providerId: 'credential'`, `issuer: 'local:credential'`, `accountId` = user id, `password` from `hashPassword()` in `better-auth/crypto`) signs in normally. The schema must be generated with `npx auth@latest generate` (the deprecated `@better-auth/cli` omits the `issuer` column and the runtime refuses to start). ADR 0003 records this.
 
 ## 14. Infrastructure
 
