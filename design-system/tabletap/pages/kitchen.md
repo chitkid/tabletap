@@ -5,7 +5,7 @@
 > **Page Type:** Kitchen Display (dark, real-time)
 > **Reconciled with:** `docs/brand-guidelines.md` (kitchen surface, semantic status colors, kitchen type scale)
 
-> ⚠️ **IMPORTANT:** Rules in this file **override** the Master file (`design-system/MASTER.md`).
+> **Override warning:** Rules in this file **override** the Master file (`design-system/MASTER.md`).
 > Only deviations from the Master are documented here. For all other rules, refer to the Master.
 
 > **Reconciliation note:** The raw generator classified this query as "General" and returned a marketing landing-page pattern (Hero / Value prop / Features / CTA / Footer) with a light-surface color strategy — none of it describes an order-ticket board. Rewritten below to match `docs/brand-guidelines.md`; the generated dials (Variance 4/10, Motion 3/10, Density 6/10) are kept.

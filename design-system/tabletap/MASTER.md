@@ -121,7 +121,7 @@ Colors below are reconciled to `docs/brand-guidelines.md` §1 (guest surface).
 }
 ```
 
-### Cards
+### Cards (guest surface; see pages/kitchen.md and pages/admin.md for overrides)
 
 ```css
 .card {
@@ -139,7 +139,7 @@ Colors below are reconciled to `docs/brand-guidelines.md` §1 (guest surface).
 }
 ```
 
-### Inputs
+### Inputs (guest surface; see pages/kitchen.md and pages/admin.md for overrides)
 
 ```css
 .input {
@@ -159,7 +159,7 @@ Colors below are reconciled to `docs/brand-guidelines.md` §1 (guest surface).
 }
 ```
 
-### Modals
+### Modals (guest surface; see pages/kitchen.md and pages/admin.md for overrides)
 
 ```css
 .modal-overlay {
@@ -211,25 +211,25 @@ gsap.from('.grid-item', { opacity: 0, scale: 0.92, y: 16, duration: 0.4, stagger
 
 **Framework notes:** grid: 'auto' lets GSAP infer rows/columns from a CSS grid layout for a natural wave stagger
 
-- ✅ Combine with from: 'center' for a bento-grid layout to draw the eye inward first
-- ❌ Don't use back.out on dense data tables; the overshoot reads as sloppy on informational UI
-- ⚡ Group DOM writes; avoid interleaving layout reads (getBoundingClientRect) between staggered tweens
+- Do: combine with from: 'center' for a bento-grid layout to draw the eye inward first
+- Avoid: back.out on dense data tables; the overshoot reads as sloppy on informational UI
+- Note: group DOM writes; avoid interleaving layout reads (getBoundingClientRect) between staggered tweens
 
 ---
 
 ## Anti-Patterns (Do NOT Use)
 
-- ❌ Low-quality imagery
-- ❌ Outdated hours
+- Avoid: low-quality imagery
+- Avoid: outdated hours
 
 ### Additional Forbidden Patterns
 
-- ❌ **Emojis as icons** — Use SVG icons (Heroicons, Lucide, Simple Icons)
-- ❌ **Missing cursor:pointer** — All clickable elements must have cursor:pointer
-- ❌ **Layout-shifting hovers** — Avoid scale transforms that shift layout
-- ❌ **Low contrast text** — Maintain 4.5:1 minimum contrast ratio
-- ❌ **Instant state changes** — Always use transitions (150-300ms)
-- ❌ **Invisible focus states** — Focus states must be visible for a11y
+- Avoid: **Emojis as icons** — Use SVG icons (Heroicons, Lucide, Simple Icons)
+- Avoid: **Missing cursor:pointer** — All clickable elements must have cursor:pointer
+- Avoid: **Layout-shifting hovers** — Avoid scale transforms that shift layout
+- Avoid: **Low contrast text** — Maintain 4.5:1 minimum contrast ratio
+- Avoid: **Instant state changes** — Always use transitions (150-300ms)
+- Avoid: **Invisible focus states** — Focus states must be visible for a11y
 
 ---
 

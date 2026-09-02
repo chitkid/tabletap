@@ -5,7 +5,7 @@
 > **Page Type:** Dashboard / Data View
 > **Reconciled with:** `docs/brand-guidelines.md` (light neutral chrome, tabular numerals, single-accent rule)
 
-> ⚠️ **IMPORTANT:** Rules in this file **override** the Master file (`design-system/MASTER.md`).
+> **Override warning:** Rules in this file **override** the Master file (`design-system/MASTER.md`).
 > Only deviations from the Master are documented here. For all other rules, refer to the Master.
 
 > **Reconciliation note:** The raw generator returned a "Real-Time / Operations Landing" marketing pattern (Hero with live preview / Key metrics / How it works / Start-trial CTA) and a dark, blue-primary "Exaggerated Minimalism" style — a SaaS product-landing treatment, not an internal admin dashboard, and the wrong palette (brand: admin is light, not dark). Rewritten below to match `docs/brand-guidelines.md`; the generated dials (Variance 3/10, Motion 2/10, Density 8/10) are kept, and the Density 8/10 spacing table is now filled in explicitly (the raw run's own density-8 spacing table was not carried into this page file — the generator only writes the spacing table into MASTER.md, and this project's MASTER.md is the guest-surface run at density 4/10. The density-8 values below are taken directly from the same `DIAL_TIERS` table the script itself uses, so they are exact, not approximated).
