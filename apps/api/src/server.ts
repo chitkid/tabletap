@@ -9,6 +9,7 @@ import type { Config } from './config';
 import { authPlugin } from './plugins/auth';
 import { errorHandlerPlugin } from './plugins/error-handler';
 import { principalPlugin } from './plugins/principal';
+import { routeGuardPlugin } from './plugins/route-guard';
 import { guestRoutes } from './routes/guest';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
@@ -66,6 +67,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       error: { code: 'RATE_LIMITED', message: 'Too many requests. Try again in a minute.' },
     }),
   });
+  // Before every route: onRoute only inspects routes registered after the hook exists.
+  await app.register(routeGuardPlugin);
   await app.register(authPlugin);
   await app.register(principalPlugin);
   await app.register(healthRoutes);

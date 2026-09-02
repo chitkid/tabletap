@@ -8,13 +8,13 @@ describe('error handler', () => {
   let ctx: Awaited<ReturnType<typeof createTestApp>>;
   beforeAll(async () => {
     ctx = await createTestApp({ seed: false, ready: false });
-    ctx.app.get('/boom', { config: { principal: false } }, async () => {
+    ctx.app.get('/boom', { config: { public: true, principal: false } }, async () => {
       throw new Error('secret stack');
     });
-    ctx.app.get('/teapot', { config: { principal: false } }, async () => {
+    ctx.app.get('/teapot', { config: { public: true, principal: false } }, async () => {
       throw new AppError('NOT_FOUND', 404, 'Nothing here');
     });
-    ctx.app.post('/validate', { config: { principal: false }, schema: { body: z.object({ n: z.number() }) } }, async () => ({ ok: true }));
+    ctx.app.post('/validate', { config: { public: true, principal: false }, schema: { body: z.object({ n: z.number() }) } }, async () => ({ ok: true }));
     await ctx.app.ready();
   });
   afterAll(async () => {

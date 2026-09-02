@@ -15,5 +15,7 @@ declare module 'fastify' {
   interface FastifyContextConfig {
     /** Set to false on routes that must not resolve a principal (health, auth handler). */
     principal?: boolean;
+    /** Opt out of the default-deny route guard: the route is open to everyone on purpose. */
+    public?: boolean;
   }
 }

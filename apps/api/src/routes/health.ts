@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import pkg from '../../package.json' with { type: 'json' };
 
 export async function healthRoutes(app: FastifyInstance) {
-  app.get('/health', { config: { principal: false } }, async (_request, reply) => {
+  app.get('/health', { config: { public: true, principal: false } }, async (_request, reply) => {
     let db: 'ok' | 'fail' = 'ok';
     try {
       await app.db.execute(sql`select 1`);

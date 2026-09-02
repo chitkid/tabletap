@@ -12,7 +12,7 @@ export async function guestRoutes(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().post(
     '/guest/claim',
     {
-      config: { principal: false, rateLimit: { max: 20, timeWindow: '1 minute' } },
+      config: { public: true, principal: false, rateLimit: { max: 20, timeWindow: '1 minute' } },
       schema: { body: ClaimRequestSchema, response: { 200: ClaimResponseSchema } },
     },
     async (request, reply) => {

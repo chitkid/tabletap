@@ -24,8 +24,8 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
   app.route({
     method: 'POST',
     url: '/api/auth/sign-in/email',
-    config: { principal: false, rateLimit: { max: 10, timeWindow: '1 minute' } },
+    config: { public: true, principal: false, rateLimit: { max: 10, timeWindow: '1 minute' } },
     handler,
   });
-  app.route({ method: ['GET', 'POST'], url: '/api/auth/*', config: { principal: false }, handler });
+  app.route({ method: ['GET', 'POST'], url: '/api/auth/*', config: { public: true, principal: false }, handler });
 });
