@@ -42,6 +42,13 @@ describe('error handler', () => {
     expect(JSON.stringify(res.json())).not.toContain('secret stack');
   });
 
+  it('answers an unsupported content type with the envelope and no framework wording', async () => {
+    const res = await ctx.app.inject({ method: 'POST', url: '/api/guest/claim', headers: { 'content-type': 'application/xml' }, payload: '<token/>' });
+    expect(res.statusCode).toBe(415);
+    expect(ErrorEnvelopeSchema.parse(res.json()).error).toEqual({ code: 'VALIDATION_FAILED', message: 'Request could not be processed.' });
+    expect(res.body).not.toContain('Unsupported Media Type');
+  });
+
   it('returns NOT_FOUND envelope for unknown routes', async () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/nope' });
     expect(res.statusCode).toBe(404);
