@@ -84,6 +84,8 @@ Root scripts: `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm tes
 
 Web must never import `@tabletap/shared/server` (Node-only helpers); an ESLint `no-restricted-imports` rule in `apps/web` enforces it.
 
+Line endings: `.gitattributes` with `* text=auto eol=lf` so shell entrypoints and Dockerfiles stay LF on Windows checkouts (the host has `core.autocrlf` on and Linux containers reject CRLF scripts).
+
 ## 5. Data model
 
 Drizzle schema in `packages/db/src/schema/*.ts` (one file per domain), Postgres 17. IDs are UUID v7 generated in the application unless noted. Timestamps are `timestamptz`, `created_at`/`updated_at` on every mutable table. Money is integer cents.
