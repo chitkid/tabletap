@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tabletap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tabletap}
+      POSTGRES_DB: ${POSTGRES_DB:-tabletap}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tabletap} -d ${POSTGRES_DB:-tabletap}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-tabletap}:${POSTGRES_PASSWORD:-tabletap}@postgres:5432/${POSTGRES_DB:-tabletap}
+      PORT: 4000
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        API_URL: http://api:4000
+    environment:
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
