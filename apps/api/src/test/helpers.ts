@@ -1,6 +1,9 @@
+import { eq } from 'drizzle-orm';
+import { schema } from '@tabletap/db';
 import { seed } from '@tabletap/db/seed';
 import { createTestDb } from '@tabletap/db/testing';
 import type { Db } from '@tabletap/db';
+import { signTableToken } from '@tabletap/shared/server';
 import type { FastifyInstance } from 'fastify';
 import type { Config } from '../config';
 import { buildApp } from '../server';
@@ -51,4 +54,14 @@ export async function signInAs(app: FastifyInstance, email: string, password = T
   const res = await app.inject({ method: 'POST', url: '/api/auth/sign-in/email', headers: { origin: TEST_CONFIG.WEB_ORIGIN }, payload: { email, password } });
   if (res.statusCode !== 200) throw new Error(`sign-in failed for ${email}: ${res.statusCode} ${res.body}`);
   return res.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+}
+
+export async function claimTable(app: FastifyInstance, db: Db, tableNumber: number): Promise<{ cookie: string; tableId: string }> {
+  const [restaurant] = await db.select().from(schema.restaurants);
+  const [table] = await db.select().from(schema.tables).where(eq(schema.tables.number, tableNumber));
+  if (!restaurant || !table) throw new Error(`table ${tableNumber} not seeded`);
+  const token = await signTableToken({ tableId: table.id, restaurantId: restaurant.id, tableNumber }, { secret: TEST_CONFIG.TABLE_TOKEN_SECRET, ttlSeconds: 3600 });
+  const res = await app.inject({ method: 'POST', url: '/api/guest/claim', payload: { token } });
+  if (res.statusCode !== 200) throw new Error(`claim failed: ${res.statusCode} ${res.body}`);
+  return { cookie: res.cookies.map((c) => `${c.name}=${c.value}`).join('; '), tableId: table.id };
 }

@@ -9,6 +9,7 @@ import type { Config } from './config';
 import { authPlugin } from './plugins/auth';
 import { errorHandlerPlugin } from './plugins/error-handler';
 import { principalPlugin } from './plugins/principal';
+import { guestRoutes } from './routes/guest';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
 import './types';
@@ -58,5 +59,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(principalPlugin);
   await app.register(healthRoutes);
   await app.register(meRoutes, { prefix: '/api' });
+  await app.register(guestRoutes, { prefix: '/api' });
   return app;
 }
