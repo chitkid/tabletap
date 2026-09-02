@@ -839,7 +839,7 @@ describe('table token', () => {
   it('round-trips claims', async () => {
     const token = await signTableToken(input, { secret, ttlSeconds: 3600, now });
     const claims = await verifyTableToken(token, { secret, now });
-    expect(claims).toEqual({ ...input, issuedAt: 1788350400, expiresAt: 1788354000 });
+    expect(claims).toEqual({ ...input, issuedAt: 1788343200, expiresAt: 1788346800 });
   });
   it('rejects a tampered token as TOKEN_INVALID', async () => {
     const token = await signTableToken(input, { secret, ttlSeconds: 3600, now });
@@ -935,6 +935,8 @@ export async function verifyTableToken(
 ```ts
 export * from './table-token';
 ```
+
+`TextEncoder` needs Node's ambient types: set `packages/shared/tsconfig.json` to `{ "extends": "../../tsconfig.base.json", "compilerOptions": { "types": ["node"] }, "include": ["src"] }`.
 
 - [ ] **Step 5: Run tests, expect PASS, commit**
 
