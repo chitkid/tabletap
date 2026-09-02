@@ -2,8 +2,8 @@ import { eq } from 'drizzle-orm';
 import { schema } from '@tabletap/db';
 import { signTableToken } from '@tabletap/shared/server';
 import { ClaimResponseSchema, MeResponseSchema } from '@tabletap/shared';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_CONFIG, createTestApp } from '../test/helpers';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { TEST_CONFIG, claimTable, createTestApp } from '../test/helpers';
 
 describe('POST /api/guest/claim', () => {
   let ctx: Awaited<ReturnType<typeof createTestApp>>;
@@ -79,18 +79,59 @@ describe('POST /api/guest/claim', () => {
     // Earlier tests in this file also create guest sessions, so picking "the" row by
     // createdAt order is ambiguous; unsign the cookie set by this claim to target the
     // exact session it refers to.
-    const raw = res.cookies.find((c) => c.name === 'tt_guest')!.value;
-    const sessionId = ctx.app.unsignCookie(raw).value!;
+    const claimCookie = res.cookies.find((c) => c.name === 'tt_guest')!;
+    const sessionId = ctx.app.unsignCookie(claimCookie.value).value!;
     await ctx.db.update(schema.guestSessions).set({ lastSeenAt: new Date(Date.now() - 6 * 60_000) }).where(eq(schema.guestSessions.id, sessionId));
-    const me = await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
+    // Set-Cookie Expires has one-second resolution, so hold the clock still and step it
+    // forward: without this the slid expiry lands in the same second as the claim's.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(Date.now() + 5_000));
+    const me = await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie } }).finally(() => vi.useRealTimers());
     const after = MeResponseSchema.parse(me.json()).principal;
     expect(after.kind).toBe('guest');
     if (after.kind === 'guest') expect(new Date(after.expiresAt).getTime()).toBeGreaterThan(new Date(before).getTime());
+    // The browser only learns about the slide if the cookie is re-issued with the new expiry.
+    const slidCookie = me.cookies.find((c) => c.name === 'tt_guest');
+    expect(slidCookie).toBeDefined();
+    expect(ctx.app.unsignCookie(slidCookie!.value).value).toBe(sessionId);
+    expect(slidCookie?.httpOnly).toBe(true);
+    expect(slidCookie?.path).toBe('/');
+    expect(slidCookie!.expires!.getTime()).toBeGreaterThan(claimCookie.expires!.getTime());
+  });
+  it('drops a guest session whose table has been deactivated', async () => {
+    const res = await claim(await tokenFor(6));
+    const cookie = res.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+    expect((await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).statusCode).toBe(200);
+    await ctx.db.update(schema.tables).set({ isActive: false }).where(eq(schema.tables.number, 6));
+    const me = await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
+    expect(me.statusCode).toBe(401);
+    expect(me.cookies.find((c) => c.name === 'tt_guest')?.value).toBe('');
   });
   it('rate-limits claims to 20 per minute per IP', async () => {
     const token = await tokenFor(1);
     let last = 0;
     for (let i = 0; i < 21; i++) last = (await claim(token)).statusCode;
     expect(last).toBe(429);
+  });
+});
+
+// Own app so the audit row count below is unambiguous.
+describe('POST /api/guest/claim from a browser that already holds a session', () => {
+  let ctx: Awaited<ReturnType<typeof createTestApp>>;
+  beforeAll(async () => { ctx = await createTestApp(); });
+  afterAll(async () => { await ctx.close(); });
+
+  it('replaces the previous session instead of leaving two alive', async () => {
+    const first = await claimTable(ctx.app, ctx.db, 2);
+    const second = await claimTable(ctx.app, ctx.db, 3, { cookie: first.cookie });
+
+    const withOld = await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie: first.cookie } });
+    expect(withOld.statusCode).toBe(401);
+    const withNew = await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie: second.cookie } });
+    expect(MeResponseSchema.parse(withNew.json()).principal).toMatchObject({ kind: 'guest', tableNumber: 3 });
+
+    const audit = await ctx.db.select().from(schema.auditLog).where(eq(schema.auditLog.action, 'guest.claimed'));
+    expect(audit).toHaveLength(2);
+    expect(audit.map((a) => a.entityId).sort()).toEqual([first.tableId, second.tableId].sort());
   });
 });

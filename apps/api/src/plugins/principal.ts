@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
-import { fromNodeHeaders } from 'better-auth/node';
-import { StaffRoleSchema, type Principal } from '@tabletap/shared';
-import { GUEST_COOKIE, SLIDE_AFTER_MS, findActiveGuestSession, touchGuestSession } from '../lib/guest-sessions';
+import type { Principal } from '@tabletap/shared';
+import { GUEST_COOKIE, guestCookieOptions } from '../lib/guest-sessions';
+import { resolvePrincipal } from '../lib/resolve-principal';
 
 const ANONYMOUS: Principal = { kind: 'anonymous' };
 
@@ -11,39 +11,27 @@ export const principalPlugin = fp(async (app: FastifyInstance) => {
   // a real Principal before any route handler runs. Cast only to satisfy decorateRequest's
   // typing, which requires the default to match the (non-nullable) declared property type.
   app.decorateRequest<Principal, 'principal'>('principal', null as unknown as Principal);
+
+  // Thin adapter: unsign the cookie, resolve, then apply the cookie decision to the reply.
   app.addHook('preHandler', async (request, reply) => {
     request.principal = ANONYMOUS;
     if (request.routeOptions.config.principal === false) return;
-    let session;
-    try {
-      session = await app.auth.api.getSession({ headers: fromNodeHeaders(request.headers) });
-    } catch (err) {
-      app.log.debug({ err }, 'getSession threw; treating as anonymous');
-      return;
-    }
-    if (session) {
-      const role = StaffRoleSchema.safeParse(session.user.role);
-      if (role.success) {
-        request.principal = { kind: 'staff', userId: session.user.id, email: session.user.email, name: session.user.name, role: role.data };
-        return;
-      }
-    }
 
     const raw = request.cookies[GUEST_COOKIE];
-    if (raw) {
+    let guestCookie: string | undefined;
+    let forgedGuestCookie = false;
+    if (raw !== undefined) {
       const unsigned = request.unsignCookie(raw);
-      if (unsigned.valid && unsigned.value) {
-        const now = new Date();
-        const guest = await findActiveGuestSession(app.db, unsigned.value, now);
-        if (guest) {
-          let expiresAt = guest.expiresAt;
-          if (now.getTime() - guest.lastSeenAt.getTime() > SLIDE_AFTER_MS) {
-            expiresAt = await touchGuestSession(app.db, guest.id, { ttlHours: app.config.GUEST_SESSION_TTL_HOURS, now });
-          }
-          request.principal = { kind: 'guest', guestSessionId: guest.id, tableId: guest.tableId, tableNumber: guest.tableNumber, expiresAt: expiresAt.toISOString() };
-          return;
-        }
-      }
+      if (unsigned.valid && unsigned.value) guestCookie = unsigned.value;
+      else forgedGuestCookie = true;
+    }
+
+    const resolved = await resolvePrincipal(app, { headers: request.headers, guestCookie });
+    request.principal = resolved.principal;
+
+    if (resolved.slidTo !== undefined && guestCookie !== undefined) {
+      reply.setCookie(GUEST_COOKIE, guestCookie, guestCookieOptions(app.config, resolved.slidTo));
+    } else if (resolved.clearGuestCookie || (forgedGuestCookie && resolved.principal.kind === 'anonymous')) {
       reply.clearCookie(GUEST_COOKIE, { path: '/' });
     }
   });

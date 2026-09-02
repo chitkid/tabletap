@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { schema } from '@tabletap/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestApp } from '../test/helpers';
-import { createGuestSession, findActiveGuestSession, touchGuestSession } from './guest-sessions';
+import { createGuestSession, expireGuestSession, findActiveGuestSession, touchGuestSession } from './guest-sessions';
 
 describe('guest sessions', () => {
   let ctx: Awaited<ReturnType<typeof createTestApp>>;
@@ -34,5 +34,21 @@ describe('guest sessions', () => {
   });
   it('returns null for an unknown id', async () => {
     expect(await findActiveGuestSession(ctx.db, '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f60', now)).toBeNull();
+  });
+  it('rejects a 36-char id that is not uuid-shaped before it reaches postgres', async () => {
+    expect(await findActiveGuestSession(ctx.db, '-'.repeat(36), now)).toBeNull();
+    expect(await findActiveGuestSession(ctx.db, '018f0d388d5d7c6e8f6a1b2c3d4e5f60aaaa', now)).toBeNull();
+  });
+  it('does not find a session whose table has been deactivated', async () => {
+    const [t] = await ctx.db.select().from(schema.tables).where(eq(schema.tables.number, 11));
+    const s = await createGuestSession(ctx.db, { tableId: t!.id, ttlHours: 4, now });
+    expect(await findActiveGuestSession(ctx.db, s.id, now)).not.toBeNull();
+    await ctx.db.update(schema.tables).set({ isActive: false }).where(eq(schema.tables.id, t!.id));
+    expect(await findActiveGuestSession(ctx.db, s.id, now)).toBeNull();
+  });
+  it('expire marks an unexpired session as done right now', async () => {
+    const s = await createGuestSession(ctx.db, { tableId, ttlHours: 4, now });
+    await expireGuestSession(ctx.db, s.id, now);
+    expect(await findActiveGuestSession(ctx.db, s.id, now)).toBeNull();
   });
 });
