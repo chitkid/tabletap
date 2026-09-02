@@ -19,5 +19,18 @@
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/cli/migrate.ts",
     "seed": "tsx src/cli/seed.ts"
+  },
+  "dependencies": {
+    "@tabletap/shared": "workspace:*",
+    "better-auth": "1.7.2",
+    "dotenv": "17.4.2",
+    "drizzle-orm": "0.45.2",
+    "postgres": "3.4.9",
+    "uuidv7": "1.2.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "drizzle-kit": "0.31.10",
+    "tsx": "4.23.13"
   }
 }
