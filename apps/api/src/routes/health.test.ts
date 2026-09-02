@@ -23,6 +23,14 @@ describe('GET /health', () => {
     expect(res.headers['x-request-id']).toBe('req-123');
   });
 
+  it('replaces an inbound request id that is not a plain token', async () => {
+    const oversized = 'a'.repeat(200);
+    const res = await ctx.app.inject({ method: 'GET', url: '/health', headers: { 'x-request-id': oversized } });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['x-request-id']).not.toBe(oversized);
+    expect(res.headers['x-request-id']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  });
+
   it('reports degraded with 503 when the database is gone', async () => {
     const { db, close } = await createTestDb();
     await close();

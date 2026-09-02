@@ -18,6 +18,7 @@ describe('loadConfig', () => {
     expect(c.TABLE_TOKEN_TTL_DAYS).toBe(365);
     expect(c.GUEST_SESSION_TTL_HOURS).toBe(4);
     expect(c.LOG_LEVEL).toBe('info');
+    expect(c.TRUST_PROXY).toBe('loopback,uniquelocal');
   });
   it('coerces numbers', () => {
     expect(loadConfig({ ...valid, PORT: '5000', GUEST_SESSION_TTL_HOURS: '2' })).toMatchObject({ PORT: 5000, GUEST_SESSION_TTL_HOURS: 2 });

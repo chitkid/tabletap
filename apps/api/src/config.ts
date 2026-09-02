@@ -12,6 +12,8 @@ const EnvSchema = z.object({
   TABLE_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(365),
   GUEST_SESSION_TTL_HOURS: z.coerce.number().int().positive().default(4),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  /** Fastify `trustProxy`: only these peers may set the client ip the rate limiter keys on. */
+  TRUST_PROXY: z.string().default('loopback,uniquelocal'),
 });
 export type Config = z.infer<typeof EnvSchema>;
 

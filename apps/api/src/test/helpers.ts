@@ -20,6 +20,7 @@ export const TEST_CONFIG: Config = {
   TABLE_TOKEN_TTL_DAYS: 365,
   GUEST_SESSION_TTL_HOURS: 4,
   LOG_LEVEL: 'silent',
+  TRUST_PROXY: 'loopback,uniquelocal',
 };
 export const TEST_DEMO_PASSWORD = 'tabletap-demo';
 

@@ -21,6 +21,9 @@ export interface BuildAppOptions {
   logger?: boolean;
 }
 
+/** Inbound request ids are echoed and logged, so accept only a short opaque token. */
+const REQUEST_ID = /^[A-Za-z0-9._-]{1,64}$/;
+
 export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
   const { config } = opts;
   const app = Fastify({
@@ -32,8 +35,15 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
             redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
             ...(config.NODE_ENV === 'development' ? { transport: { target: 'pino-pretty' } } : {}),
           },
-    requestIdHeader: 'x-request-id',
-    genReqId: () => randomUUID(),
+    // Fastify's own requestIdHeader takes the header verbatim; disable it and validate here.
+    requestIdHeader: false,
+    genReqId: (req) => {
+      const header = req.headers['x-request-id'];
+      return typeof header === 'string' && REQUEST_ID.test(header) ? header : randomUUID();
+    },
+    // The API sits behind the Next.js rewrite: without this every request looks like it
+    // came from the proxy and @fastify/rate-limit would share one bucket for everyone.
+    trustProxy: config.TRUST_PROXY,
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
