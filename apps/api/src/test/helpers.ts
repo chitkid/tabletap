@@ -46,3 +46,9 @@ export async function createTestApp(
     },
   };
 }
+
+export async function signInAs(app: FastifyInstance, email: string, password = TEST_DEMO_PASSWORD): Promise<string> {
+  const res = await app.inject({ method: 'POST', url: '/api/auth/sign-in/email', headers: { origin: TEST_CONFIG.WEB_ORIGIN }, payload: { email, password } });
+  if (res.statusCode !== 200) throw new Error(`sign-in failed for ${email}: ${res.statusCode} ${res.body}`);
+  return res.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+}

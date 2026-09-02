@@ -6,8 +6,11 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { randomUUID } from 'node:crypto';
 import type { Config } from './config';
+import { authPlugin } from './plugins/auth';
 import { errorHandlerPlugin } from './plugins/error-handler';
+import { principalPlugin } from './plugins/principal';
 import { healthRoutes } from './routes/health';
+import { meRoutes } from './routes/me';
 import './types';
 
 export interface BuildAppOptions {
@@ -44,8 +47,16 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(cookie, { secret: config.COOKIE_SECRET });
   await app.register(rateLimit, {
     global: false,
-    errorResponseBuilder: () => ({ error: { code: 'RATE_LIMITED', message: 'Too many requests. Try again in a minute.' } }),
+    // @fastify/rate-limit throws this return value; it needs its own statusCode so
+    // errorHandlerPlugin's generic 4xx/5xx mapping recognizes it as a 429, not a 500.
+    errorResponseBuilder: (_req, context) => ({
+      statusCode: context.statusCode,
+      error: { code: 'RATE_LIMITED', message: 'Too many requests. Try again in a minute.' },
+    }),
   });
+  await app.register(authPlugin);
+  await app.register(principalPlugin);
   await app.register(healthRoutes);
+  await app.register(meRoutes, { prefix: '/api' });
   return app;
 }
