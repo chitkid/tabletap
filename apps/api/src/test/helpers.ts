@@ -1,0 +1,48 @@
+import { seed } from '@tabletap/db/seed';
+import { createTestDb } from '@tabletap/db/testing';
+import type { Db } from '@tabletap/db';
+import type { FastifyInstance } from 'fastify';
+import type { Config } from '../config';
+import { buildApp } from '../server';
+
+export const TEST_CONFIG: Config = {
+  NODE_ENV: 'test',
+  PORT: 0,
+  DATABASE_URL: 'pglite://memory',
+  BETTER_AUTH_SECRET: 'test-better-auth-secret-0123456789abcdef',
+  BETTER_AUTH_URL: 'http://localhost:4000',
+  WEB_ORIGIN: 'http://localhost:3000',
+  COOKIE_SECRET: 'test-cookie-secret-0123456789abcdefghijk',
+  TABLE_TOKEN_SECRET: 'test-table-token-secret-0123456789abcdef',
+  TABLE_TOKEN_TTL_DAYS: 365,
+  GUEST_SESSION_TTL_HOURS: 4,
+  LOG_LEVEL: 'silent',
+};
+export const TEST_DEMO_PASSWORD = 'tabletap-demo';
+
+export async function createTestApp(
+  opts: { seed?: boolean; ready?: boolean } = {},
+): Promise<{ app: FastifyInstance; db: Db; close: () => Promise<void> }> {
+  const { db, close: closeDb } = await createTestDb();
+  if (opts.seed !== false) {
+    await seed(db, {
+      mode: 'reset',
+      demoPassword: TEST_DEMO_PASSWORD,
+      tableTokenSecret: TEST_CONFIG.TABLE_TOKEN_SECRET,
+      tableTokenTtlDays: 365,
+      webOrigin: TEST_CONFIG.WEB_ORIGIN,
+    });
+  }
+  const app = await buildApp({ db, config: TEST_CONFIG, logger: false });
+  if (opts.ready !== false) {
+    await app.ready();
+  }
+  return {
+    app,
+    db,
+    close: async () => {
+      await app.close();
+      await closeDb();
+    },
+  };
+}
