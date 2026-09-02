@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+**/.next
+.git
+.claude
+docs
+design-system
+e2e
+test-results
+playwright-report
+.env

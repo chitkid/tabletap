@@ -24,3 +24,6 @@ playwright-report/
 .superpowers/
 *.log
 .DS_Store
+
+.env.local
+apps/web/.env*.local
