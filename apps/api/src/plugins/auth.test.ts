@@ -13,9 +13,12 @@ describe('better-auth mount', () => {
     expect(res.statusCode).toBe(200);
     expect(res.cookies.some((c) => c.name === 'better-auth.session_token')).toBe(true);
   });
-  it('rejects a wrong password with 401', async () => {
+  it('rejects a wrong password with 401 and forwards the better-auth body untranslated', async () => {
     const res = await signIn({ email: 'kitchen@littlefurnace.demo', password: 'wrong' });
     expect(res.statusCode).toBe(401);
+    // better-auth owns the shape under /api/auth; we forward it rather than re-wrapping it.
+    expect(res.json()).toMatchObject({ code: 'INVALID_EMAIL_OR_PASSWORD' });
+    expect(res.json().error).toBeUndefined();
   });
   it('refuses sign-up', async () => {
     const res = await ctx.app.inject({ method: 'POST', url: '/api/auth/sign-up/email', headers: { origin: TEST_CONFIG.WEB_ORIGIN }, payload: { email: 'new@x.y', password: 'tabletap-demo', name: 'New' } });
@@ -41,13 +44,6 @@ describe('better-auth mount', () => {
     expect(cleared).toBeDefined();
     expect(cleared?.value).toBe('');
     expect((await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).statusCode).toBe(401);
-  });
-  it('leaves better-auth error bodies untranslated', async () => {
-    const res = await signIn({ email: 'kitchen@littlefurnace.demo', password: 'wrong' });
-    expect(res.statusCode).toBe(401);
-    // better-auth owns the shape under /api/auth; we forward it rather than re-wrapping it.
-    expect(res.json()).toMatchObject({ code: 'INVALID_EMAIL_OR_PASSWORD' });
-    expect(res.json().error).toBeUndefined();
   });
   it('answers an unknown /api/auth path with our not-found envelope', async () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/auth/does-not-exist' });
