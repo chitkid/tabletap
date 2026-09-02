@@ -1,0 +1,4 @@
+@import 'tailwindcss';
+@import '@tabletap/ui/tokens.css';
+@import '@tabletap/ui/theme.css';
+@source '../../../packages/ui/src';
