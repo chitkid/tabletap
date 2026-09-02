@@ -391,7 +391,11 @@ export default defineConfig({ test: { environment: 'node', include: ['src/**/*.t
   }
 }
 ```
-`apps/api/tsconfig.json`: same as shared. `apps/api/vitest.config.ts`:
+`apps/api/tsconfig.json` (Node globals such as `console` and `process` need the `node` types because the base config sets `"types": []`):
+```json
+{ "extends": "../../tsconfig.base.json", "compilerOptions": { "types": ["node"] }, "include": ["src"] }
+```
+`apps/api/vitest.config.ts`:
 ```ts
 import { defineConfig } from 'vitest/config';
 export default defineConfig({ test: { environment: 'node', include: ['src/**/*.test.ts'], testTimeout: 30000, hookTimeout: 30000 } });
@@ -441,9 +445,10 @@ export default defineConfig({ test: { environment: 'jsdom', include: ['**/*.test
 
 ```bash
 corepack enable
-pnpm add -wDE turbo@2.10.12 typescript@5 prettier@3.9.6 eslint@9 typescript-eslint@8.69.0 @eslint/js@9 globals@17.12.0 @playwright/test@1.62.1 vitest@4.1.11 @types/node@24
+pnpm add -w --save-dev --save-exact turbo@2.10.12 typescript@5 prettier@3.9.6 eslint@9 typescript-eslint@8.69.0 @eslint/js@9 globals@17.12.0 @playwright/test@1.62.1 vitest@4.1.11 @types/node@24 jsdom@30.0.1
 pnpm install
 ```
+(`jsdom` is required by `apps/web/vitest.config.ts`; use the long flags `--save-dev --save-exact` — short-flag bundles like `-wDE` are not parsed as expected by pnpm 11.)
 If `@eslint/js@9` does not resolve, use the latest 9.x shown by `npm view @eslint/js versions --json`. `typescript@5` must resolve to a 5.9.x; confirm with `pnpm exec tsc -v`.
 
 - [ ] **Step 5: Verify the pipeline runs end to end**
