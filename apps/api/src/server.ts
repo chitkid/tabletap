@@ -12,6 +12,7 @@ import { principalPlugin } from './plugins/principal';
 import { guestRoutes } from './routes/guest';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
+import { tablesRoutes } from './routes/tables';
 import './types';
 
 export interface BuildAppOptions {
@@ -60,5 +61,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(healthRoutes);
   await app.register(meRoutes, { prefix: '/api' });
   await app.register(guestRoutes, { prefix: '/api' });
+  await app.register(tablesRoutes, { prefix: '/api' });
   return app;
 }
