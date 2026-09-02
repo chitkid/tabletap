@@ -167,7 +167,7 @@ Base: `apps/api`, port `PORT` (default 4000). JSON everywhere. Validation with Z
 
 `TableDto = { id, number, label, seats, isActive }`.
 
-Error envelope for every non-2xx: `{ error: { code, message, details? } }`. Codes: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_FAILED`, `TOKEN_INVALID`, `TOKEN_EXPIRED`, `RATE_LIMITED`, `INTERNAL`. The error handler maps `ZodError` → 400, `AppError(code, status, message)` → its status, anything else → 500 `INTERNAL` with the stack logged and never returned.
+Error envelope for every non-2xx produced by TableTap's own handlers: `{ error: { code, message, details? } }`. Exception (decided 2026-09-03 after the API-layer review): responses of the delegated better-auth handler under `/api/auth/*` are proxied unchanged, so their error bodies keep better-auth's own shape (`{ code, message }`) that the better-auth web client expects; the one carve-out is an unknown path under `/api/auth/`, which the forwarder turns into the `NOT_FOUND` envelope instead of better-auth's empty 404. Codes: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_FAILED`, `TOKEN_INVALID`, `TOKEN_EXPIRED`, `RATE_LIMITED`, `INTERNAL`. The error handler maps `ZodError` → 400, `AppError(code, status, message)` → its status, anything else → 500 `INTERNAL` with the stack logged and never returned.
 
 Logging: pino, JSON, `LOG_LEVEL` from env, request id from `x-request-id` or generated and echoed back, `cookie`, `set-cookie` and `authorization` headers redacted. CORS: `@fastify/cors` with `origin: WEB_ORIGIN`, `credentials: true`.
 
