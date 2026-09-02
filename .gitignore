@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+.next/
+out/
+*.tsbuildinfo
+.turbo/
+
+# env
+.env
+.env.*
+!.env.example
+
+# tests
+coverage/
+test-results/
+playwright-report/
+
+# tooling
+.claude/worktrees/
+.superpowers/
+*.log
+.DS_Store
