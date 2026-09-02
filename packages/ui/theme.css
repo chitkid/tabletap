@@ -1,0 +1,58 @@
+/* Surface aliases and Tailwind theme. Values live in tokens.css (generated from assets/design-tokens.json). */
+@custom-variant dark (&:where(.dark, .dark *, [data-surface="kitchen"], [data-surface="kitchen"] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-status-placed: var(--status-placed);
+  --color-status-paid: var(--status-paid);
+  --color-status-cooking: var(--status-cooking);
+  --color-status-ready: var(--status-ready);
+  --color-status-served: var(--status-served);
+  --color-status-cancelled: var(--status-cancelled);
+  --color-timer-ok: var(--timer-ok);
+  --color-timer-warn: var(--timer-warn);
+  --color-timer-late: var(--timer-late);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: calc(var(--radius-lg) * 1.5);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-text);
+  --font-mono: var(--font-mono);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+}
+
+/* Kitchen: dark tokens come from tokens.css; here only type size. */
+[data-surface='kitchen'] {
+  font-size: var(--kitchen-body-size);
+  color-scheme: dark;
+}
+/* Admin: denser spacing scale (Tailwind multiplies every spacing utility by --spacing). */
+[data-surface='admin'] {
+  --spacing: 0.2rem;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-text);
+  font-variant-numeric: tabular-nums;
+}

@@ -1,0 +1,192 @@
+/* Design Tokens - Auto-generated */
+/* Do not edit directly - modify tokens.json instead */
+
+/* === PRIMITIVES === */
+:root {
+  --primitive-color-ember-50: #F0663D;
+  --primitive-color-ember-100: #F0663D;
+  --primitive-color-ember-200: #FFD7B1;
+  --primitive-color-ember-300: #FFA47E;
+  --primitive-color-ember-400: #F5714B;
+  --primitive-color-ember-500: #C23E18;
+  --primitive-color-ember-600: #9E3112;
+  --primitive-color-ember-700: #760000;
+  --primitive-color-ember-800: #4F0000;
+  --primitive-color-ember-900: #290000;
+  --primitive-color-olive-50: #9CAB63;
+  --primitive-color-olive-100: #9CAB63;
+  --primitive-color-olive-200: #FFFFD5;
+  --primitive-color-olive-300: #D1E0A2;
+  --primitive-color-olive-400: #9EAD6F;
+  --primitive-color-olive-500: #6B7A3C;
+  --primitive-color-olive-600: #4F5B2C;
+  --primitive-color-olive-700: #1F2E00;
+  --primitive-color-olive-800: #000700;
+  --primitive-color-olive-900: #000000;
+  --primitive-color-ink-50: #3D3631;
+  --primitive-color-ink-100: #3D3631;
+  --primitive-color-ink-200: #B5B2B0;
+  --primitive-color-ink-300: #827F7D;
+  --primitive-color-ink-400: #4F4C4A;
+  --primitive-color-ink-500: #1C1917;
+  --primitive-color-ink-600: #151311;
+  --primitive-color-ink-700: #000000;
+  --primitive-color-ink-800: #000000;
+  --primitive-color-ink-900: #000000;
+  --primitive-color-oat-bg: #F6F1E8;
+  --primitive-color-oat-surface: #FFFDF9;
+  --primitive-color-oat-sunken: #EDE6DA;
+  --primitive-color-oat-line: #E0D8CB;
+  --primitive-color-oat-muted: #6F675F;
+  --primitive-color-night-bg: #151311;
+  --primitive-color-night-surface: #1C1917;
+  --primitive-color-night-raised: #292420;
+  --primitive-color-night-line: #3D3631;
+  --primitive-color-night-fg: #F6F1E8;
+  --primitive-color-night-muted: #B8AFA5;
+  --primitive-color-status-placed: #3B6EA5;
+  --primitive-color-status-placed-dark: #8AB4E8;
+  --primitive-color-status-paid: #1F7A6D;
+  --primitive-color-status-paid-dark: #6CC7B5;
+  --primitive-color-status-cooking: #B7791F;
+  --primitive-color-status-cooking-dark: #F0B84B;
+  --primitive-color-status-ready: #2F8A3E;
+  --primitive-color-status-ready-dark: #7BD389;
+  --primitive-color-status-served: #6F675F;
+  --primitive-color-status-served-dark: #B8AFA5;
+  --primitive-color-status-cancelled: #B3261E;
+  --primitive-color-status-cancelled-dark: #F28B82;
+  --primitive-space-1: 0.25rem;
+  --primitive-space-2: 0.5rem;
+  --primitive-space-3: 0.75rem;
+  --primitive-space-4: 1rem;
+  --primitive-space-6: 1.5rem;
+  --primitive-space-8: 2rem;
+  --primitive-space-12: 3rem;
+  --primitive-radius-sm: 0.375rem;
+  --primitive-radius-md: 0.625rem;
+  --primitive-radius-lg: 1rem;
+  --primitive-radius-full: 9999px;
+  --primitive-font-display: 'Bricolage Grotesque', 'Trebuchet MS', system-ui, sans-serif;
+  --primitive-font-text: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --primitive-font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --primitive-size-14: 0.875rem;
+  --primitive-size-16: 1rem;
+  --primitive-size-18: 1.125rem;
+  --primitive-size-20: 1.25rem;
+  --primitive-size-24: 1.5rem;
+  --primitive-size-32: 2rem;
+  --primitive-size-40: 2.5rem;
+  --primitive-weight-regular: 400;
+  --primitive-weight-medium: 500;
+  --primitive-weight-semibold: 600;
+  --primitive-weight-bold: 700;
+  --primitive-leading-tight: 1.15;
+  --primitive-leading-ui: 1.4;
+  --primitive-leading-text: 1.6;
+  --primitive-shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.08);
+  --primitive-shadow-md: 0 6px 20px rgba(28, 25, 23, 0.12);
+  --primitive-duration-fast: 120ms;
+  --primitive-duration-base: 180ms;
+}
+
+/* === SEMANTIC === */
+:root {
+  --background: #F6F1E8;
+  --foreground: #1C1917;
+  --card: #FFFDF9;
+  --card-foreground: #1C1917;
+  --popover: #FFFDF9;
+  --popover-foreground: #1C1917;
+  --primary: #C23E18;
+  --primary-foreground: #FFFDF9;
+  --secondary: #EDE6DA;
+  --secondary-foreground: #1C1917;
+  --muted: #EDE6DA;
+  --muted-foreground: #6F675F;
+  --accent: #6B7A3C;
+  --accent-foreground: #FFFDF9;
+  --destructive: #B3261E;
+  --border: #E0D8CB;
+  --input: #E0D8CB;
+  --ring: #C23E18;
+  --radius: 0.625rem;
+  --radius-sm: 0.375rem;
+  --radius-lg: 1rem;
+  --status-placed: #3B6EA5;
+  --status-paid: #1F7A6D;
+  --status-cooking: #B7791F;
+  --status-ready: #2F8A3E;
+  --status-served: #6F675F;
+  --status-cancelled: #B3261E;
+  --timer-ok: #2F8A3E;
+  --timer-warn: #B7791F;
+  --timer-late: #B3261E;
+  --font-display: 'Bricolage Grotesque', 'Trebuchet MS', system-ui, sans-serif;
+  --font-text: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --kitchen-body-size: 1.25rem;
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.08);
+  --shadow-md: 0 6px 20px rgba(28, 25, 23, 0.12);
+}
+
+/* === COMPONENTS === */
+:root {
+  --button-height: 2.75rem;
+  --button-height-sm: 2.25rem;
+  --button-padding-x: 1rem;
+  --button-radius: 0.625rem;
+  --button-font-weight: 600;
+  --dish-card-radius: 1rem;
+  --dish-card-padding: 0.75rem;
+  --dish-card-gap: 0.75rem;
+  --dish-card-image-ratio: 4 / 3;
+  --dish-card-shadow: 0 1px 2px rgba(28, 25, 23, 0.08);
+  --order-card-radius: 1rem;
+  --order-card-padding: 1rem;
+  --order-card-border-width: 2px;
+  --order-card-title-size: 1.5rem;
+  --status-badge-height: 1.75rem;
+  --status-badge-padding-x: 0.75rem;
+  --status-badge-radius: 9999px;
+  --status-badge-font-size: 0.875rem;
+  --status-badge-font-weight: 600;
+  --cart-counter-size: 1.5rem;
+  --cart-counter-radius: 9999px;
+  --cart-counter-font-size: 0.875rem;
+  --cart-counter-bg: #C23E18;
+  --cart-counter-fg: #FFFDF9;
+}
+
+/* === DARK MODE === */
+.dark, [data-surface="kitchen"] {
+  --background: #151311;
+  --foreground: #F6F1E8;
+  --card: #1C1917;
+  --card-foreground: #F6F1E8;
+  --popover: #292420;
+  --popover-foreground: #F6F1E8;
+  --primary: #F0663D;
+  --primary-foreground: #151311;
+  --secondary: #292420;
+  --secondary-foreground: #F6F1E8;
+  --muted: #292420;
+  --muted-foreground: #B8AFA5;
+  --accent: #9CAB63;
+  --accent-foreground: #151311;
+  --destructive: #F28B82;
+  --border: #3D3631;
+  --input: #3D3631;
+  --ring: #F0663D;
+  --status-placed: #8AB4E8;
+  --status-paid: #6CC7B5;
+  --status-cooking: #F0B84B;
+  --status-ready: #7BD389;
+  --status-served: #B8AFA5;
+  --status-cancelled: #F28B82;
+  --timer-ok: #7BD389;
+  --timer-warn: #F0B84B;
+  --timer-late: #F28B82;
+}
