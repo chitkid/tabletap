@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { TEST_CONFIG, TEST_DEMO_PASSWORD, createTestApp, signInAs } from '../test/helpers';
 
 describe('better-auth mount', () => {
@@ -34,6 +34,19 @@ describe('better-auth mount', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/auth/get-session' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toBeNull();
+  });
+  it('ignores the client Host header when building the better-auth url', async () => {
+    // The forwarder used to reconstruct the URL from `Host`, so a caller could make it
+    // unparseable (or point better-auth at a host of their choosing) with one header.
+    const logged = vi.spyOn(ctx.app.log, 'error');
+    try {
+      const res = await ctx.app.inject({ method: 'GET', url: '/api/auth/get-session', headers: { host: '::::' } });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toBeNull();
+      expect(logged).not.toHaveBeenCalled();
+    } finally {
+      logged.mockRestore();
+    }
   });
   it('sign-out clears the session cookie and ends the session', async () => {
     const cookie = await signInAs(ctx.app, 'admin@littlefurnace.demo');

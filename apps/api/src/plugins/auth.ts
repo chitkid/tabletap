@@ -9,7 +9,10 @@ import { createAuth } from '../auth';
 const DROPPED_REQUEST_HEADERS = ['content-length', 'transfer-encoding', 'connection', 'host'];
 
 async function forward(app: FastifyInstance, request: FastifyRequest, reply: FastifyReply) {
-  const url = new URL(request.url, `${request.protocol}://${request.headers.host ?? 'localhost'}`);
+  // The base is the API's own configured origin, never the client's Host header: that header
+  // is caller-controlled, so it could point better-auth at another host or - being unvalidated
+  // by Fastify - make the URL unparseable and turn a session probe into a 500.
+  const url = new URL(request.url, app.config.BETTER_AUTH_URL);
   const headers = fromNodeHeaders(request.headers);
   for (const name of DROPPED_REQUEST_HEADERS) headers.delete(name);
   const init: RequestInit = { method: request.method, headers };
