@@ -10,7 +10,9 @@ export const demoResetPlugin = fp(async (app: FastifyInstance) => {
   const stop = scheduleDemoReset({
     intervalMs: config.DEMO_RESET_INTERVAL_MINUTES * 60_000,
     run: async () => {
-      app.rush.stop();
+      // Drain any in-flight rush order before reseeding: an insert whose transaction is still
+      // open when the reset deletes and reseeds would fail on now-missing foreign keys.
+      await app.rush.stop();
       const result = await seed(app.db, {
         mode: 'reset',
         demoPassword: config.DEMO_PASSWORD,

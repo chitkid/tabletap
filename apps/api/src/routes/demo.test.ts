@@ -73,7 +73,7 @@ describe('POST /api/demo/rush', () => {
     ctx = await createTestApp();
   });
   afterAll(async () => {
-    ctx.app.rush.stop();
+    await ctx.app.rush.stop();
     await ctx.close();
   });
 

@@ -98,10 +98,21 @@ export interface Rush {
   readonly durationSeconds: number;
   readonly ordersPlanned: number;
   start(): boolean;
-  stop(): void;
+  /** Resolves once every in-flight order from the stopped run has settled. */
+  stop(): Promise<void>;
 }
 
-/** Spreads `count` orders over `durationMs` with ±1 s jitter; one rush at a time per process. */
+/**
+ * Spreads `count` orders over `durationMs` with ±1 s jitter; one rush at a time per process.
+ *
+ * Each `start()` owns a `generation` number. A timer that already fired before `stop()` is
+ * called keeps running its `placeRushOrder` to completion (there is no way to cancel work that
+ * is already in flight against the database), but its `.finally` only touches `pending`/`finish`
+ * when its captured generation still matches the current one — so a straggler from a stopped run
+ * can never decrement a later run's counter or flip its `running` back to false. `stop()` also
+ * awaits every in-flight order via `inFlight` so callers (plugin shutdown, the demo reset) never
+ * race a still-open transaction against a closing database or an imminent reseed.
+ */
 export function createRush(opts: {
   db: Db;
   events: OrderEvents;
@@ -116,6 +127,8 @@ export function createRush(opts: {
   let timers: NodeJS.Timeout[] = [];
   let running = false;
   let pending = 0;
+  let generation = 0;
+  const inFlight = new Set<Promise<void>>();
   const finish = () => {
     running = false;
     timers = [];
@@ -131,24 +144,37 @@ export function createRush(opts: {
       if (running) return false;
       running = true;
       pending = count;
+      generation += 1;
+      const gen = generation;
       for (let i = 0; i < count; i += 1) {
         const at = Math.max(0, (i * durationMs) / count + (random() - 0.5) * 2_000);
         const timer = setTimeout(() => {
-          placeRushOrder({ db: opts.db, events: opts.events, random })
+          const order = placeRushOrder({ db: opts.db, events: opts.events, random })
             .catch((err: unknown) => opts.log.error({ err }, 'rush order failed'))
+            .then(() => {})
             .finally(() => {
+              inFlight.delete(order);
+              // A straggler from a run that was already stopped must not touch the counters
+              // of whatever run (if any) is current now.
+              if (gen !== generation) return;
               pending -= 1;
               if (pending === 0) finish();
             });
+          inFlight.add(order);
         }, at);
         timer.unref?.();
         timers.push(timer);
       }
       return true;
     },
-    stop() {
+    async stop() {
       for (const t of timers) clearTimeout(t);
+      // Bump the generation before resetting state so any timer that fired a moment ago (its
+      // callback already scheduled on the microtask queue) sees a mismatched `gen` and skips
+      // touching `pending`/`finish` once it settles.
+      generation += 1;
       finish();
+      await Promise.allSettled([...inFlight]);
     },
   };
 }

@@ -75,4 +75,61 @@ describe('rush', () => {
     expect(rush.start()).toBe(true);
     rush.stop();
   });
+  it('a straggler from a stopped run cannot finish the next run', async () => {
+    const rush = createRush({
+      db: ctx.db,
+      events: ctx.app.orderEvents,
+      log,
+      durationMs: 1_000,
+      count: 2,
+      random: () => 0.5,
+    });
+    const created: string[] = [];
+    ctx.app.orderEvents.on('order:created', (o) => created.push(o.id));
+    rush.start();
+    // Sync advance: fires run 1's first timer but does not flush the microtasks behind it, so
+    // its `placeRushOrder` call is genuinely still in flight (no query has resolved yet) when
+    // `stop()` runs below. `advanceTimersByTimeAsync` would drain it to completion immediately,
+    // which defeats the point of this test.
+    vi.advanceTimersByTime(0);
+    void rush.stop(); // clears run 1's still-pending second timer and bumps the generation; the
+    // in-flight straggler from run 1 is deliberately left unawaited
+    expect(rush.start()).toBe(true); // run 2 begins under a fresh generation
+    const before = created.length;
+    // Three real orders land, in issuance order: the run-1 straggler (issued above, first), then
+    // run 2's own two. A straggler `.finally` that could still decrement run 2's `pending` would
+    // drive it to 0 - and flip `running` false - after only two of the three land, one order
+    // short of what run 2 actually asked for.
+    await vi.waitFor(() => expect(created.length).toBe(before + 2));
+    expect(rush.running).toBe(true);
+    await vi.waitFor(() => expect(created.length).toBe(before + 3));
+    expect(rush.running).toBe(false);
+    expect(rush.start()).toBe(true);
+    await rush.stop();
+  });
+  it('stop() resolves only after in-flight orders settle', async () => {
+    const rush = createRush({
+      db: ctx.db,
+      events: ctx.app.orderEvents,
+      log,
+      durationMs: 1_000,
+      count: 2,
+      random: () => 0.5,
+    });
+    const created: string[] = [];
+    ctx.app.orderEvents.on('order:created', (o) => created.push(o.id));
+    rush.start();
+    // Sync advance, not the Async variant: fires the first timer without draining the promise
+    // chain behind it, so the order is genuinely in flight (not already settled) when `stop()`
+    // is awaited below. The second timer (at 500ms) is still pending.
+    vi.advanceTimersByTime(0);
+    await rush.stop(); // must not resolve before the in-flight order actually settles
+    expect(created.length).toBe(1);
+    const orderId = created[0]!;
+    const rows = await ctx.db.select().from(schema.orders);
+    expect(rows.some((o) => o.id === orderId)).toBe(true);
+    const afterStop = created.length;
+    await vi.advanceTimersByTimeAsync(5_000); // the cleared second timer never fires
+    expect(created.length).toBe(afterStop);
+  });
 });

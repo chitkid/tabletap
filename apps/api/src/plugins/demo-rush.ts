@@ -10,5 +10,7 @@ export const demoRushPlugin = fp(async (app: FastifyInstance) => {
     log: { error: (obj, msg) => app.log.error(obj, msg) },
   });
   app.decorate('rush', rush);
-  app.addHook('onClose', async () => rush.stop());
+  app.addHook('onClose', async () => {
+    await rush.stop();
+  });
 });
