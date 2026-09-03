@@ -26,4 +26,17 @@ describe('safeNext', () => {
     // as the backslash trick: reject it outright instead.
     expect(safeNext('/\tevil.example')).toBe('/kitchen');
   });
+  it('falls back when dot-segment removal turns the resolved path protocol-relative', () => {
+    // `new URL` collapses dot-segments in the *path* without touching the origin, so
+    // `/../..//evil.example` resolves with the dummy origin intact but a `pathname` of
+    // `//evil.example` — a protocol-relative URL that `window.location.replace` would still
+    // send off-site. The origin check alone cannot catch this; the resolved string itself has
+    // to be re-checked for a single leading slash.
+    expect(safeNext('/..//evil.example')).toBe('/kitchen');
+    expect(safeNext('/login/..//evil.example')).toBe('/kitchen');
+    expect(safeNext('/../..//evil.example')).toBe('/kitchen');
+    expect(safeNext('/kitchen/../..//evil.example?x=1')).toBe('/kitchen');
+    // Dot-segments that stay on this origin are still a perfectly good redirect target.
+    expect(safeNext('/orders/../kitchen')).toBe('/kitchen');
+  });
 });

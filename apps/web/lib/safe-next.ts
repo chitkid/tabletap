@@ -22,6 +22,14 @@ function hasBackslashOrControlChar(value: string): boolean {
  * no backslash or control character, and — the final, decisive check — resolve against a dummy
  * origin to that same origin (so `//host`, `https://host` and any parser quirk that would smuggle
  * a different host all fall back).
+ *
+ * The origin check alone is not enough: `new URL` applies WHATWG dot-segment removal to the
+ * *path*, which can collapse `/../..//evil.example` down to a `pathname` of `//evil.example`
+ * while `url.origin` stays the dummy origin untouched (dot-segments never touch the host). That
+ * result is a protocol-relative URL — handed to `window.location.replace`, it navigates the
+ * browser off-site exactly like the un-resolved `//evil.example` case above. So the string this
+ * function is about to return is checked one more time, after resolution, with the same
+ * single-leading-slash rule it started with.
  */
 export function safeNext(value: string | undefined, fallback = '/kitchen'): string {
   if (value === undefined) return fallback;
@@ -30,7 +38,9 @@ export function safeNext(value: string | undefined, fallback = '/kitchen'): stri
   const probe = 'http://tabletap.invalid';
   try {
     const url = new URL(value, probe);
-    return url.origin === probe ? `${url.pathname}${url.search}${url.hash}` : fallback;
+    if (url.origin !== probe) return fallback;
+    const resolved = `${url.pathname}${url.search}${url.hash}`;
+    return resolved.startsWith('/') && !resolved.startsWith('//') ? resolved : fallback;
   } catch {
     return fallback;
   }
