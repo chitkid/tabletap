@@ -30,3 +30,6 @@ apps/web/.env*.local
 
 # generated beside the token source by an older script; the apps read packages/ui/tokens.css
 assets/design-tokens.css
+
+# Lighthouse output; CI uploads it as an artifact.
+docs/lighthouse-results.json

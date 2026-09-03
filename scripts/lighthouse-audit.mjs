@@ -3,6 +3,8 @@
  * Lighthouse over the guest surface. Needs the stack running (docker compose up, or pnpm dev for api+web
  * with a database). Claims table 7 through the web origin so /menu is audited as a real guest.
  * Usage: node scripts/lighthouse-audit.mjs [--base http://localhost:3000] [--min-a11y 95] [--out docs/lighthouse-results.json]
+ * CHROME_PATH overrides the browser binary (chrome-launcher's own convention), e.g. when the
+ * Playwright chrome.exe cannot start on a host but chrome-headless-shell.exe or Edge can.
  */
 import { launch } from 'chrome-launcher';
 import lighthouse from 'lighthouse';
@@ -44,7 +46,7 @@ const PAGES = [
   { slug: 'menu', path: '/menu', headers: { Cookie: cookie } },
 ];
 const chrome = await launch({
-  chromePath: chromium.executablePath(),
+  chromePath: process.env.CHROME_PATH ?? chromium.executablePath(),
   chromeFlags: ['--headless=new', '--no-sandbox'],
 });
 const results = [];
