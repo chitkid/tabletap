@@ -117,11 +117,11 @@ tabletap/
 **Interfaces:**
 - Produces: workspace names `@tabletap/shared`, `@tabletap/db`, `@tabletap/ui`, `@tabletap/api`, `@tabletap/web`; root scripts `dev build lint typecheck test e2e tokens validate-tokens brand:sync db:generate db:migrate db:seed format`.
 
-- [ ] **Step 1: Create the worktree and branch**
+- [x] **Step 1: Create the worktree and branch**
 
 Follow `superpowers:using-git-worktrees`: from the repo root on `main`, create a worktree for branch `feat/m1-foundation`. All following commands run inside the worktree.
 
-- [ ] **Step 2: Root files**
+- [x] **Step 2: Root files**
 
 `.gitattributes`:
 ```
@@ -163,12 +163,13 @@ packages:
   - apps/*
   - packages/*
 nodeLinker: hoisted
-onlyBuiltDependencies:
-  - esbuild
-  - sharp
-  - '@tailwindcss/oxide'
-  - unrs-resolver
+allowBuilds:
+  esbuild: true
+  sharp: true
+  '@tailwindcss/oxide': true
+  unrs-resolver: true
 ```
+(pnpm 11 replaced the `onlyBuiltDependencies` list with the `allowBuilds` map.)
 
 `turbo.json`:
 ```json
@@ -300,7 +301,7 @@ Append to `.gitignore`:
 apps/web/.env*.local
 ```
 
-- [ ] **Step 3: Workspace package skeletons**
+- [x] **Step 3: Workspace package skeletons**
 
 `packages/shared/package.json`:
 ```json
@@ -441,7 +442,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({ test: { environment: 'jsdom', include: ['**/*.test.{ts,tsx}'], exclude: ['node_modules', '.next'] } });
 ```
 
-- [ ] **Step 4: Install root dev tooling**
+- [x] **Step 4: Install root dev tooling**
 
 ```bash
 corepack enable
@@ -451,12 +452,12 @@ pnpm install
 (`jsdom` is required by `apps/web/vitest.config.ts`; use the long flags `--save-dev --save-exact` — short-flag bundles like `-wDE` are not parsed as expected by pnpm 11.)
 If `@eslint/js@9` does not resolve, use the latest 9.x shown by `npm view @eslint/js versions --json`. `typescript@5` must resolve to a 5.9.x; confirm with `pnpm exec tsc -v`.
 
-- [ ] **Step 5: Verify the pipeline runs end to end**
+- [x] **Step 5: Verify the pipeline runs end to end**
 
 Run: `pnpm lint && pnpm typecheck && pnpm test`
 Expected: turbo runs the three tasks in all five workspaces; every one exits 0 (`--passWithNoTests` covers empty packages).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -483,13 +484,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - `PrincipalSchema`, `type Principal`, `type StaffPrincipal`, `type GuestPrincipal`
 - `ClaimRequestSchema`, `ClaimResponseSchema`, `TableDtoSchema`, `type TableDto`, `TablesResponseSchema`, `TableResponseSchema`, `MeResponseSchema`, `HealthResponseSchema` and their inferred types (`ClaimRequest`, `ClaimResponse`, `MeResponse`, `HealthResponse`)
 
-- [ ] **Step 1: Add zod**
+- [x] **Step 1: Add zod**
 
 ```bash
 pnpm --filter @tabletap/shared add -E zod@4.5.4
 ```
 
-- [ ] **Step 2: Failing tests for roles and transitions**
+- [x] **Step 2: Failing tests for roles and transitions**
 
 `packages/shared/src/roles.test.ts`:
 ```ts
@@ -558,12 +559,12 @@ describe('canTransition()', () => {
 });
 ```
 
-- [ ] **Step 3: Run to verify they fail**
+- [x] **Step 3: Run to verify they fail**
 
 Run: `pnpm --filter @tabletap/shared test`
 Expected: FAIL, cannot resolve `./roles` and `./orders`.
 
-- [ ] **Step 4: Implement roles and orders**
+- [x] **Step 4: Implement roles and orders**
 
 `packages/shared/src/roles.ts`:
 ```ts
@@ -640,7 +641,7 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
 }
 ```
 
-- [ ] **Step 5: Run tests, expect PASS, commit**
+- [x] **Step 5: Run tests, expect PASS, commit**
 
 Run: `pnpm --filter @tabletap/shared test` → PASS (2 files).
 ```bash
@@ -650,7 +651,7 @@ git commit -m "feat(shared): RBAC matrix and order state transitions
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 6: Failing test for API contracts**
+- [x] **Step 6: Failing test for API contracts**
 
 `packages/shared/src/api.test.ts`:
 ```ts
@@ -681,11 +682,11 @@ describe('API contracts', () => {
 });
 ```
 
-- [ ] **Step 7: Run to verify it fails**
+- [x] **Step 7: Run to verify it fails**
 
 Run: `pnpm --filter @tabletap/shared test` → FAIL (exports missing from `./index`).
 
-- [ ] **Step 8: Implement contracts**
+- [x] **Step 8: Implement contracts**
 
 `packages/shared/src/menu.ts`:
 ```ts
@@ -789,7 +790,7 @@ export * from './api';
 export * from './events';
 ```
 
-- [ ] **Step 9: Run tests, lint, typecheck; commit**
+- [x] **Step 9: Run tests, lint, typecheck; commit**
 
 Run: `pnpm --filter @tabletap/shared test && pnpm --filter @tabletap/shared lint && pnpm --filter @tabletap/shared typecheck` → all PASS.
 ```bash
@@ -818,13 +819,13 @@ export function verifyTableToken(token: string, opts: { secret: string; now?: Da
 ```
 Header `alg: HS256`, `typ: tt-table`; claims `sub` = tableId, `rid`, `tn`, `iat`, `exp`. Never import `@tabletap/shared/server` from `apps/web`.
 
-- [ ] **Step 1: Add jose**
+- [x] **Step 1: Add jose**
 
 ```bash
 pnpm --filter @tabletap/shared add -E jose@6.2.10
 ```
 
-- [ ] **Step 2: Failing tests**
+- [x] **Step 2: Failing tests**
 
 `packages/shared/src/server/table-token.test.ts`:
 ```ts
@@ -863,11 +864,11 @@ describe('table token', () => {
 });
 ```
 
-- [ ] **Step 3: Run to verify it fails**
+- [x] **Step 3: Run to verify it fails**
 
 Run: `pnpm --filter @tabletap/shared test` → FAIL (module not found).
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 `packages/shared/src/server/table-token.ts`:
 ```ts
@@ -938,7 +939,7 @@ export * from './table-token';
 
 `TextEncoder` needs Node's ambient types: set `packages/shared/tsconfig.json` to `{ "extends": "../../tsconfig.base.json", "compilerOptions": { "types": ["node"] }, "include": ["src"] }`.
 
-- [ ] **Step 5: Run tests, expect PASS, commit**
+- [x] **Step 5: Run tests, expect PASS, commit**
 
 Run: `pnpm --filter @tabletap/shared test && pnpm --filter @tabletap/shared typecheck` → PASS.
 ```bash
@@ -965,7 +966,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - `resolveMigrationsDir(): string` (env `MIGRATIONS_DIR` or `<package>/migrations`), `runMigrations(url: string): Promise<void>`.
 - `createTestDb(): Promise<{ db: Db; close(): Promise<void> }>` from `@tabletap/db/testing` (PGlite in memory with migrations applied).
 
-- [ ] **Step 1: Dependencies**
+- [x] **Step 1: Dependencies**
 
 ```bash
 pnpm --filter @tabletap/db add -E drizzle-orm@0.45.2 postgres@3.4.9 uuidv7@1.2.1 dotenv@17.4.2 better-auth@1.7.2
@@ -974,7 +975,7 @@ pnpm --filter @tabletap/db add -DE drizzle-kit@0.31.10 @electric-sql/pglite@0.5.
 ```
 `better-auth` is needed in Task 5 for `hashPassword`; add it now so the lockfile changes once.
 
-- [ ] **Step 2: Failing schema test**
+- [x] **Step 2: Failing schema test**
 
 `packages/db/src/schema.test.ts`:
 ```ts
@@ -1008,11 +1009,11 @@ describe('migrations', () => {
 ```
 Note: `restaurants.id` and `tables.id` must have a database default (`gen_random_uuid()`) so raw SQL inserts work too; the app still prefers `uuidv7()` via `$defaultFn`.
 
-- [ ] **Step 3: Run to verify it fails**
+- [x] **Step 3: Run to verify it fails**
 
 Run: `pnpm --filter @tabletap/db test` → FAIL (`./testing` missing).
 
-- [ ] **Step 4: Schema files**
+- [x] **Step 4: Schema files**
 
 `packages/db/src/schema/enums.ts`:
 ```ts
@@ -1261,7 +1262,7 @@ export * from './orders';
 export * from './audit';
 ```
 
-- [ ] **Step 5: Client, migrator, testing helper, drizzle config**
+- [x] **Step 5: Client, migrator, testing helper, drizzle config**
 
 `packages/db/drizzle.config.ts`:
 ```ts
@@ -1348,14 +1349,14 @@ export { createDb, type Db } from './client';
 export { resolveMigrationsDir, runMigrations } from './migrate';
 ```
 
-- [ ] **Step 6: Generate the migration**
+- [x] **Step 6: Generate the migration**
 
 ```bash
 pnpm --filter @tabletap/db generate --name init
 ```
 Expected: `packages/db/migrations/0000_init.sql` plus `migrations/meta/`. Open the SQL and confirm it contains `CREATE TYPE "public"."order_status"`, all 13 tables, `tables_restaurant_number_unique`, `accounts_issuer_accountId_uidx`.
 
-- [ ] **Step 7: Run tests, expect PASS, commit**
+- [x] **Step 7: Run tests, expect PASS, commit**
 
 Run: `pnpm --filter @tabletap/db test && pnpm --filter @tabletap/db typecheck && pnpm --filter @tabletap/db lint` → PASS.
 ```bash
@@ -1383,7 +1384,7 @@ export function seed(db: Db, opts: SeedOptions): Promise<SeedResult>
 ```
 Consumes: `Db`, `schema` (Task 4); `signTableToken` (Task 3); `hashPassword` from `better-auth/crypto`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 `packages/db/src/seed/run.test.ts`:
 ```ts
@@ -1471,11 +1472,11 @@ describe('seed', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `pnpm --filter @tabletap/db test` → FAIL (`./data`, `./run` missing).
 
-- [ ] **Step 3: Seed data**
+- [x] **Step 3: Seed data**
 
 `packages/db/src/seed/data.ts`:
 ```ts
@@ -1541,7 +1542,7 @@ export const DEMO_STAFF: ReadonlyArray<{ email: string; name: string; role: Staf
 ];
 ```
 
-- [ ] **Step 4: Seed runner and CLI**
+- [x] **Step 4: Seed runner and CLI**
 
 `packages/db/src/seed/run.ts`:
 ```ts
@@ -1696,7 +1697,7 @@ try {
 }
 ```
 
-- [ ] **Step 5: Run tests, expect PASS, commit**
+- [x] **Step 5: Run tests, expect PASS, commit**
 
 Run: `pnpm --filter @tabletap/db test && pnpm --filter @tabletap/db typecheck && pnpm --filter @tabletap/db lint` → PASS.
 ```bash
@@ -1729,7 +1730,7 @@ export function createTestApp(): Promise<{ app: FastifyInstance; db: Db; close()
 ```
 Fastify decorations: `app.db: Db`, `app.config: Config`; every route may set `config: { principal: false }` (used by Task 7).
 
-- [ ] **Step 1: Dependencies**
+- [x] **Step 1: Dependencies**
 
 ```bash
 pnpm --filter @tabletap/api add -E fastify@5.12.1 @fastify/cors@11.3.0 @fastify/cookie@11.1.2 @fastify/rate-limit@11.2.0 fastify-type-provider-zod@7.0.0 zod@4.5.4 better-auth@1.7.2 @better-auth/drizzle-adapter@1.7.2 drizzle-orm@0.45.2 dotenv@17.4.2 uuidv7@1.2.1
@@ -1738,7 +1739,7 @@ pnpm --filter @tabletap/api add -DE tsx@4.23.13 tsup@8.5.1 pino-pretty@13 @elect
 ```
 If `pino-pretty@13` does not resolve, take the latest major from `npm view pino-pretty version`.
 
-- [ ] **Step 2: Failing config test**
+- [x] **Step 2: Failing config test**
 
 `apps/api/src/config.test.ts`:
 ```ts
@@ -1772,7 +1773,7 @@ describe('loadConfig', () => {
 });
 ```
 
-- [ ] **Step 3: Run to verify it fails, then implement config**
+- [x] **Step 3: Run to verify it fails, then implement config**
 
 Run: `pnpm --filter @tabletap/api test` → FAIL.
 
@@ -1804,7 +1805,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 ```
 Run tests → PASS. Commit: `git add apps/api && git commit -m "feat(api): zod-validated config" ...` (with the trailer).
 
-- [ ] **Step 4: Failing tests for health and the error envelope**
+- [x] **Step 4: Failing tests for health and the error envelope**
 
 `apps/api/src/test/helpers.ts` (test-only, no production code depends on it):
 ```ts
@@ -1917,7 +1918,7 @@ describe('error handler', () => {
 ```
 Note: routes added after `buildApp()` but before `app.ready()` — `createTestApp` already calls `ready()`. Change `createTestApp` to accept `{ seed?: boolean; ready?: boolean }` and skip `ready()` when `ready: false`; the error-handler test passes `ready: false` and calls `ready()` itself. Keep that option in the helper.
 
-- [ ] **Step 5: Run to verify they fail, then implement**
+- [x] **Step 5: Run to verify they fail, then implement**
 
 `apps/api/src/lib/errors.ts`:
 ```ts
@@ -2055,7 +2056,12 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(cookie, { secret: config.COOKIE_SECRET });
   await app.register(rateLimit, {
     global: false,
-    errorResponseBuilder: () => ({ error: { code: 'RATE_LIMITED', message: 'Too many requests. Try again in a minute.' } }),
+    // @fastify/rate-limit throws this value, so it must carry its own statusCode or the
+    // error handler's generic mapping reads it as a 500 instead of a 429.
+    errorResponseBuilder: (_req, context) => ({
+      statusCode: context.statusCode,
+      error: { code: 'RATE_LIMITED', message: 'Too many requests. Try again in a minute.' },
+    }),
   });
   await app.register(healthRoutes);
   return app;
@@ -2105,7 +2111,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 6: Run tests, lint, typecheck, build; commit**
+- [x] **Step 6: Run tests, lint, typecheck, build; commit**
 
 Run: `pnpm --filter @tabletap/api test && pnpm --filter @tabletap/api typecheck && pnpm --filter @tabletap/api lint && pnpm --filter @tabletap/api build`
 Expected: tests PASS; `dist/main.js`, `dist/migrate.js`, `dist/seed.js` exist.
@@ -2138,7 +2144,7 @@ export function signInAs(app: FastifyInstance, email: string): Promise<string>  
 ```
 Verified facts (scratch test on 2026-09-02): sign-in returns 200 and a `better-auth.session_token` cookie; `getSession` returns `user.role`; POST requests need an `origin` header equal to `WEB_ORIGIN` (CSRF check); `disableSignUp` makes sign-up return 400.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 `apps/api/src/plugins/auth.test.ts`:
 ```ts
@@ -2219,11 +2225,11 @@ export async function signInAs(app: FastifyInstance, email: string, password = T
 }
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `pnpm --filter @tabletap/api test` → FAIL (404 on `/api/auth/*`, `/api/me`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `apps/api/src/auth.ts`:
 ```ts
@@ -2293,7 +2299,7 @@ import { StaffRoleSchema, type Principal } from '@tabletap/shared';
 const ANONYMOUS: Principal = { kind: 'anonymous' };
 
 export const principalPlugin = fp(async (app: FastifyInstance) => {
-  app.decorateRequest('principal', null);
+  app.decorateRequest<Principal, 'principal'>('principal', null as unknown as Principal);
   app.addHook('preHandler', async (request) => {
     request.principal = ANONYMOUS;
     if (request.routeOptions.config.principal === false) return;
@@ -2308,7 +2314,7 @@ export const principalPlugin = fp(async (app: FastifyInstance) => {
   });
 });
 ```
-(`decorateRequest('principal', null)` keeps the request shape stable; the hook always assigns.)
+(`decorateRequest` keeps the request shape stable; the hook always assigns before any handler runs, so the `null` default is never observed. The explicit type parameters and the cast are what `decorateRequest` needs when the declared property type is non-nullable.)
 
 `apps/api/src/routes/me.ts`:
 ```ts
@@ -2332,7 +2338,7 @@ await app.register(meRoutes, { prefix: '/api' });
 ```
 with imports `import { authPlugin } from './plugins/auth'; import { principalPlugin } from './plugins/principal'; import { meRoutes } from './routes/me';`.
 
-- [ ] **Step 4: Run tests, expect PASS, commit**
+- [x] **Step 4: Run tests, expect PASS, commit**
 
 Run: `pnpm --filter @tabletap/api test && pnpm --filter @tabletap/api typecheck && pnpm --filter @tabletap/api lint` → PASS.
 If `getSession` throws on the garbage cookie instead of returning null, wrap the call in `try/catch` and treat errors as anonymous (log at debug).
@@ -2365,7 +2371,7 @@ export function recordAudit(db: Db, entry: { actorType: 'user'|'guest'|'system';
 export function claimTable(app: FastifyInstance, db: Db, tableNumber: number): Promise<{ cookie: string; tableId: string }>
 ```
 
-- [ ] **Step 1: Failing tests for guest session helpers**
+- [x] **Step 1: Failing tests for guest session helpers**
 
 `apps/api/src/lib/guest-sessions.test.ts`:
 ```ts
@@ -2409,7 +2415,7 @@ describe('guest sessions', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails, then implement the helpers**
+- [x] **Step 2: Run to verify it fails, then implement the helpers**
 
 `apps/api/src/lib/guest-sessions.ts`:
 ```ts
@@ -2481,7 +2487,7 @@ export async function recordAudit(db: Db, entry: AuditEntry): Promise<void> {
 ```
 Run the helper tests → PASS. Commit `feat(api): guest session and audit helpers`.
 
-- [ ] **Step 3: Failing tests for `POST /api/guest/claim` and the guest principal**
+- [x] **Step 3: Failing tests for `POST /api/guest/claim` and the guest principal**
 
 `apps/api/src/routes/guest.test.ts`:
 ```ts
@@ -2569,7 +2575,7 @@ describe('POST /api/guest/claim', () => {
 ```
 (This file performs 7 claims before the rate-limit test; 7 + 21 > 20, so the 429 arrives inside the loop — the assertion on the last call still holds.)
 
-- [ ] **Step 4: Run to verify they fail, then implement**
+- [x] **Step 4: Run to verify they fail, then implement**
 
 `apps/api/src/routes/guest.ts`:
 ```ts
@@ -2660,7 +2666,7 @@ export async function claimTable(app: FastifyInstance, db: Db, tableNumber: numb
 ```
 (imports: `eq` from drizzle-orm, `schema` from `@tabletap/db`, `signTableToken` from `@tabletap/shared/server`).
 
-- [ ] **Step 5: Sliding-expiry test, run everything, commit**
+- [x] **Step 5: Sliding-expiry test, run everything, commit**
 
 Append to `guest.test.ts`:
 ```ts
@@ -2706,7 +2712,7 @@ export function requireTableAccess(param: string): preHandlerAsyncHookHandler //
 ```
 Routes: `GET /api/tables` (staff), `GET /api/tables/:id` (staff any, guest own). `TableDto` from `@tabletap/shared`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 `apps/api/src/plugins/rbac.test.ts`:
 ```ts
@@ -2806,7 +2812,7 @@ describe('tables routes', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify they fail, then implement**
+- [x] **Step 2: Run to verify they fail, then implement**
 
 `apps/api/src/plugins/rbac.ts`:
 ```ts
@@ -2902,7 +2908,7 @@ Order of hooks: Fastify runs validation before `preHandler`, so `/tables/not-a-u
 
 Register in `server.ts` after `guestRoutes`: `await app.register(tablesRoutes, { prefix: '/api' });`.
 
-- [ ] **Step 3: Run the full API suite, commit**
+- [x] **Step 3: Run the full API suite, commit**
 
 Run: `pnpm --filter @tabletap/api test && pnpm --filter @tabletap/api typecheck && pnpm --filter @tabletap/api lint` → PASS.
 ```bash
@@ -2925,7 +2931,7 @@ Then run `superpowers:requesting-code-review` for Tasks 6–9 together (the API 
 
 **Context:** spec section 3 (brand concept, voice, palette and typography direction). Template: `C:/Users/chitkid/.claude/skills/brand/templates/brand-guidelines-starter.md`. The sync script parses `| Primary Color | #RRGGBB |`, `| Secondary Color | #RRGGBB |`, `| Accent Color | #RRGGBB |` in the Quick Reference table and the `### Primary Colors`, `### Secondary Colors`, `### Accent Colors` tables (a row whose label contains "dark" or "light" sets the dark/light shade).
 
-- [ ] **Step 1: Copy the scripts into the repo**
+- [x] **Step 1: Copy the scripts into the repo**
 
 ```bash
 mkdir -p scripts assets
@@ -2935,7 +2941,7 @@ cp "C:/Users/chitkid/.claude/skills/design-system/scripts/validate-tokens.cjs" s
 ```
 In `scripts/generate-tokens.cjs` change the dark-mode selector line `.dark {` to `.dark, [data-surface="kitchen"] {` (the only edit; add a comment `// TableTap: kitchen surface is the dark theme`).
 
-- [ ] **Step 2: Ground typography and palette with ui-ux-pro-max**
+- [x] **Step 2: Ground typography and palette with ui-ux-pro-max**
 
 Run from the repo root and keep the outputs for the guidelines' rationale:
 ```bash
@@ -2945,7 +2951,7 @@ python "C:/Users/chitkid/.claude/skills/ui-ux-pro-max/scripts/search.py" "Bricol
 ```
 Zero results are reported in the guidelines as "defaults used", never invented.
 
-- [ ] **Step 3: Write `docs/brand-guidelines.md`**
+- [x] **Step 3: Write `docs/brand-guidelines.md`**
 
 Follow the template's section order (Quick Reference, 1. Color Palette with Primary/Secondary/Accent/Neutral/Semantic tables and Accessibility, 2. Typography, 3. Logo Usage, then Voice). Content requirements:
 
@@ -2963,14 +2969,14 @@ Follow the template's section order (Quick Reference, 1. Color Palette with Prim
 - Logo Usage: "Wordmark only in M1; SVG logo arrives in M6" (no fake file names).
 - Voice: the three principles with the sample copy from spec section 3, the forbidden list, and a vocabulary table (`Order sent to the kitchen` / `Ready when you are` / `About 12 min`; never `soon`, never emoji).
 
-- [ ] **Step 4: Sync primitives and fix the brand name**
+- [x] **Step 4: Sync primitives and fix the brand name**
 
 ```bash
 pnpm brand:sync
 ```
 Expected: `assets/design-tokens.json` gains `primitive.color.ember`, `primitive.color.olive`, `primitive.color.ink` scales (50–900). Then edit the file: set `"brand": "TableTap / Little Furnace"` (the script writes a placeholder brand string). If the script also created `assets/design-tokens.css`, delete it.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/brand-guidelines.md assets/design-tokens.json scripts/
@@ -2990,7 +2996,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Context:** `docs/brand-guidelines.md` (Task 10) is the source of truth; MASTER and pages must agree with it. Spec section 11.
 
-- [ ] **Step 1: Generate and persist**
+- [x] **Step 1: Generate and persist**
 
 Run from the repo root (`--output-dir .` writes `design-system/tabletap/...` because the project name slugs to `tabletap`):
 ```bash
@@ -3000,7 +3006,7 @@ python "C:/Users/chitkid/.claude/skills/ui-ux-pro-max/scripts/search.py" "restau
 ```
 If the first command reports MASTER.md already exists, re-run it with `--force` once (fresh repo, nothing to keep).
 
-- [ ] **Step 2: Supplementary UX searches**
+- [x] **Step 2: Supplementary UX searches**
 
 ```bash
 python "C:/Users/chitkid/.claude/skills/ui-ux-pro-max/scripts/search.py" "touch target size mobile ordering" --domain ux -n 5
@@ -3011,11 +3017,11 @@ python "C:/Users/chitkid/.claude/skills/ui-ux-pro-max/scripts/search.py" "form d
 ```
 Write the results into `docs/design/ux-notes.md` grouped by heading (Touch targets, States, Live regions, Next.js, shadcn). Zero results → write "defaults used" under that heading.
 
-- [ ] **Step 3: Reconcile with the brand**
+- [x] **Step 3: Reconcile with the brand**
 
 Open MASTER.md and both page files. Wherever the generated palette, fonts or spacing contradict `docs/brand-guidelines.md`, edit the design-system files (not the brand): colours to the brand palette, fonts to the brand pairing, kitchen body size ≥ 20 px in `pages/kitchen.md`, admin density from the `--density 8` spacing table. Add a top note to MASTER.md: "Source of truth for identity: docs/brand-guidelines.md; token values: assets/design-tokens.json."
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add design-system docs/design/ux-notes.md
@@ -3045,7 +3051,7 @@ export { Button, buttonVariants, Input, Label, Card, CardHeader, CardTitle, Card
 ```
 CSS custom properties consumed by the apps (shadcn names): `--background --foreground --card --card-foreground --popover --popover-foreground --primary --primary-foreground --secondary --secondary-foreground --muted --muted-foreground --accent --accent-foreground --destructive --border --input --ring --radius --radius-sm --radius-lg --status-placed --status-paid --status-cooking --status-ready --status-served --status-cancelled --timer-ok --timer-warn --timer-late --font-display --font-text --font-mono --kitchen-body-size`.
 
-- [ ] **Step 1: Failing contrast tests**
+- [x] **Step 1: Failing contrast tests**
 
 `packages/ui/src/lib/contrast.test.ts`:
 ```ts
@@ -3070,7 +3076,7 @@ describe('contrast', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails, then implement**
+- [x] **Step 2: Run to verify it fails, then implement**
 
 `packages/ui/src/lib/contrast.ts`:
 ```ts
@@ -3097,7 +3103,7 @@ export function contrastRatio(a: string, b: string): number {
 ```
 Run tests → PASS. Commit `feat(ui): WCAG contrast helper`.
 
-- [ ] **Step 3: Failing tokens contract test**
+- [x] **Step 3: Failing tokens contract test**
 
 `packages/ui/src/tokens.test.ts`:
 ```ts
@@ -3152,7 +3158,7 @@ describe('design tokens', () => {
 });
 ```
 
-- [ ] **Step 4: Run to verify it fails, then complete `assets/design-tokens.json`**
+- [x] **Step 4: Run to verify it fails, then complete `assets/design-tokens.json`**
 
 Keep the synced primitive colour scales from Task 10 and add the rest. Shape (fill every value; hex from `docs/brand-guidelines.md`):
 ```json
@@ -3256,7 +3262,7 @@ Keep the synced primitive colour scales from Task 10 and add the rest. Shape (fi
 ```
 The `ember.500`, `ember.300`, `ink.500`, `olive.500`, `olive.300` keys must exist in the synced scales; if the sync produced different keys, point the references at the keys that hold the brand base (`#C23E18`), light (`#F0663D`) and dark values. Adjust any colour that fails the contrast test by moving lightness only, then update `docs/brand-guidelines.md` to the final value.
 
-- [ ] **Step 5: Generate CSS and write `theme.css`**
+- [x] **Step 5: Generate CSS and write `theme.css`**
 
 ```bash
 pnpm tokens
@@ -3325,7 +3331,7 @@ body {
 }
 ```
 
-- [ ] **Step 6: shadcn base components in `packages/ui`**
+- [x] **Step 6: shadcn base components in `packages/ui`**
 
 ```bash
 pnpm --filter @tabletap/ui add -E react@19.2.8 react-dom@19.2.8 class-variance-authority@0.7.1 clsx@2.1.1 tailwind-merge@3.6.0 lucide-react@1.39.0 @radix-ui/react-slot@1 @radix-ui/react-label@2
@@ -3362,11 +3368,11 @@ export * from './components/card';
 export * from './components/badge';
 ```
 
-- [ ] **Step 7: Component state specs**
+- [x] **Step 7: Component state specs**
 
 `docs/design/components.md`: for each of `button`, `dish-card`, `order-card`, `status-badge`, `cart-counter` a table with rows `default`, `hover`, `active`, `focus-visible`, `disabled`, `loading` and columns `background`, `foreground`, `border`, `elevation`, `motion` — every cell a token name (`--primary`, `--primary-foreground`, `--ring`, `--muted`, `--shadow-sm`, `--duration-fast`) or "none". Note that `dish-card`, `order-card` and `cart-counter` are specified here and implemented in M2/M3; `loading` for button = spinner icon + `aria-busy`, label stays; `status-badge` background = `--status-<status>` with white/ink foreground chosen by the contrast test; kitchen `order-card` border = `--timer-ok|warn|late` by age (5/10 min thresholds). Reference `docs/design/motion-spec.md` as "M6; no motion in M1".
 
-- [ ] **Step 8: Run, validate, commit**
+- [x] **Step 8: Run, validate, commit**
 
 Run: `pnpm --filter @tabletap/ui test && pnpm --filter @tabletap/ui typecheck && pnpm --filter @tabletap/ui lint && pnpm validate-tokens`
 Expected: tests PASS (contrast + tokens contract); validate-tokens reports 0 issues (nothing in `apps/` yet).
@@ -3400,7 +3406,7 @@ export interface AuthClientLike {
 }
 ```
 
-- [ ] **Step 1: Dependencies and config**
+- [x] **Step 1: Dependencies and config**
 
 ```bash
 pnpm --filter @tabletap/web add -E next@16.3.4 react@19.2.8 react-dom@19.2.8 better-auth@1.7.2 "@tabletap/ui@workspace:*" "@tabletap/shared@workspace:*"
@@ -3451,7 +3457,7 @@ export default defineConfig({ plugins: [react()], test: { environment: 'jsdom', 
 ```
 `apps/web/vitest.setup.ts`: `import '@testing-library/jest-dom/vitest';`
 
-- [ ] **Step 2: Failing login form tests**
+- [x] **Step 2: Failing login form tests**
 
 `apps/web/components/login-form.test.tsx`:
 ```tsx
@@ -3517,7 +3523,7 @@ describe('LoginForm', () => {
 });
 ```
 
-- [ ] **Step 3: Run to verify it fails, then implement**
+- [x] **Step 3: Run to verify it fails, then implement**
 
 `apps/web/lib/auth-client.ts`:
 ```ts
@@ -3655,7 +3661,7 @@ export default function LoginPage() {
 }
 ```
 
-- [ ] **Step 4: Run tests, lint, typecheck, build, validate tokens; manual check; commit**
+- [x] **Step 4: Run tests, lint, typecheck, build, validate tokens; manual check; commit**
 
 Run: `pnpm --filter @tabletap/web test && pnpm --filter @tabletap/web lint && pnpm --filter @tabletap/web typecheck && pnpm --filter @tabletap/web build && pnpm validate-tokens`
 Expected: all PASS; `apps/web/.next/standalone` exists; validate-tokens reports 0 issues.
@@ -3679,7 +3685,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Interfaces:** the API container runs `migrate → seed --if-empty → main` and exposes 4000; the web container is built with build arg `API_URL=http://api:4000` and exposes 3000; Postgres 17 on 5432 with a named volume.
 
-- [ ] **Step 1: API image**
+- [x] **Step 1: API image**
 
 `apps/api/docker-entrypoint.sh` (LF line endings):
 ```sh
@@ -3693,6 +3699,7 @@ exec node dist/main.js
 `Dockerfile.api`:
 ```dockerfile
 FROM node:24-alpine AS base
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 WORKDIR /app
 
@@ -3727,16 +3734,17 @@ COPY --from=build /app/apps/api/package.json ./package.json
 COPY packages/db/migrations ./migrations
 COPY apps/api/docker-entrypoint.sh ./docker-entrypoint.sh
 EXPOSE 4000
-HEALTHCHECK --interval=5s --timeout=3s --retries=20 CMD wget -qO- http://localhost:4000/health || exit 1
+HEALTHCHECK --interval=5s --timeout=3s --start-period=60s --retries=20 CMD wget -qO- http://localhost:4000/health || exit 1
 ENTRYPOINT ["sh", "./docker-entrypoint.sh"]
 ```
 `nodeLinker: hoisted` (Task 1) makes `/app/node_modules` flat, so the bundled `dist/main.js` resolves `postgres`, `drizzle-orm`, `better-auth`, `fastify` from there. The `@tabletap/*` sources are inlined by tsup.
 
-- [ ] **Step 2: Web image**
+- [x] **Step 2: Web image**
 
 `Dockerfile.web`:
 ```dockerfile
 FROM node:24-alpine AS base
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 WORKDIR /app
 
@@ -3766,7 +3774,7 @@ CMD ["node", "apps/web/server.js"]
 ```
 Fonts from `next/font/google` are downloaded at build time; the build stage needs network access (default in Docker builds).
 
-- [ ] **Step 3: Compose**
+- [x] **Step 3: Compose**
 
 `docker-compose.yml`:
 ```yaml
@@ -3796,6 +3804,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-tabletap}:${POSTGRES_PASSWORD:-tabletap}@postgres:5432/${POSTGRES_DB:-tabletap}
       PORT: 4000
       NODE_ENV: production
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
       - "4000:4000"
     depends_on:
@@ -3819,9 +3828,9 @@ services:
 volumes:
   pgdata:
 ```
-`env_file: .env` — the file must exist; `cp .env.example .env` first (CI does the same). `NODE_ENV=production` in the API container turns on `Secure` cookies; for the plain-http local demo set `NODE_ENV=development` in `.env` instead (the `environment:` block above wins over `env_file`, so change the compose value to `${NODE_ENV:-development}` and keep production for real deployments). Do exactly that: `NODE_ENV: ${NODE_ENV:-development}`.
+`env_file: .env` — the file must exist; `cp .env.example .env` first (CI does the same). The API container stays on `NODE_ENV: production`: the image ships production dependencies only, and `NODE_ENV=development` would ask for the `pino-pretty` transport, which is a devDependency absent from that image. Cookie security is therefore its own switch rather than a side effect of `NODE_ENV`: `COOKIE_SECURE: ${COOKIE_SECURE:-false}` keeps the plain-http local demo working, and a real HTTPS deployment sets `COOKIE_SECURE=true`. Left unset entirely, the flag follows `NODE_ENV`.
 
-- [ ] **Step 4: Verify (requires Docker Desktop)**
+- [x] **Step 4: Verify (requires Docker Desktop)**
 
 ```bash
 cp .env.example .env
@@ -3832,7 +3841,7 @@ docker compose logs api | grep -E "seed:|migrations applied"
 ```
 Expected: health JSON with `"status":"ok"`; `200` for `/login`; the api log shows `migrations applied` and `seed: {"restaurants":1,"tables":12,...}` with twelve guest URLs. Then `docker compose down`. If Docker is still not installed on the host, say so in the task report; Task 15's CI job verifies Compose on GitHub.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Dockerfile.api Dockerfile.web docker-compose.yml apps/api/docker-entrypoint.sh
@@ -3850,7 +3859,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Files:**
 - Create: `playwright.config.ts`, `e2e/staff-login.spec.ts`, `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Playwright**
+- [x] **Step 1: Playwright**
 
 `playwright.config.ts`:
 ```ts
@@ -3889,7 +3898,7 @@ test('wrong password shows the brand-voice message', async ({ page }) => {
 ```
 Run with the stack down: `pnpm exec playwright install chromium && pnpm e2e` → FAIL (connection refused). With `docker compose up -d --build --wait` → PASS. If Docker is absent locally, run against `pnpm dev` (api + web with a reachable Postgres) or leave verification to CI and report it.
 
-- [ ] **Step 2: CI workflow**
+- [x] **Step 2: CI workflow**
 
 `.github/workflows/ci.yml`:
 ```yaml
@@ -3938,7 +3947,7 @@ jobs:
 ```
 `pnpm/action-setup@v4` reads the `packageManager` field for the pnpm version.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add playwright.config.ts e2e .github
@@ -3957,7 +3966,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `docs/adr/0001-staff-auth-and-guest-sessions.md`, `0002-signed-table-token-in-qr.md`, `0003-pglite-tests-compose-e2e.md`, `0004-api-behind-next-rewrite.md`, `0005-one-token-source-three-surfaces.md`, `README.md`
 - Modify: `docs/superpowers/specs/2026-09-02-m1-foundation-design.md` (status line), this plan (check boxes)
 
-- [ ] **Step 1: ADRs** — each file has `# ADR NNNN: <title>`, `Date: 2026-09-02`, `Status: accepted`, then `## Context`, `## Decision`, `## Consequences`. Content:
+- [x] **Step 1: ADRs** — each file has `# ADR NNNN: <title>`, `Date: 2026-09-02`, `Status: accepted`, then `## Context`, `## Decision`, `## Consequences`. Content:
 
 - **0001** Context: staff need sessions with roles; guests never register and are bound to a table; the API (Fastify) owns the data. Decision: better-auth in `apps/api` (email + password, sign-up disabled, `role` field, Drizzle adapter, plural tables) for staff; guests get their own `guest_sessions` row and a signed `tt_guest` cookie; one `Principal` union resolved per request. Rejected: Auth.js (Next-centric, two truths, no guest concept), better-auth anonymous plugin (guests become users; hourly reset harder). Consequences: one auth truth; guest reset is a table wipe; staff creation only via seed until the admin surface (M5).
 - **0002** Context: the QR must not be trusted for the table id. Decision: JWT HS256 (`jose`) with `sub` = table id, `rid`, `tn`, TTL 365 days by default, header `typ: tt-table`; API verifies signature and expiry then checks the table exists, is active, belongs to the restaurant. Consequences: reprinting QR after secret change; rotation (`kid`) in backlog.
@@ -3965,9 +3974,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - **0004** Context: web on Vercel, API on Railway/Fly; cookies must stay first-party; WebSockets do not proxy through Vercel. Decision: Next.js `rewrites` proxy `/api/*` to the API (build-time `API_URL`); Socket.io (M3) connects to the API origin directly with a short-lived token minted by the API. Consequences: build arg per environment; CSRF relies on better-auth `trustedOrigins`.
 - **0005** Context: three surfaces with different character but one brand. Decision: one `assets/design-tokens.json` (primitive → semantic → component); kitchen = `dark.semantic` emitted under `.dark, [data-surface="kitchen"]`; admin density via Tailwind `--spacing` override; shadcn variable names as the semantic layer so components stay unmodified; `validate-tokens` in CI. Consequences: every colour change flows through the JSON and the contrast test.
 
-- [ ] **Step 2: README.md** (English) with sections: What is TableTap (two sentences + the six milestones, M1 done), Stack, Quick start with Docker (`cp .env.example .env`, `docker compose up --build`, URLs), Local development (corepack, `pnpm install`, `docker compose up -d postgres`, `pnpm db:migrate`, `pnpm db:seed -- --if-empty`, `pnpm dev`), Scripts table (every root script), Demo accounts (three emails + `tabletap-demo`), Project structure (the tree from this plan, trimmed), Design pipeline (brand → design-system → tokens, how to regenerate), Docs (links to spec, ADRs, brand guidelines), and a line "Case study, live demo and screenshots arrive in M6."
+- [x] **Step 2: README.md** (English) with sections: What is TableTap (two sentences + the six milestones, M1 done), Stack, Quick start with Docker (`cp .env.example .env`, `docker compose up --build`, URLs), Local development (corepack, `pnpm install`, `docker compose up -d postgres`, `pnpm db:migrate`, `pnpm db:seed -- --if-empty`, `pnpm dev`), Scripts table (every root script), Demo accounts (three emails + `tabletap-demo`), Project structure (the tree from this plan, trimmed), Design pipeline (brand → design-system → tokens, how to regenerate), Docs (links to spec, ADRs, brand guidelines), and a line "Case study, live demo and screenshots arrive in M6."
 
-- [ ] **Step 3: Quality gate**
+- [x] **Step 3: Quality gate**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test && pnpm validate-tokens && pnpm build
@@ -3975,7 +3984,7 @@ cp .env.example .env && docker compose up -d --build --wait && pnpm e2e && docke
 ```
 All green (compose/e2e locally only if Docker is present; otherwise state it and rely on CI). Then `superpowers:requesting-code-review` on the whole branch; resolve Critical/Important findings.
 
-- [ ] **Step 4: Update docs and commit**
+- [x] **Step 4: Update docs and commit**
 
 Set the spec status line to `Status: implemented (M1 merged <date>)` and tick every checkbox in this plan.
 ```bash
@@ -3985,7 +3994,7 @@ git commit -m "docs: ADRs 0001-0005, README and M1 status
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 5: Finish the branch**
+- [x] **Step 5: Finish the branch**
 
 Follow `superpowers:finishing-a-development-branch` with the pre-selected option: merge `feat/m1-foundation` into `main` (fast-forward or merge commit), delete the branch and the worktree. Report: what merged, what was verified locally, what is only verified in CI, and the DoD checklist from spec section 16.
 

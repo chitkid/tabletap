@@ -1,6 +1,6 @@
 # M1 Foundation — Design Spec
 
-Date: 2026-09-02. Status: approved verbally, awaiting written review.
+Date: 2026-09-02. Status: implemented on branch feat/m1-foundation (2026-09-03); merge pending final review.
 Project: TableTap — QR table ordering with a real-time kitchen display (portfolio full-stack project).
 Milestone: M1 of six (M1 Foundation → M2 Guest flow + Demo landing → M3 Kitchen display → M4 Payments → M5 Admin → M6 Polish + Portfolio). The master brief is the permanent context for every milestone; this spec covers M1 only.
 
@@ -112,11 +112,11 @@ Migrations: generated with `drizzle-kit generate` into `packages/db/migrations/`
 
 ## 6. Authentication and sessions
 
-**Staff (better-auth).** Configured in `apps/api/src/auth.ts`: `drizzleAdapter(db, { provider: 'pg', schema })`, `emailAndPassword: { enabled: true, disableSignUp: true }` (accounts exist only via seed or, later, admin), `user.additionalFields.role`, `trustedOrigins: [WEB_ORIGIN]`, secure cookies outside development. Mounted as a Fastify catch-all route on `/api/auth/*` using `fromNodeHeaders` from `better-auth/node`, registered after `@fastify/cors`. Rate limit on `/api/auth/sign-in/email`: 10 requests per minute per IP.
+**Staff (better-auth).** Configured in `apps/api/src/auth.ts`: `drizzleAdapter(db, { provider: 'pg', schema })`, `emailAndPassword: { enabled: true, disableSignUp: true }` (accounts exist only via seed or, later, admin), `user.additionalFields.role`, `trustedOrigins: [WEB_ORIGIN]`, cookies marked `Secure` when `COOKIE_SECURE` is true (default: true in production, false otherwise). Mounted as a Fastify catch-all route on `/api/auth/*` using `fromNodeHeaders` from `better-auth/node`, registered after `@fastify/cors`. Rate limit on `/api/auth/sign-in/email`: 10 requests per minute per IP.
 
 **Guest table token (QR).** A JWT signed with HS256 (`jose`) using `TABLE_TOKEN_SECRET`. Claims: `sub` = table id, `rid` = restaurant id, `tn` = table number, `iat`, `exp`; header `typ: "tt-table"`. TTL from `TABLE_TOKEN_TTL_DAYS` (default 365, printed QR codes must outlive a demo reset). Helpers `signTableToken()` and `verifyTableToken()` live in `packages/shared/src/server/table-token.ts` (exported as `@tabletap/shared/server`; used by the API and the seed, never by the web app). Verification failures map to `TOKEN_INVALID` or `TOKEN_EXPIRED`.
 
-**Guest session.** `POST /api/guest/claim` with `{ token }`: verify the token → load the table (must exist, be active, belong to `rid`) → insert `guest_sessions` with `expires_at = now + GUEST_SESSION_TTL_HOURS` (default 4) → set cookie `tt_guest` = session id, signed by `@fastify/cookie` with `COOKIE_SECRET`, httpOnly, `SameSite=Lax`, `Secure` outside development, path `/` → record audit `guest.claimed` → respond `{ table: { id, number, label }, expiresAt }`. Claiming again from the same browser replaces the cookie with a fresh session (a guest can move tables). Rate limit: 20 requests per minute per IP. Sliding expiry: on any request from a guest whose `last_seen_at` is older than 5 minutes, set `last_seen_at = now` and `expires_at = now + TTL`.
+**Guest session.** `POST /api/guest/claim` with `{ token }`: verify the token → load the table (must exist, be active, belong to `rid`) → insert `guest_sessions` with `expires_at = now + GUEST_SESSION_TTL_HOURS` (default 4) → set cookie `tt_guest` = session id, signed by `@fastify/cookie` with `COOKIE_SECRET`, httpOnly, `SameSite=Lax`, `Secure` when `COOKIE_SECURE` is true (default: true in production, false otherwise), path `/` → record audit `guest.claimed` → respond `{ table: { id, number, label }, expiresAt }`. Claiming again from the same browser replaces the cookie with a fresh session (a guest can move tables). Rate limit: 20 requests per minute per IP. Sliding expiry: on any request from a guest whose `last_seen_at` is older than 5 minutes, set `last_seen_at = now` and `expires_at = now + TTL`.
 
 **Principal resolution.** A Fastify plugin decorates every request with `request.principal`:
 
@@ -171,7 +171,7 @@ Error envelope for every non-2xx produced by TableTap's own handlers: `{ error: 
 
 Logging: pino, JSON, `LOG_LEVEL` from env, request id from `x-request-id` or generated and echoed back, `cookie`, `set-cookie` and `authorization` headers redacted. CORS: `@fastify/cors` with `origin: WEB_ORIGIN`, `credentials: true`.
 
-App factory: `buildApp({ db, config })` in `apps/api/src/server.ts` returns a Fastify instance; `main.ts` builds it with real env and listens. Plugins under `src/plugins/`: `env`, `db`, `auth`, `principal`, `rbac`, `rate-limit`, `error-handler`. Routes under `src/routes/`: `health`, `me`, `guest`, `tables`. Tests colocated as `*.test.ts`.
+App factory: `buildApp({ db, config })` in `apps/api/src/server.ts` returns a Fastify instance; `main.ts` builds it with real env and listens. Plugins under `src/plugins/`: `auth`, `principal`, `rbac`, `route-guard`, `error-handler`. Env parsing (`config.ts`), the db handle and rate limiting are not plugins: `main.ts` parses the env, and `server.ts` decorates the instance with `db` and `config` and registers `@fastify/cors`, `@fastify/cookie` and `@fastify/rate-limit` directly. Routes under `src/routes/`: `health`, `me`, `guest`, `tables`. Tests colocated as `*.test.ts`.
 
 ## 9. `packages/shared` contracts
 
@@ -237,7 +237,7 @@ Verified on 2026-09-02 in a scratch project: better-auth 1.7.2 with `@better-aut
 
 ## 14. Infrastructure
 
-`.env.example` (commented) covers: `NODE_ENV`, `PORT=4000`, `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:4000`, `WEB_ORIGIN=http://localhost:3000`, `COOKIE_SECRET`, `TABLE_TOKEN_SECRET`, `TABLE_TOKEN_TTL_DAYS=365`, `GUEST_SESSION_TTL_HOURS=4`, `LOG_LEVEL=info`, `DEMO_PASSWORD=tabletap-demo`, `API_URL=http://localhost:4000` (web, server-side rewrite target), `NEXT_PUBLIC_APP_URL=http://localhost:3000`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`. Both apps validate env with Zod at startup and fail fast with a readable message.
+`.env.example` (commented) covers: `NODE_ENV`, `PORT=4000`, `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:4000`, `WEB_ORIGIN=http://localhost:3000`, `COOKIE_SECRET`, `TABLE_TOKEN_SECRET`, `TABLE_TOKEN_TTL_DAYS=365`, `GUEST_SESSION_TTL_HOURS=4`, `LOG_LEVEL=info`, `TRUST_PROXY=loopback,uniquelocal` (peers whose `x-forwarded-for` the rate limiter believes), `COOKIE_SECURE` (commented out; defaults to true in production, false otherwise), `DEMO_PASSWORD=tabletap-demo`, `API_URL=http://localhost:4000` (web, server-side rewrite target), `NEXT_PUBLIC_APP_URL=http://localhost:3000`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`. Both apps validate env with Zod at startup and fail fast with a readable message.
 
 `docker-compose.yml`: `postgres` (postgres:17-alpine, volume, `pg_isready` healthcheck); `api` (Dockerfile.api, multi-stage pnpm build, entrypoint: migrate → `seed --if-empty` → start, `/health` healthcheck, depends on postgres healthy, port 4000); `web` (Dockerfile.web, Next standalone output, `API_URL=http://api:4000`, depends on api healthy, port 3000). MinIO joins in M5.
 
