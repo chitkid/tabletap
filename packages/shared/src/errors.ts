@@ -7,6 +7,8 @@ export const ERROR_CODES = [
   'TOKEN_INVALID',
   'TOKEN_EXPIRED',
   'RATE_LIMITED',
+  'ITEM_UNAVAILABLE',
+  'CONFLICT',
   'INTERNAL',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
