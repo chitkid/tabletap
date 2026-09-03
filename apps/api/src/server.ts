@@ -17,6 +17,7 @@ import { routeGuardPlugin } from './plugins/route-guard';
 import { guestRoutes } from './routes/guest';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
+import { menuRoutes } from './routes/menu';
 import { tablesRoutes } from './routes/tables';
 import './types';
 
@@ -83,5 +84,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(meRoutes, { prefix: '/api' });
   await app.register(guestRoutes, { prefix: '/api' });
   await app.register(tablesRoutes, { prefix: '/api' });
+  await app.register(menuRoutes, { prefix: '/api' });
   return app;
 }
