@@ -17,8 +17,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
+      - run: pnpm exec prettier --check .
       - run: pnpm typecheck
       - run: pnpm tokens && git diff --exit-code -- packages/ui/tokens.css
+      # The brand document is upstream of the token source: rerunning the sync must be a no-op.
+      - run: pnpm brand:sync && git diff --exit-code -- assets/design-tokens.json packages/ui/tokens.css
       - run: pnpm validate-tokens
       - run: pnpm test
 
