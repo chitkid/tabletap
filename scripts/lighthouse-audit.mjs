@@ -11,8 +11,15 @@ import { chromium } from 'playwright';
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => {
+  const eq = args.find((a) => a.startsWith(`--${name}=`));
+  if (eq !== undefined) return eq.slice(name.length + 3);
   const i = args.indexOf(`--${name}`);
-  return i >= 0 ? args[i + 1] : dflt;
+  if (i < 0) return dflt;
+  const value = args[i + 1];
+  if (value === undefined || value.startsWith('--')) {
+    throw new Error(`--${name} needs a value (use --${name} <value> or --${name}=<value>)`);
+  }
+  return value;
 };
 const BASE = opt('base', 'http://localhost:3000');
 const MIN_A11Y = Number(opt('min-a11y', '95'));

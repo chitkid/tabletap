@@ -22,7 +22,7 @@ test('a guest orders from the landing page QR link', async ({ page }) => {
   await expect(page.getByText('2 × Margherita Flatbread')).toBeVisible();
   await expect(page.getByText('1 × House Lemonade')).toBeVisible();
   await expect(page.getByText('No basil')).toBeVisible();
-  await expect(page.getByText('Placed')).toBeVisible();
+  await expect(page.getByText('Placed', { exact: true })).toBeVisible();
 });
 
 test('an expired QR code explains itself', async ({ page }) => {
