@@ -1,14 +1,15 @@
 # Admin Page Overrides
 
 > **PROJECT:** TableTap
+> **Reconciled against packages/ui/tokens.css on 2026-09-03**
 > **Generated:** 2026-09-03 01:53:58
 > **Page Type:** Dashboard / Data View
 > **Reconciled with:** `docs/brand-guidelines.md` (light neutral chrome, tabular numerals, single-accent rule)
 
-> **Override warning:** Rules in this file **override** the Master file (`design-system/MASTER.md`).
+> **Override warning:** Rules in this file **override** the Master file (`design-system/tabletap/MASTER.md`).
 > Only deviations from the Master are documented here. For all other rules, refer to the Master.
 
-> **Reconciliation note:** The raw generator returned a "Real-Time / Operations Landing" marketing pattern (Hero with live preview / Key metrics / How it works / Start-trial CTA) and a dark, blue-primary "Exaggerated Minimalism" style — a SaaS product-landing treatment, not an internal admin dashboard, and the wrong palette (brand: admin is light, not dark). Rewritten below to match `docs/brand-guidelines.md`; the generated dials (Variance 3/10, Motion 2/10, Density 8/10) are kept, and the Density 8/10 spacing table is now filled in explicitly (the raw run's own density-8 spacing table was not carried into this page file — the generator only writes the spacing table into MASTER.md, and this project's MASTER.md is the guest-surface run at density 4/10. The density-8 values below are taken directly from the same `DIAL_TIERS` table the script itself uses, so they are exact, not approximated).
+> **Reconciliation note:** The raw generator returned a "Real-Time / Operations Landing" marketing pattern (Hero with live preview / Key metrics / How it works / Start-trial CTA) and a dark, blue-primary "Exaggerated Minimalism" style — a SaaS product-landing treatment, not an internal admin dashboard, and the wrong palette (brand: admin is light, not dark). Rewritten below to match `docs/brand-guidelines.md`; the generated dials (Variance 3/10, Motion 2/10, Density 8/10) are kept. The generator's density-8 spacing table has since been replaced too: it named `--space-*` tokens this project does not have, and the density on this surface comes from a single `--spacing` multiplier in `packages/ui/theme.css`. See Spacing Overrides below.
 
 ---
 
@@ -22,17 +23,19 @@
 
 ### Spacing Overrides
 
-Density 8/10 → the generator's "Dense / Dashboard" tier (8-10 bucket), overriding the Master's Standard (4-7) scale used by the guest surface:
+Density 8/10 → the generator's "Dense / Dashboard" tier (8-10 bucket). **The generator expressed that as a `--space-xs … --space-3xl` table; this project has no such tokens, so the table has been replaced by the mechanism that actually ships.**
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--space-xs` | `2px` | Hairline gaps, icon-to-label |
-| `--space-sm` | `4px` | Table cell inline spacing |
-| `--space-md` | `8px` | Table row padding, compact controls |
-| `--space-lg` | `12px` | Card padding, filter bar |
-| `--space-xl` | `16px` | Panel padding, section gaps within a page |
-| `--space-2xl` | `24px` | Between panels/cards |
-| `--space-3xl` | `32px` | Page-level margins |
+`packages/ui/theme.css` sets one declaration for this surface:
+
+```css
+[data-surface='admin'] {
+  --spacing: 0.2rem;
+}
+```
+
+Tailwind 4 multiplies every spacing utility by `--spacing`, so the whole surface gets its density from that one value instead of a parallel set of classes. Against Tailwind's `0.25rem` default it is a 0.8x scale: `p-2` is `0.4rem`, `p-4` is `0.8rem`, `gap-6` is `1.2rem`, `px-8` is `1.6rem`. The `--primitive-space-*` tokens are unaffected — they are absolute rem values and do not scale with the multiplier, so a component token such as `--order-card-padding` stays `1rem` here.
+
+One consequence to keep in mind while building: the multiplier also scales the size utilities, so a `h-11` button is about `2.2rem` (≈35px) on this surface rather than 44px. Whether the density dial should reach the controls at all is a decision M5 owes before it builds real admin screens; it is in `docs/backlog.md`.
 
 ### Typography Overrides
 
@@ -43,7 +46,7 @@ Density 8/10 → the generator's "Dense / Dashboard" tier (8-10 bucket), overrid
 
 ### Color Overrides
 
-- Admin is **light**, not dark — it reuses the guest surface's light neutral tokens as neutral TableTap chrome (not the restaurant-branded treatment): Background Oat `#F6F1E8`, Surface `#FFFDF9` (panels/cards), Sunken `#EDE6DA` (table row stripes only — never put Muted Text on a striped row, it fails contrast per brand rule 2; use full Text `#1C1917` instead), Text `#1C1917`, Muted Text `#6F675F`, Border `#E0D8CB`.
+- Admin is **light**, not dark — it reuses the guest surface's light neutral tokens as neutral TableTap chrome (not the restaurant-branded treatment): Background Oat `#F6F1E8`, Surface `#FFFDF9` (panels/cards), Sunken `#EDE6DA` (table row stripes only — never put Muted Text on a striped row, it fails contrast per brand rule 2; use full Text `#1C1917` instead), Text `#1C1917`, Muted Text `#6F675F`, Border `#918269` (the `--border` and `--input` token). It was darkened from `#E0D8CB`, which measured 1.26:1 on Oat and failed the WCAG 1.4.11 3:1 non-text bar; admin dividers and table rules are therefore visibly stronger than the earlier value — 3.33:1 on the background, 3.69:1 on a panel.
 - Ember `#C23E18` is the single accent — used for the active nav item, primary buttons, and focus ring. No second accent hue.
 - Order status badges and any status-colored chart series reuse the six-state semantic table (light-surface values): Placed `#3B6EA5`, Paid `#1F7A6D`, Cooking `#B7791F`, Ready `#2F8A3E`, Served `#6F675F`, Cancelled `#B3261E`.
 - Non-status chart series (e.g. revenue trend, category breakdown) use Olive `#6B7A3C` for large marks/fills and Olive Dark `#4F5B2C` for any olive text, per brand's "chart series that are not statuses" rule — never invent a second accent color for charts.
@@ -65,5 +68,5 @@ Density 8/10 → the generator's "Dense / Dashboard" tier (8-10 bucket), overrid
 
 ## Recommendations
 
-- Effects: Motion dial is 2/10 (Subtle) — any count-up on KPI numbers must stay brief (≤300ms) and understated, not the animation-heavy dashboard the raw search implied. No "profit/loss color transitions" — this is a restaurant ops admin, not a trading dashboard; use the six semantic status colors for trend/direction cues instead of inventing green/red profit semantics.
+- Effects: Motion dial is 2/10 (Subtle), and no motion ships before M6 in any case — the only movement in the system today is a colour transition at `--duration-fast` (120ms). If M5 wants a count-up on a KPI number it is a new decision, kept brief and understated, not the animation-heavy dashboard the raw search implied. No "profit/loss color transitions" — this is a restaurant ops admin, not a trading dashboard; use the six semantic status colors for trend/direction cues instead of inventing green/red profit semantics.
 - CTA Placement: no persistent marketing CTA in the nav. Primary actions are contextual to the panel in view ("Add menu item", "Mark table closed", "Export orders"), each using Ember as the single accent, subordinate to the data they act on.

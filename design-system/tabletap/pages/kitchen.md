@@ -1,11 +1,12 @@
 # Kitchen Page Overrides
 
 > **PROJECT:** TableTap
+> **Reconciled against packages/ui/tokens.css on 2026-09-03**
 > **Generated:** 2026-09-03 01:53:50
 > **Page Type:** Kitchen Display (dark, real-time)
 > **Reconciled with:** `docs/brand-guidelines.md` (kitchen surface, semantic status colors, kitchen type scale)
 
-> **Override warning:** Rules in this file **override** the Master file (`design-system/MASTER.md`).
+> **Override warning:** Rules in this file **override** the Master file (`design-system/tabletap/MASTER.md`).
 > Only deviations from the Master are documented here. For all other rules, refer to the Master.
 
 > **Reconciliation note:** The raw generator classified this query as "General" and returned a marketing landing-page pattern (Hero / Value prop / Features / CTA / Footer) with a light-surface color strategy — none of it describes an order-ticket board. Rewritten below to match `docs/brand-guidelines.md`; the generated dials (Variance 4/10, Motion 3/10, Density 6/10) are kept.
@@ -22,8 +23,8 @@
 
 ### Spacing Overrides
 
-- Density 6/10 falls in the same "Standard" tier as the guest surface's density 4/10 (both resolve to the generator's 4-7 bucket), so the Master spacing scale is unchanged: `--space-xs 4px / --space-sm 8px / --space-md 16px / --space-lg 24px / --space-xl 32px / --space-2xl 48px / --space-3xl 64px`.
-- Ticket card internal padding: `--space-md` (16px). Gutter between ticket cards and between columns: `--space-lg` (24px).
+- **No spacing override.** Density 6/10 falls in the same "Standard" tier as the guest surface's density 4/10 (both resolve to the generator's 4-7 bucket), and the kitchen surface takes Tailwind's default `--spacing` unchanged. The generator's `--space-xs … --space-3xl` names do not exist in this project; see `design-system/tabletap/MASTER.md` § Spacing for the two real mechanisms (the `--primitive-space-*` scale and the per-surface `--spacing` multiplier). The only thing `[data-surface="kitchen"]` sets in `packages/ui/theme.css` is `font-size: var(--kitchen-body-size)` and `color-scheme: dark`.
+- Ticket card internal padding: `--primitive-space-4` (`1rem`, the `--order-card-padding` token). Gutter between ticket cards and between columns: `--primitive-space-6` (`1.5rem`, Tailwind `gap-6`).
 
 ### Typography Overrides
 
@@ -40,16 +41,20 @@ Per `docs/brand-guidelines.md` §2 kitchen type scale — nothing on this surfac
 
 Timer digits and table numbers set `font-variant-numeric: tabular-nums` so elapsed time does not jitter as it ticks.
 
+The sizes above are the target scale, not a shipped mechanism. `[data-surface="kitchen"]` sets `font-size: var(--kitchen-body-size)` (`1.25rem`) on the surface root, which moves anything sized in `em` or inherited; Tailwind's `text-*` utilities are rem-based and therefore ignore it. Overriding the `--text-*` scale under the surface is a decision M3 has to make before it builds the board — it is in `docs/backlog.md`.
+
 ### Color Overrides
 
 - **Background:** Ink Dark `#151311` (kitchen display page background — a full-shift, hot-lights surface; a white screen at eye level is glare)
 - **Surface:** Ink `#1C1917` (ticket cards)
 - **Raised:** `#292420` (ticket headers, hovered rows, column headers)
 - **Text:** Oat `#F6F1E8` (ticket item lines, headings) — **Muted Text:** `#B8AFA5` (table number caption, elapsed labels, secondary notes)
-- **Border:** Ink Light `#3D3631` (ticket outlines, column dividers)
+- **Border:** `#7A6C62` (ticket outlines, column dividers) — the token is `--border`, and `--input` is the same value. It was moved off Ink Light `#3D3631`, which measured 1.56:1 on the kitchen background and failed the WCAG 1.4.11 3:1 non-text bar; the new value measures 3.66:1 on the background, 3.46:1 on the ticket surface and 3.03:1 on the raised header.
 - **Ember on kitchen:** Ember Light `#F0663D` for the "new order" card edge / active card border and accent text (Ember `#C23E18` is too dark to clear AA on this background — Ember Light is the kitchen-surface variant)
 - **Olive on kitchen:** Olive Light `#9CAB63` for tags and secondary labels
 - **Focus ring:** Ember Light `#F0663D`, 2px with 2px offset (the kitchen-surface variant of the guest's Ember ring)
+
+**Token names for the values above:** `--background` (Ink Dark), `--card` (Ink), `--secondary` and `--muted` (Raised), `--foreground` and `--card-foreground` (Text), `--muted-foreground` (Muted Text), `--border` and `--input`, `--primary` and `--ring` (Ember Light), `--accent` (Olive Light). They are the same names the guest surface uses; only the values differ, which is what makes one component spec cover both surfaces.
 
 **Order status (dark-surface values, six states) — color is never the only carrier of meaning; every status chip pairs its color with its label text and an icon:**
 

@@ -4,9 +4,11 @@
 > generated into `packages/ui/tokens.css` and aliased for Tailwind in `packages/ui/theme.css`.
 > Motion choreography: `docs/design/motion-spec.md` — M6; no motion ships in M1.
 
-Every cell below is a token name, never a colour or a measurement. The same token name resolves to a
-different value per surface: the guest and admin surfaces read the `:root` block, the kitchen surface
-reads the `.dark, [data-surface="kitchen"]` block, so one spec covers all three.
+Every cell in the state tables below is a token name, never a colour or a measurement. The same token
+name resolves to a different value per surface: the guest and admin surfaces read the `:root` block,
+the kitchen surface reads the `.dark, [data-surface="kitchen"]` block, so one spec covers all three.
+The prose around a shipped component names the Tailwind utility that component actually carries,
+because that is what the code says.
 
 ## Scope
 
@@ -22,11 +24,18 @@ reads the `.dark, [data-surface="kitchen"]` block, so one spec covers all three.
 and built later; their component tokens (`--dish-card-*`, `--order-card-*`, `--status-badge-*`,
 `--cart-counter-*`) already exist in `tokens.css`, so the later work is assembly, not new design.
 
+No component consumes a `--<component>-*` token yet. The two that ship in M1, `button` and `badge`,
+take their shape from Tailwind utilities written into the variant definition. The component layer of
+the token source is therefore a specification the components have still to be wired to; that wiring
+is in `docs/backlog.md`, not in this milestone.
+
 ## Reading the tables
 
-- Columns: `background`, `foreground`, `border`, `elevation`, `motion`. Rows are the six interactive
+- Columns: `background`, `foreground`, `border`, `elevation`, `motion`. Rows are the interactive
   states in priority order: `disabled` and `loading` win over `active`, which wins over `focus-visible`,
-  which wins over `hover`.
+  which wins over `hover`. Only the components with a skeleton or placeholder state carry a `loading`
+  row — `dish-card`, `order-card` and `cart-counter`, all of them M2 or M3. Neither M1 component has
+  one; see the note under `button`.
 - `--token/NN` means that token at NN percent opacity over whatever sits behind it — the
   `bg-primary/90` form in the implementation. It is the same token, not a second colour.
 - `focus-visible` is the only state that draws a ring: 2 px in `--ring` with a 2 px offset filled by
@@ -37,8 +46,11 @@ and built later; their component tokens (`--dish-card-*`, `--order-card-*`, `--s
 
 ## button
 
-Sizes come from `--button-height` (default, 44 px at the guest spacing scale) and `--button-height-sm`;
-padding from `--button-padding-x`; corner from `--button-radius`; weight from `--button-font-weight`.
+`packages/ui/src/components/button.tsx`. Its shape comes from Tailwind utilities written into the
+variant definition, not from the `--button-*` tokens: `h-11` at the default size and `h-9` at `sm`,
+`px-4`, `rounded-md`, `font-semibold`. `--button-height`, `--button-height-sm`, `--button-padding-x`,
+`--button-radius` and `--button-font-weight` exist in the token source and in `tokens.css`, and
+nothing reads them yet.
 
 | State         | background     | foreground                | border   | elevation | motion            |
 | ------------- | -------------- | ------------------------- | -------- | --------- | ----------------- |
@@ -47,18 +59,23 @@ padding from `--button-padding-x`; corner from `--button-radius`; weight from `-
 | active        | `--primary/90` | `--primary-foreground`    | none     | none      | `--duration-fast` |
 | focus-visible | `--primary`    | `--primary-foreground`    | `--ring` | none      | `--duration-fast` |
 | disabled      | `--primary/50` | `--primary-foreground/50` | none     | none      | none              |
-| loading       | `--primary`    | `--primary-foreground`    | none     | none      | none              |
 
-Secondary variants keep the same rows against their own pair: `secondary` uses
-`--secondary` / `--secondary-foreground`, `outline` uses `--background` / `--foreground` with a
-`--input` border and `--shadow-sm` elevation, `ghost` and `link` carry no fill and hover into
-`--secondary` / `--secondary-foreground`, `destructive` uses `--destructive` / `--primary-foreground`
-and rings in `--destructive`.
+The variants keep the same rows against their own pair: `secondary` uses
+`--secondary` / `--secondary-foreground` and hovers to `--secondary/80`; `outline` uses
+`--background` / `--foreground` with an `--input` border and `--shadow-sm` elevation; `ghost` carries
+no fill and hovers into `--secondary` / `--secondary-foreground`; `destructive` uses
+`--destructive` / `--primary-foreground` and rings in `--destructive`. `link` is the exception: it
+carries no fill and changes no colour on hover. Its only hover treatment is an underline.
 
-`loading` keeps the label text and adds a spinner icon before it, plus `aria-busy="true"` and
-`disabled`; the label never changes to "Loading" and the button never collapses to a spinner, so the
-control does not change width. The spinner's rotation is a motion-spec (M6) concern; until then it
-uses the icon default.
+There is no `:active` rule. Where a pointer supports hover, a press looks like the hover row because
+the pointer is still over the control; on touch the button goes from default straight to the result.
+`disabled` is one `opacity-50` over the whole control rather than two separate token opacities, which
+is the same result and the reason contrast note 2 below applies to it.
+
+There is no `loading` prop, no spinner and no busy variant. The only loading treatment in M1 is on the
+sign-in form (spec section 10): the label swaps `Sign in` to `Signing in…` while the button carries
+`disabled` and `aria-busy="true"`. A spinner icon and a width-stable busy state are a motion-spec (M6)
+concern; nothing of either ships now.
 
 ## dish-card
 
@@ -102,9 +119,17 @@ shows the elapsed time in `--font-mono` and its status badge label, and the newe
 
 ## status-badge
 
-Height `--status-badge-height`, padding `--status-badge-padding-x`, corner `--status-badge-radius`,
-type `--status-badge-font-size` at `--status-badge-font-weight`. The badge is not interactive by
-default; the `hover` and `active` rows apply only where it is rendered as a link or button.
+The base that ships in M1 is `packages/ui/src/components/badge.tsx`. Like the button it takes its
+shape from Tailwind utilities rather than from its component tokens: `h-7`, `px-3`, `rounded-full`,
+`text-sm`, `font-semibold`, and a transparent border so an outline variant does not change the box.
+`--status-badge-height`, `--status-badge-padding-x`, `--status-badge-radius`,
+`--status-badge-font-size` and `--status-badge-font-weight` exist in the token source and in
+`tokens.css`, and nothing reads them yet.
+
+The base ships six variants — `default`, `secondary`, `destructive`, `outline`, `ghost`, `link` —
+and none of them is a status. The status variants below are M2 (guest) and M3 (kitchen). The badge is
+not interactive by default; the `hover` and `active` rows apply only where it is rendered as a link
+or button, which in the base is the `[a&]:hover:` treatment.
 
 | State         | background          | foreground            | border   | elevation | motion            |
 | ------------- | ------------------- | --------------------- | -------- | --------- | ----------------- |
@@ -113,7 +138,6 @@ default; the `hover` and `active` rows apply only where it is rendered as a link
 | active        | `--status-<status>` | see the pairing table | none     | none      | `--duration-fast` |
 | focus-visible | `--status-<status>` | see the pairing table | `--ring` | none      | `--duration-fast` |
 | disabled      | `--muted`           | `--muted-foreground`  | none     | none      | none              |
-| loading       | `--muted`           | none                  | none     | none      | none              |
 
 `<status>` is one of `placed`, `paid`, `cooking`, `ready`, `served`, `cancelled`. The foreground is
 chosen per status by measured contrast against the fill, not by taste:
