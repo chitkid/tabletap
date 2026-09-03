@@ -43,6 +43,12 @@ jobs:
       - run: curl -fsS --retry 20 --retry-delay 3 --retry-all-errors -o /dev/null http://localhost:3000/login
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm e2e
+      - run: pnpm lighthouse --base http://localhost:3000 --min-a11y 95
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-results
+          path: docs/lighthouse-results.json
       - if: failure()
         run: docker compose logs
       - if: always()
