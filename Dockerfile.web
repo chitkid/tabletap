@@ -14,7 +14,11 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 ARG API_URL=http://api:4000
-ENV API_URL=$API_URL NEXT_TELEMETRY_DISABLED=1
+# The browser opens the Socket.io connection itself, so this origin has to be the one a browser
+# on the host can reach, not the Compose network name — and NEXT_PUBLIC_* is inlined at build
+# time, so it has to be here rather than in the runner stage.
+ARG NEXT_PUBLIC_API_ORIGIN=http://localhost:4000
+ENV API_URL=$API_URL NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN NEXT_TELEMETRY_DISABLED=1
 COPY . .
 RUN pnpm tokens && pnpm --filter @tabletap/web build
 

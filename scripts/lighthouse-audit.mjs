@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Lighthouse over the guest surface. Needs the stack running (docker compose up, or pnpm dev for api+web
- * with a database). Claims table 7 through the web origin so /menu is audited as a real guest.
+ * Lighthouse over the guest surface and the kitchen board. Needs the stack running (docker compose up,
+ * or pnpm dev for api+web with a database). Claims table 7 and signs in as the demo kitchen account
+ * through the web origin, so /menu is audited as a real guest and /kitchen as real staff.
  * Usage: node scripts/lighthouse-audit.mjs [--base http://localhost:3000] [--min-a11y 95] [--out docs/lighthouse-results.json]
  * CHROME_PATH overrides the browser binary (chrome-launcher's own convention), e.g. when the
  * Playwright chrome.exe cannot start on a host but chrome-headless-shell.exe or Edge can.
@@ -41,9 +42,28 @@ if (!claim.ok) throw new Error(`claim: ${claim.status}`);
 const cookie = claim.headers.get('set-cookie')?.split(';')[0];
 if (!cookie) throw new Error('claim returned no cookie');
 
+// The kitchen board is behind the staff session, so the audit signs in the same way the login
+// form does — through the web origin, so better-auth sees a trusted origin and the cookie it
+// hands back is the one a browser on this host would carry.
+const kitchenAccount = links.staff.find((s) => s.role === 'kitchen');
+if (!kitchenAccount) throw new Error('demo links carry no kitchen account');
+const signIn = await fetch(`${BASE}/api/auth/sign-in/email`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', origin: BASE },
+  body: JSON.stringify({ email: kitchenAccount.email, password: kitchenAccount.password }),
+});
+if (!signIn.ok) throw new Error(`kitchen sign-in: ${signIn.status}`);
+// better-auth may set more than one cookie (session token plus its cached session data), and
+// only the pairs matter in a Cookie header.
+const staffCookie = signIn.headers
+  .getSetCookie()
+  .map((c) => c.split(';')[0])
+  .join('; ');
+
 const PAGES = [
   { slug: 'landing', path: '/', headers: undefined },
   { slug: 'menu', path: '/menu', headers: { Cookie: cookie } },
+  { slug: 'kitchen', path: '/kitchen', headers: { Cookie: staffCookie } },
 ];
 const chrome = await launch({
   chromePath: process.env.CHROME_PATH ?? chromium.executablePath(),
