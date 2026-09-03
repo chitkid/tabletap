@@ -58,14 +58,29 @@ export const realtimePlugin = fp(async (app: FastifyInstance) => {
     void socket.join(p.kind === 'staff' ? SOCKET_ROOMS.kitchen : SOCKET_ROOMS.table(p.tableId));
     socket.on('subscribe', async (ack) => {
       if (typeof ack !== 'function') return;
-      const orders =
-        p.kind === 'staff'
-          ? await listOrders(app.db, { restaurantId: p.restaurantId, active: true })
-          : await listOrders(app.db, { guestSessionId: p.guestSessionId });
-      ack({
-        orders: orders.map((o) => OrderDtoSchema.parse(o)),
-        serverTime: new Date().toISOString(),
-      });
+      // socket.io dispatches this listener through a plain emitter and never awaits the
+      // promise it returns, so an uncaught rejection here (a transient DB error, say) would
+      // become an unhandled rejection and take the whole process down with it. Ack an empty
+      // snapshot instead of leaving the client's subscribe promise hanging forever.
+      try {
+        const orders =
+          p.kind === 'staff'
+            ? await listOrders(app.db, { restaurantId: p.restaurantId, active: true })
+            : await listOrders(app.db, { guestSessionId: p.guestSessionId });
+        ack({
+          orders: orders.map((o) => OrderDtoSchema.parse(o)),
+          serverTime: new Date().toISOString(),
+        });
+      } catch (err) {
+        app.log.error(
+          {
+            err,
+            principal: { kind: p.kind, id: p.kind === 'staff' ? p.userId : p.guestSessionId },
+          },
+          'subscribe failed',
+        );
+        ack({ orders: [], serverTime: new Date().toISOString() });
+      }
     });
   });
 

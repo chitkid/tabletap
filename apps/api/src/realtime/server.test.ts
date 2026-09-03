@@ -12,7 +12,8 @@ import { signSocketToken, signTableToken } from '@tabletap/shared/server';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { io, type Socket } from 'socket.io-client';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import * as ordersModule from '../lib/orders';
 import { TEST_CONFIG, claimTable, createTestApp, signInAs } from '../test/helpers';
 
 type Client = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -128,6 +129,34 @@ describe('realtime', () => {
     const created = nextEvent(socket, 'order:created');
     const second = await placeOrder(6);
     expect(await created).toBe(second.order.id);
+  });
+  it('acks an empty snapshot and logs, rather than crashing, when subscribe fails', async () => {
+    const kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
+    const socket = await connect({ token: await tokenFor(kitchen) });
+    const errorLog = vi.spyOn(ctx.app.log, 'error').mockImplementation(() => undefined);
+    const listOrdersSpy = vi
+      .spyOn(ordersModule, 'listOrders')
+      .mockRejectedValueOnce(new Error('db down'));
+    try {
+      const failed = await subscribe(socket);
+      expect(failed.orders).toEqual([]);
+      expect(errorLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          err: expect.any(Error),
+          principal: { kind: 'staff', id: expect.any(String) },
+        }),
+        'subscribe failed',
+      );
+    } finally {
+      listOrdersSpy.mockRestore();
+      errorLog.mockRestore();
+    }
+    // The socket is still connected after the failure, and a later subscribe (now hitting the
+    // real listOrders again) still returns real data - one bad call does not wedge the socket
+    // or the process.
+    const { order } = await placeOrder(6);
+    const snapshot = await subscribe(socket);
+    expect(snapshot.orders.map((o) => o.id)).toContain(order.id);
   });
   it('gives a guest only its own table', async () => {
     const seven = await placeOrder(7);
