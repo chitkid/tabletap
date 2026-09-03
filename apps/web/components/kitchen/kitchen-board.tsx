@@ -63,7 +63,19 @@ export function KitchenBoard({
   }, [sound]);
   const chime = useRef<ReturnType<typeof createChime> | null>(null);
   const socketRef = useRef<AppSocket | null>(null);
+  // Bumped by every demo reset. A transition that resolves after one belongs to orders the
+  // reset deleted, and dispatching it would put a ghost ticket back on a cleared board.
+  const generation = useRef(0);
   const now = useNow(1_000);
+
+  const visible = ordersOf(state).map((o) =>
+    optimistic[o.id] ? { ...o, status: optimistic[o.id]! } : o,
+  );
+  const columns = columnsOf(visible);
+  // `fresh` only records what arrived on this screen; the board says what is still new. A ticket
+  // another screen started, or one a guest cancelled, stops being new here too — so the mark and
+  // the tab counter are the intersection, not the raw set.
+  const freshIds = new Set(columns.new.filter((o) => fresh.has(o.id)).map((o) => o.id));
 
   const resync = useCallback(() => {
     socketRef.current?.emit('subscribe', (snapshot) =>
@@ -86,8 +98,11 @@ export function KitchenBoard({
     });
     socket.on('order:updated', ({ order }) => dispatch({ type: 'event', order }));
     socket.on('demo:reset', () => {
+      generation.current += 1;
       dispatch({ type: 'snapshot', orders: [] });
       setFresh(new Set());
+      setPending(new Set());
+      setOptimistic({});
       resync();
     });
     socket.connect();
@@ -98,9 +113,10 @@ export function KitchenBoard({
     };
   }, [socketFactory, resync]);
 
+  const freshCount = freshIds.size;
   useEffect(() => {
-    document.title = fresh.size > 0 ? `(${fresh.size}) Kitchen · TableTap` : 'Kitchen · TableTap';
-  }, [fresh]);
+    document.title = freshCount > 0 ? `(${freshCount}) Kitchen · TableTap` : 'Kitchen · TableTap';
+  }, [freshCount]);
 
   const touch = (id: string) =>
     setFresh((prev) => {
@@ -110,6 +126,9 @@ export function KitchenBoard({
       return next;
     });
   const move = async (order: OrderDto, to: OrderStatus) => {
+    // Everything this move touches afterwards is about a board that may no longer exist.
+    const started = generation.current;
+    const sameBoard = () => generation.current === started;
     // The last refusal was about the last ticket. Clearing it here means the notice lives
     // exactly as long as it is true, without a timer that fires into an unmounted board.
     setNotice(null);
@@ -125,8 +144,9 @@ export function KitchenBoard({
           body: JSON.stringify({ to }),
         },
       });
-      dispatch({ type: 'event', order: updated });
+      if (sameBoard()) dispatch({ type: 'event', order: updated });
     } catch (err) {
+      if (!sameBoard()) return;
       const current =
         err instanceof ApiError &&
         err.code === 'INVALID_TRANSITION' &&
@@ -136,16 +156,19 @@ export function KitchenBoard({
       setNotice(`Couldn't move #${order.number}. It is ${STATUS_WORD[current]} now.`);
       resync();
     } finally {
-      setPending((p) => {
-        const next = new Set(p);
-        next.delete(order.id);
-        return next;
-      });
-      setOptimistic((o) => {
-        const next = { ...o };
-        delete next[order.id];
-        return next;
-      });
+      // The reset already emptied both; re-clearing here would only churn a render.
+      if (sameBoard()) {
+        setPending((p) => {
+          const next = new Set(p);
+          next.delete(order.id);
+          return next;
+        });
+        setOptimistic((o) => {
+          const next = { ...o };
+          delete next[order.id];
+          return next;
+        });
+      }
     }
   };
   const onSound = (enabled: boolean) => {
@@ -154,10 +177,6 @@ export function KitchenBoard({
     setSound(enabled);
   };
 
-  const visible = ordersOf(state).map((o) =>
-    optimistic[o.id] ? { ...o, status: optimistic[o.id]! } : o,
-  );
-  const columns = columnsOf(visible);
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-3">
@@ -188,7 +207,7 @@ export function KitchenBoard({
                   <TicketCard
                     order={order}
                     now={now}
-                    fresh={fresh.has(order.id)}
+                    fresh={freshIds.has(order.id)}
                     pending={pending.has(order.id)}
                     onBump={(o, to) => void move(o, to)}
                     onCancel={(o) => void move(o, 'cancelled')}

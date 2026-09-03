@@ -180,4 +180,88 @@ describe('KitchenBoard', () => {
     expect(socket.emit).toHaveBeenCalledWith('subscribe', expect.any(Function));
     expect(screen.getByRole('button', { name: 'Simulate rush' })).toBeInTheDocument();
   });
+  it('drops the new mark when another screen moves the ticket on', () => {
+    const socket = fakeSocket();
+    render(
+      <KitchenBoard
+        initialOrders={[]}
+        staffName="Theo"
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={vi.fn()}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    act(() => socket.fire('order:created', { order: order('o12') }));
+    expect(
+      within(screen.getByRole('region', { name: 'New' })).getByRole('article'),
+    ).toHaveAttribute('data-fresh', 'true');
+    expect(document.title).toBe('(1) Kitchen · TableTap');
+    act(() =>
+      socket.fire('order:updated', {
+        order: order('o12', {
+          status: 'cooking',
+          cookingAt: '2026-09-03T10:01:00Z',
+          updatedAt: '2026-09-03T10:01:00Z',
+        }),
+      }),
+    );
+    expect(
+      within(screen.getByRole('region', { name: 'Cooking' })).getByRole('article'),
+    ).not.toHaveAttribute('data-fresh');
+    expect(document.title).toBe('Kitchen · TableTap');
+  });
+  it('stops counting a ticket that leaves the board entirely', () => {
+    const socket = fakeSocket();
+    render(
+      <KitchenBoard
+        initialOrders={[]}
+        staffName="Theo"
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={vi.fn()}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    act(() => socket.fire('order:created', { order: order('o12') }));
+    expect(document.title).toBe('(1) Kitchen · TableTap');
+    act(() =>
+      socket.fire('order:updated', {
+        order: order('o12', {
+          status: 'cancelled',
+          cancelledAt: '2026-09-03T10:01:00Z',
+          updatedAt: '2026-09-03T10:01:00Z',
+        }),
+      }),
+    );
+    expect(screen.queryByRole('article')).toBeNull();
+    expect(document.title).toBe('Kitchen · TableTap');
+  });
+  it('ignores a move that resolves after a demo reset', async () => {
+    const user = userEvent.setup();
+    const socket = fakeSocket();
+    let settle: (value: { order: OrderDto }) => void = () => {};
+    const inFlight = new Promise<{ order: OrderDto }>((resolve) => {
+      settle = resolve;
+    });
+    const fetcher = vi.fn().mockReturnValue(inFlight);
+    render(
+      <KitchenBoard
+        initialOrders={[order('o3')]}
+        staffName="Theo"
+        demoMode
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={fetcher}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    await user.click(screen.getByRole('button', { name: 'Start #3' }));
+    act(() => socket.fire('demo:reset'));
+    expect(screen.queryByRole('article')).toBeNull();
+    await act(async () => {
+      settle({ order: order('o3', { status: 'cooking', updatedAt: '2026-09-03T10:02:00Z' }) });
+      await inFlight;
+    });
+    expect(screen.queryByRole('article')).toBeNull();
+  });
 });
