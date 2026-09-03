@@ -44,6 +44,7 @@ describe('API contracts', () => {
           kind: 'guest',
           guestSessionId: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f60',
           tableId: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f61',
+          restaurantId: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f62',
           tableNumber: 3,
           expiresAt: '2026-09-02T12:00:00.000Z',
         },
