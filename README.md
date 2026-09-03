@@ -40,7 +40,7 @@ docker compose up --build
 
 The API container applies the migrations and runs `seed --if-empty` before starting, so the demo data and the three staff accounts are there on first boot.
 
-**Honest caveat:** the development host for M1 has no Docker installed. `docker compose up --build` is exercised by the `compose-e2e` job in CI (which also runs the Playwright smoke test against it) and has not been run locally. If you hit a problem with it, that is the reason.
+**Honest caveat:** the development host for M1 has no Docker installed. `docker compose up --build` is intended to be exercised by the `compose-e2e` job in CI (which also runs the Playwright smoke test against it); it has not run yet, because the repository has no remote, and it has not been run locally either. If you hit a problem with it, that is the reason.
 
 **HTTPS deployments:** the Compose file defaults `COOKIE_SECURE` to `false`, because the local demo is served over plain HTTP while the container itself runs `NODE_ENV=production`. Behind TLS, set `COOKIE_SECURE=true` — otherwise session cookies are issued without the `Secure` flag. Left unset, the flag follows `NODE_ENV`.
 
@@ -62,7 +62,7 @@ pnpm db:seed -- --if-empty           # prints the twelve guest URLs it signs
 pnpm dev                             # web on :3000, api on :4000
 ```
 
-`pnpm test` needs none of that — the suite (100 tests across the five packages) runs on PGlite in memory.
+`pnpm test` needs none of that — the suite (115 tests across the five packages) runs on PGlite in memory.
 
 ## Scripts
 

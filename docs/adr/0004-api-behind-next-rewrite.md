@@ -25,4 +25,4 @@ The other half of the problem is the opposite shape: WebSockets. Vercel's rewrit
 - CSRF protection rests on better-auth's `trustedOrigins` plus `SameSite=Lax`, so `WEB_ORIGIN` must be correct in every environment or sign-in silently stops working.
 - A wrong `TRUST_PROXY` is a security setting, not a convenience one, and it is easy to get wrong on a new platform. It is documented in `.env.example` and covered by a test that gives each forwarded client IP its own sign-in bucket.
 - One extra network hop on every API call in production. Acceptable: the alternative costs cross-site cookies.
-- The rewrite forwarding `Set-Cookie` is exactly what the Playwright smoke test proves — it signs in through the web origin and reads back the signed-in state.
+- The rewrite forwarding `Set-Cookie` is what the Playwright smoke test exists to prove — it signs in through the web origin and reads back the signed-in state. It has not run yet.

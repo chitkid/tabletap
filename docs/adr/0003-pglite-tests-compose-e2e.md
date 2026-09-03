@@ -24,4 +24,4 @@ Two constraints pulled against each other. Tests must be fast and deterministic 
 - `pnpm test` runs anywhere Node runs — a fresh clone, a laptop with no Docker, a CI runner with no services block.
 - Tests exercise the same migrations that production applies, so a migration that does not apply cleanly fails the suite rather than a deploy.
 - PGlite is Postgres, but it is a single-connection embedded build. Anything that depends on server-only behaviour — concurrent connections, `LISTEN`/`NOTIFY`, extensions PGlite does not bundle — needs a Compose-backed test instead. Nothing in M1 does; M3's real-time work is the first plausible candidate.
-- The e2e path is the only part of the stack that cannot be verified on this host. As of this milestone it has been exercised in CI only.
+- The e2e path is the only part of the stack that cannot be verified on this host. As of this milestone it has not yet been exercised anywhere; the `compose-e2e` CI job is the gate and runs on the first push.

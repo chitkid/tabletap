@@ -19,7 +19,7 @@ The API (Fastify, `apps/api`) owns the database and every write. Whatever issues
 
 **Guests: a separate session kind.** `POST /api/guest/claim` verifies the table token from the QR (ADR 0002), inserts a `guest_sessions` row bound to the table, and sets an httpOnly, `SameSite=Lax`, signed `tt_guest` cookie holding the session id. The session slides: a request from a guest whose `last_seen_at` is older than five minutes refreshes `last_seen_at` and `expires_at`. Claiming again from the same browser expires the previous session first, so one browser never holds two live sessions.
 
-**One resolution step.** `apps/api/src/plugins/principal.ts` runs on every request and puts a `Principal` on it — a discriminated union of `staff`, `guest` and `anonymous`. The order in `lib/resolve-principal.ts` is: better-auth session, then an unexpired guest session behind a validly signed cookie, then anonymous. An expired, unknown or forged guest cookie is cleared and the request continues as anonymous. Everything downstream — the RBAC guards, the routes, the audit log — reads `request.principal` and nothing else.
+**One resolution step.** `apps/api/src/plugins/principal.ts` runs on every request and puts a `Principal` on it — a discriminated union of `staff`, `guest` and `anonymous`. The order in `lib/resolve-principal.ts` is: better-auth session, then an unexpired guest session behind a validly signed cookie, then anonymous. When the request resolves to anonymous, an expired, unknown or forged guest cookie is cleared; a valid staff session takes precedence and the guest cookie is left alone. Everything downstream — the RBAC guards, the routes, the audit log — reads `request.principal` and nothing else.
 
 ### Rejected
 

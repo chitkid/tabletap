@@ -97,7 +97,7 @@ Enums: `user_role` (waiter, kitchen, admin); `order_status` (draft, placed, paid
 | `restaurants` | name, slug unique, currency (default `USD`), timezone | Exactly one row in the demo. |
 | `tables` | restaurant_id FK, number int, label text, seats int, is_active bool | unique (restaurant_id, number). |
 | `menu_categories` | restaurant_id FK, name, sort_order int, is_active bool | |
-| `menu_items` | category_id FK, name, description, price_cents int, image_url text null, allergens text[] (validated against the `Allergen` enum in shared), is_available bool, sort_order int | Photos arrive in M5; M2 decides image sourcing. |
+| `menu_items` | category_id FK, name, description, price_cents int, image_url text null, allergens text[] (typed against the `Allergen` enum at seed time; runtime validation arrives with menu CRUD in M5), is_available bool, sort_order int | Photos arrive in M5; M2 decides image sourcing. |
 | `orders` | restaurant_id FK, table_id FK, guest_session_id FK null, status `order_status` default `draft`, subtotal_cents, total_cents, note text null, idempotency_key text unique null, placed_at, paid_at, ready_at, served_at, cancelled_at (all null) | Prices are copied from `menu_items` server-side at placement (M2). |
 | `order_items` | order_id FK, menu_item_id FK, name_snapshot, unit_price_cents, quantity int, line_total_cents | Snapshot of price and name at order time. |
 | `payments` | order_id FK, provider `payment_provider`, provider_session_id null, provider_payment_intent_id null, amount_cents, currency, status `payment_status` | |
@@ -131,7 +131,7 @@ Order: better-auth session (`auth.api.getSession({ headers })`) → signed `tt_g
 
 ## 7. RBAC
 
-The permission matrix is data in `packages/shared/src/rbac.ts` and is the single source for guards; later milestones add actions here first.
+The permission matrix is data in `packages/shared/src/roles.ts` and is the single source for guards; later milestones add actions here first.
 
 | Action | guest | waiter | kitchen | admin |
 |---|---|---|---|---|
@@ -191,7 +191,7 @@ Next.js 16 App Router, TypeScript strict, Tailwind 4, shadcn components consumed
 
 `next.config.ts`: `rewrites()` proxies `/api/:path*` → `${API_URL}/api/:path*` (Set-Cookie headers are forwarded through the proxy); `redirects()` sends `/` → `/login` with 307 until the landing arrives in M2.
 
-Route `/login`: email and password form (labels bound to inputs, error region `aria-live="polite"` linked by `aria-describedby`, 44 px targets). States: idle; submitting (button disabled, label "Signing in…"); error ("That email and password don't match." on 401; a generic network error otherwise); signed in (the same route renders "Signed in as {name} ({role})" with a Sign out button). Uses the better-auth React client (`createAuthClient()` with default base path `/api/auth`, going through the rewrite).
+Route `/login`: email and password form (labels bound to inputs, error region `aria-live="polite"` linked by `aria-describedby`, 44 px targets). States: idle; submitting (button disabled, label "Signing in…"); error ("That email and password don't match." on 401; "Too many attempts. Wait a minute and try again." on 429; a generic network error otherwise); signed in (the same route renders "Signed in as {name} ({role})" with a Sign out button). Uses the better-auth React client (`createAuthClient()` with default base path `/api/auth`, going through the rewrite).
 
 `packages/ui` ships shadcn `button`, `input`, `label`, `card`, `badge` restyled with tokens, plus `cn()`.
 
@@ -213,7 +213,7 @@ Order of execution inside M1, each a plan task with the listed skill:
 
 ## 12. Seed
 
-`packages/db/src/seed.ts`, run as `pnpm db:seed -- --if-empty` or `-- --reset`; without a mode flag it prints usage and exits 1. `--if-empty` skips when a restaurant with slug `little-furnace` exists. `--reset` deletes demo data in dependency order inside one transaction and re-inserts. Both runs are idempotent: running twice yields identical row counts.
+`packages/db/src/seed/run.ts` (data in `seed/data.ts`), run as `pnpm db:seed -- --if-empty` or `-- --reset`; without a mode flag it prints usage and exits 1. `--if-empty` skips when a restaurant with slug `little-furnace` exists. `--reset` deletes demo data in dependency order inside one transaction and re-inserts. Both runs are idempotent: running twice yields identical row counts.
 
 Content:
 - Restaurant `Little Furnace`, slug `little-furnace`, USD, timezone `Europe/Lisbon`.
