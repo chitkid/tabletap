@@ -19,7 +19,7 @@ export const demoResetPlugin = fp(async (app: FastifyInstance) => {
       });
       app.log.info({ counts: result.counts }, 'demo data reset');
     },
-    log: { info: (msg) => app.log.info(msg), error: (obj, msg) => app.log.error(obj, msg) },
+    log: { error: (obj, msg) => app.log.error(obj, msg) },
   });
   app.addHook('onClose', async () => stop());
   app.log.info({ everyMinutes: config.DEMO_RESET_INTERVAL_MINUTES }, 'demo reset scheduled');

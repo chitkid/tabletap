@@ -4,7 +4,7 @@ import { scheduleDemoReset } from './demo-reset';
 describe('scheduleDemoReset', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
-  const log = { info: vi.fn(), error: vi.fn() };
+  const log = { error: vi.fn() };
 
   it('runs on every interval and stops when asked', async () => {
     const run = vi.fn(async () => undefined);

@@ -1,5 +1,5 @@
+/** Only failures: a successful run reports itself, with its counts (plugins/demo-reset.ts). */
 export interface DemoResetLog {
-  info(msg: string): void;
   error(obj: unknown, msg: string): void;
 }
 
@@ -15,7 +15,6 @@ export function scheduleDemoReset(input: {
     running = true;
     input
       .run()
-      .then(() => input.log.info('demo data reset'))
       .catch((err: unknown) => input.log.error({ err }, 'demo reset failed'))
       .finally(() => {
         running = false;
