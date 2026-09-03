@@ -2,3 +2,11 @@
 @import '@tabletap/ui/tokens.css';
 @import '@tabletap/ui/theme.css';
 @source '../../../packages/ui/src';
+
+/* The page canvas — what shows through on overscroll and past the end of the document — takes
+   its colour from <body>, and a nested route layout cannot reach <body>. Without this the
+   kitchen board rubber-bands onto the guest surface's Oat: glare on a screen that hangs at eye
+   level for a whole shift (design-system/tabletap/pages/kitchen.md, Color Overrides). */
+body:has([data-surface='kitchen']) {
+  background: var(--primitive-color-night-bg);
+}
