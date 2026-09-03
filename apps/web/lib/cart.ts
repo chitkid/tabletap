@@ -128,6 +128,15 @@ function subscribe(listener: () => void) {
   };
 }
 
+/**
+ * The basket as storage holds it, for code that runs outside a render: an effect on a
+ * server-rendered page runs while `useCart` is still reporting the empty server snapshot, and a
+ * decision taken from that snapshot — "this basket is empty, leave" — would be wrong.
+ */
+export function readCart(tableId: string): Cart {
+  return read(cartStorageKey(tableId));
+}
+
 export function useCart(tableId: string) {
   const key = cartStorageKey(tableId);
   const cart = useSyncExternalStore(
