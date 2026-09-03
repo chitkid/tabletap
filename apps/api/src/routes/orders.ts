@@ -9,6 +9,7 @@ import {
   OrderDtoSchema,
   OrderResponseSchema,
   OrdersResponseSchema,
+  TransitionRequestSchema,
   can,
   type OrderDto,
 } from '@tabletap/shared';
@@ -16,6 +17,7 @@ import { AppError } from '../lib/errors';
 import { GUEST_COOKIE } from '../lib/guest-sessions';
 import { createOrder, listOrders, loadOrder, type InternalOrderDto } from '../lib/orders';
 import { restaurantIdFor } from '../lib/restaurant';
+import { transitionOrder } from '../lib/transitions';
 import { requireAction, requireAuthenticated } from '../plugins/rbac';
 
 /**
@@ -89,10 +91,11 @@ export async function ordersRoutes(app: FastifyInstance) {
     '/orders/:id',
     {
       preHandler: requireAuthenticated(),
-      schema: { params: z.object({ id: z.uuid() }), response: { 200: OrderResponseSchema } },
+      schema: { response: { 200: OrderResponseSchema } },
     },
     async (request) => {
-      const order = await loadOrder(app.db, request.params.id);
+      const { id } = validate(z.object({ id: z.uuid() }), request.params);
+      const order = await loadOrder(app.db, id);
       if (!order) throw new AppError('NOT_FOUND', 404, 'Order not found.');
       const p = request.principal;
       const allowed =
@@ -100,6 +103,38 @@ export async function ordersRoutes(app: FastifyInstance) {
           ? order.guestSessionId === p.guestSessionId
           : p.kind === 'staff' && can(p.role, 'orders.read.all');
       if (!allowed) throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+      return { order: strip(order) };
+    },
+  );
+  r.post(
+    '/orders/:id/transition',
+    {
+      preHandler: requireAction('orders.transition'),
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          // One bucket per signed-in browser: the cookie jar is opaque and already parsed.
+          keyGenerator: (request) =>
+            request.headers.cookie
+              ? `session:${String(request.headers.cookie)}`
+              : `ip:${request.ip}`,
+        },
+      },
+      schema: { response: { 200: OrderResponseSchema } },
+    },
+    async (request) => {
+      const p = request.principal;
+      if (p.kind !== 'staff')
+        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+      const { id } = validate(z.object({ id: z.uuid() }), request.params);
+      const body = validate(TransitionRequestSchema, request.body);
+      const order = await transitionOrder(app.db, app.orderEvents, {
+        orderId: id,
+        to: body.to,
+        actor: p,
+        restaurantId: await restaurantIdFor(app.db, p),
+      });
       return { order: strip(order) };
     },
   );

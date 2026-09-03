@@ -297,6 +297,69 @@ describe('orders', () => {
       ).toBe(200);
     });
   });
+
+  describe('POST /api/orders/:id/transition', () => {
+    const place = async (tableNumber: number) => {
+      const { cookie } = await claimTable(ctx.app, ctx.db, tableNumber);
+      const res = await post(cookie, {
+        items: [{ menuItemId: byName['House Lemonade']!.id, quantity: 1 }],
+      });
+      return OrderResponseSchema.parse(res.json()).order;
+    };
+    const bump = (cookie: string, id: string, to: string) =>
+      ctx.app.inject({
+        method: 'POST',
+        url: `/api/orders/${id}/transition`,
+        headers: { cookie },
+        payload: { to },
+      });
+
+    it('lets the kitchen walk a ticket to served and answers each step with the order', async () => {
+      const kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
+      const order = await place(9);
+      for (const to of ['cooking', 'ready', 'served']) {
+        const res = await bump(kitchen, order.id, to);
+        expect(res.statusCode).toBe(200);
+        expect(OrderResponseSchema.parse(res.json()).order.status).toBe(to);
+        expect(res.json().order).not.toHaveProperty('guestSessionId');
+      }
+    });
+    it('answers 401 anonymous, 403 guest and waiter-for-cooking, 400 malformed body, 404 unknown', async () => {
+      const order = await place(9);
+      const { cookie: guest } = await claimTable(ctx.app, ctx.db, 9);
+      const waiter = await signInAs(ctx.app, 'waiter@littlefurnace.demo');
+      const kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
+      expect(
+        (
+          await ctx.app.inject({
+            method: 'POST',
+            url: `/api/orders/${order.id}/transition`,
+            payload: { to: 'cooking' },
+          })
+        ).statusCode,
+      ).toBe(401);
+      expect((await bump(guest, order.id, 'cooking')).statusCode).toBe(403);
+      expect((await bump(waiter, order.id, 'cooking')).statusCode).toBe(403);
+      expect((await bump(kitchen, order.id, 'baked')).statusCode).toBe(400);
+      expect((await bump(kitchen, randomUUID(), 'cooking')).statusCode).toBe(404);
+      expect((await bump(kitchen, 'not-a-uuid', 'cooking')).statusCode).toBe(400);
+    });
+    it('GET /api/orders/:id answers 401 before 400 for a malformed id', async () => {
+      expect(
+        (await ctx.app.inject({ method: 'GET', url: '/api/orders/not-a-uuid' })).statusCode,
+      ).toBe(401);
+      const kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
+      expect(
+        (
+          await ctx.app.inject({
+            method: 'GET',
+            url: '/api/orders/not-a-uuid',
+            headers: { cookie: kitchen },
+          })
+        ).statusCode,
+      ).toBe(400);
+    });
+  });
 });
 
 // Own app so the per-ip bucket is not already spent by the orders above.
