@@ -6,7 +6,15 @@ test('a guest orders from the landing page QR link', async ({ page }) => {
   await page.waitForURL('**/menu');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Little Furnace');
   await expect(page.getByText('Table 7')).toBeVisible();
-  await page.getByRole('button', { name: 'Add Margherita Flatbread' }).click();
+  // The first tap can land before React has hydrated the menu, and a click on a button that is
+  // painted but not yet wired does nothing. Retry until the card answers by turning into a
+  // stepper, then carry on.
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Add Margherita Flatbread' }).click();
+    await expect(
+      page.getByRole('button', { name: 'Add one more Margherita Flatbread' }),
+    ).toBeVisible({ timeout: 1_000 });
+  }).toPass();
   await page.getByRole('button', { name: 'Add one more Margherita Flatbread' }).click();
   await page.getByRole('button', { name: 'Add House Lemonade' }).click();
   await expect(page.getByRole('region', { name: 'Basket' })).toContainText('3 items · $28.00');
