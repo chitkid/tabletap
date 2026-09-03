@@ -19,7 +19,7 @@ Noticed while reviewing the M1 branch; none of it blocks the milestone.
 - `--status-ready` (`#2F8A3E`) as a filled badge on light surfaces is 4.28:1. Darken to `#2D853C` in the brand document and the token if a filled badge is wanted (M2).
 - The admin surface's `--spacing: 0.2rem` scales `h-11` buttons down to about 35 px. Revisit the density mechanism before M5 builds real admin screens.
 - The `--button-*` component tokens are not consumed by `button.tsx`.
-- Generated colour shades above 600 collapse to near-black for the `ink` and `olive` bases, and the brand sync re-creates the `primary`/`secondary`/`accent` keys on every run.
+- Generated colour shades above 600 collapse to near-black for the `ink` and `olive` bases. Nothing references them; the semantic layer uses 100-600 only.
 - `auth.test.ts` and `guest.test.ts` share per-file rate-limit buckets, which makes them sensitive to test order.
 - `TRUST_PROXY` accepts an empty string and then fails deeper inside proxy-addr. Add `.min(1)` to the schema.
 - `resolve-principal` clears a forged `tt_guest` cookie when `getSession` throws. Safe, but untested.

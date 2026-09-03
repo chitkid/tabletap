@@ -78,7 +78,7 @@ Run from the repository root.
 | `pnpm e2e`                   | Playwright smoke test against a running stack (`E2E_BASE_URL`, default <http://localhost:3000>)     |
 | `pnpm tokens`                | Regenerates `packages/ui/tokens.css` from `assets/design-tokens.json`                               |
 | `pnpm validate-tokens`       | Fails if `apps/` contains raw hex, `rgb()` or hardcoded px/rem values                               |
-| `pnpm brand:sync`            | Rebuilds the primitive colour scales in `assets/design-tokens.json` from `docs/brand-guidelines.md` |
+| `pnpm brand:sync`            | Rebuilds the `ember` / `olive` / `ink` primitive scales in `assets/design-tokens.json` from `docs/brand-guidelines.md`, then regenerates `packages/ui/tokens.css` |
 | `pnpm db:generate`           | drizzle-kit: generates a migration from the schema                                                  |
 | `pnpm db:migrate`            | Applies committed migrations to `DATABASE_URL`                                                      |
 | `pnpm db:seed -- --if-empty` | Seeds the demo data unless it is already there                                                      |
@@ -127,13 +127,13 @@ Colours, type and spacing have one source and flow one way:
 docs/brand-guidelines.md  →  assets/design-tokens.json  →  packages/ui/tokens.css  →  the apps
 ```
 
-- `docs/brand-guidelines.md` is the brand document. `pnpm brand:sync` reads its Quick Reference table and colour sections and rebuilds the primitive scales in the token JSON.
+- `docs/brand-guidelines.md` is the brand document. `pnpm brand:sync` reads its Quick Reference table and its Primary / Secondary / Accent colour sections and rewrites exactly three primitive scales in the token JSON — `ember`, `olive` and `ink`, per the role map at the top of `scripts/sync-brand-to-tokens.cjs`. Nothing else in the file is touched: the neutral primitives, the semantic layer, the dark block and the component layer are authored by hand and gated by the contrast test in `packages/ui/src/tokens.test.ts`. CI reruns the sync and fails on a diff.
 - `assets/design-tokens.json` holds three layers — primitive (raw scales), semantic (`background`, `primary`, `status-*`, `timer-*`, …), component (`button`, `order-card`, `status-badge`, …). The semantic layer uses shadcn's variable names, so the components in `packages/ui` work unmodified.
-- `pnpm tokens` emits `packages/ui/tokens.css`, the only stylesheet the apps consume. It is committed, and CI regenerates it and fails on a diff.
+- `pnpm tokens` emits `packages/ui/tokens.css`. With the hand-written `packages/ui/theme.css` those are the two stylesheets the apps consume. `tokens.css` is committed, and CI regenerates it and fails on a diff.
 - `packages/ui/theme.css` is hand-written and small: it maps tokens into Tailwind's `@theme`, and defines the surface overrides — the kitchen board is the dark theme plus a larger body size, the admin surface is one `--spacing` override.
 - `pnpm validate-tokens` and a WCAG contrast test in `packages/ui` both run in CI.
 
-Regenerating after a brand change: edit `docs/brand-guidelines.md`, then `pnpm brand:sync && pnpm tokens && pnpm test && pnpm validate-tokens`.
+Regenerating after a brand change: edit `docs/brand-guidelines.md`, then `pnpm brand:sync && pnpm test && pnpm validate-tokens`. `brand:sync` regenerates `tokens.css` itself, so `pnpm tokens` is only needed after a hand edit to the semantic, dark or component layer.
 
 ## Docs
 

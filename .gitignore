@@ -27,3 +27,6 @@ playwright-report/
 
 .env.local
 apps/web/.env*.local
+
+# generated beside the token source by an older script; the apps read packages/ui/tokens.css
+assets/design-tokens.css
