@@ -18,6 +18,7 @@ import { guestRoutes } from './routes/guest';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
 import { menuRoutes } from './routes/menu';
+import { ordersRoutes } from './routes/orders';
 import { tablesRoutes } from './routes/tables';
 import './types';
 
@@ -69,6 +70,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(cookie, { secret: config.COOKIE_SECRET });
   await app.register(rateLimit, {
     global: false,
+    // Route limits key on the caller's guest session, which principalPlugin resolves in an
+    // app-level preHandler; the default onRequest hook would run before it exists.
+    hook: 'preHandler',
     // @fastify/rate-limit throws this return value; it needs its own statusCode so
     // errorHandlerPlugin's generic 4xx/5xx mapping recognizes it as a 429, not a 500.
     errorResponseBuilder: (_req, context) => ({
@@ -85,5 +89,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(guestRoutes, { prefix: '/api' });
   await app.register(tablesRoutes, { prefix: '/api' });
   await app.register(menuRoutes, { prefix: '/api' });
+  await app.register(ordersRoutes, { prefix: '/api' });
   return app;
 }
