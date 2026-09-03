@@ -1,6 +1,6 @@
 # M2 Guest Flow + Demo Landing — Design Spec
 
-Date: 2026-09-03. Status: approved verbally, awaiting written review.
+Date: 2026-09-03. Status: implemented on branch feat/m2-guest-flow (2026-09-03); merge pending final review.
 Project: TableTap — QR table ordering with a real-time kitchen display (portfolio full-stack project).
 Milestone: M2 of six. Builds on M1 Foundation (`docs/superpowers/specs/2026-09-02-m1-foundation-design.md`, merged into `main` on 2026-09-03). The master brief remains the permanent context; this spec covers M2 only.
 

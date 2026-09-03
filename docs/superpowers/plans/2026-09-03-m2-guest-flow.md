@@ -95,7 +95,7 @@ planPlate(seed: string, kind: PlateKind): PlatePlan
 <Plate name kind seed? size? className? />   // inline SVG, role="img", aria-label = name
 ```
 
-- [ ] **Step 1: Failing contract tests**
+- [x] **Step 1: Failing contract tests**
 
 Append to `packages/shared/src/api.test.ts`:
 ```ts
@@ -133,7 +133,7 @@ describe('M2 contracts', () => {
 ```
 Run: `corepack pnpm --filter @tabletap/shared test` → FAIL (exports missing).
 
-- [ ] **Step 2: Implement the contracts**
+- [x] **Step 2: Implement the contracts**
 
 `packages/shared/src/errors.ts`: `ERROR_CODES` becomes `['UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND', 'VALIDATION_FAILED', 'TOKEN_INVALID', 'TOKEN_EXPIRED', 'RATE_LIMITED', 'ITEM_UNAVAILABLE', 'CONFLICT', 'INTERNAL'] as const`.
 
@@ -220,7 +220,7 @@ export const IdempotencyKeySchema = z.uuid();
 ```
 Run the shared tests → PASS. Commit: `feat(shared): menu, order and demo-link contracts`.
 
-- [ ] **Step 3: Failing plate planner tests**
+- [x] **Step 3: Failing plate planner tests**
 
 `packages/ui/src/lib/plate-plan.test.ts`:
 ```ts
@@ -279,7 +279,7 @@ describe('plate planner', () => {
 ```
 Run: `corepack pnpm --filter @tabletap/ui test` → FAIL.
 
-- [ ] **Step 4: Implement the planner**
+- [x] **Step 4: Implement the planner**
 
 `packages/ui/src/lib/plate-plan.ts`:
 ```ts
@@ -390,7 +390,7 @@ Bounds check: flatbread shapes stay within rx ≤ 44 < 54; bowl r 42 < 54; drink
 
 Run → PASS. Commit: `feat(ui): deterministic plate planner`.
 
-- [ ] **Step 5: Plate component and theme aliases**
+- [x] **Step 5: Plate component and theme aliases**
 
 `packages/ui/theme.css`: add after the `@theme inline` block:
 ```css
@@ -458,7 +458,7 @@ export function Plate({ name, kind, seed, size, className, ...rest }: PlateProps
 ```
 `packages/ui/src/index.ts`: add `export * from './components/plate';` and `export * from './lib/plate-plan';`.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run: `corepack pnpm --filter @tabletap/ui test && corepack pnpm --filter @tabletap/ui typecheck && corepack pnpm --filter @tabletap/ui lint && corepack pnpm validate-tokens && corepack pnpm exec prettier --check packages/ui packages/shared` → all green.
 ```bash
@@ -481,7 +481,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Interfaces (produced):** `orders.number` (identity, unique); `GuestPrincipal.restaurantId: string`; `findActiveGuestSession()` result gains `restaurantId`.
 
-- [ ] **Step 1: Failing schema tests**
+- [x] **Step 1: Failing schema tests**
 
 Append to `packages/db/src/schema.test.ts` (inside the existing `describe('migrations')`, reusing `ctx`):
 ```ts
@@ -499,7 +499,7 @@ it('numbers orders with an identity column and indexes the hot columns', async (
 ```
 (This test runs after the unique-table test, which inserted restaurant `r` and table 1 — reuse them as shown.) Run: `corepack pnpm --filter @tabletap/db test` → FAIL (column `number` missing).
 
-- [ ] **Step 2: Schema changes and migration**
+- [x] **Step 2: Schema changes and migration**
 
 `packages/db/src/schema/orders.ts`: import `index, uniqueIndex` from `drizzle-orm/pg-core`; add to `orders` columns `number: integer('number').generatedAlwaysAsIdentity(),` and a third `pgTable` argument `(t) => [index('orders_table_id_idx').on(t.tableId), index('orders_status_idx').on(t.status), uniqueIndex('orders_number_uidx').on(t.number)]`; `orderItems` gets `(t) => [index('order_items_order_id_idx').on(t.orderId)]`. `guest.ts`: `(t) => [index('guest_sessions_expires_at_idx').on(t.expiresAt)]`. `audit.ts`: `(t) => [index('audit_log_action_idx').on(t.action)]`. If `generatedAlwaysAsIdentity` is not available on `integer()` in drizzle-orm 0.45, use `.generatedByDefaultAsIdentity()`; if neither exists, use `serial('number')` and keep the unique index (report which).
 
@@ -508,13 +508,13 @@ corepack pnpm --filter @tabletap/db generate --name orders-number-and-indexes
 ```
 Inspect `packages/db/migrations/0001_orders-number-and-indexes.sql`: `ALTER TABLE "orders" ADD COLUMN "number" integer ... GENERATED ALWAYS AS IDENTITY`, five `CREATE INDEX`, one `CREATE UNIQUE INDEX`. Run the db tests → PASS (9 → 10). Commit: `feat(db): order numbers and indexes for the guest flow`.
 
-- [ ] **Step 3: Failing API tests for `restaurantId`**
+- [x] **Step 3: Failing API tests for `restaurantId`**
 
 In `apps/api/src/routes/guest.test.ts`, the test "makes /api/me report the guest principal" adds: `expect(MeResponseSchema.parse(me.json()).principal).toMatchObject({ kind: 'guest', tableNumber: 5, restaurantId })` where `restaurantId` is the id already loaded in `beforeAll`. In `apps/api/src/plugins/rbac.test.ts`, the literal guest principal in `roleOf maps principals` gains `restaurantId: 'r'`. Run: `corepack pnpm --filter @tabletap/api test src/routes/guest.test.ts` → FAIL (schema rejects the principal without `restaurantId`).
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
-`packages/shared/src/principal.ts`: `GuestPrincipalSchema` gains `restaurantId: z.uuid()` after `tableId`. `apps/api/src/lib/guest-sessions.ts` `findActiveGuestSession` select gains `restaurantId: schema.tables.restaurantId`. `apps/api/src/lib/resolve-principal.ts` guest principal gains `restaurantId: guest.restaurantId`. Run the whole api suite, typecheck (web too: `corepack pnpm typecheck`), lint → PASS.
+`packages/shared/src/principal.ts`: `GuestPrincipalSchema` gains `restaurantId: z.uuid()` after `tableId`. `apps/api/src/lib/guest-sessions.ts` `findActiveGuestSession` select gains `restaurantId: schema.tables.restaurantId`. `apps/api/src/lib/resolve-principal.ts` guest principal gains `restaurantId: guest.restaurantId`. Run `corepack pnpm test` at the root — not just the api suite: widening `GuestPrincipalSchema` breaks every fixture that builds a guest principal by hand, and `packages/shared`'s own principal test is one of them. Then typecheck (web too: `corepack pnpm typecheck`) and lint → PASS.
 ```bash
 git add packages/shared apps/api
 git commit -m "feat(api): carry the restaurant id on the guest principal
@@ -538,7 +538,7 @@ export async function loadMenu(db: Db, restaurantId: string): Promise<MenuRespon
 menuRoutes  // GET /api/menu, guard requireAction('menu.read')
 ```
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 `apps/api/src/routes/menu.test.ts`:
 ```ts
@@ -586,7 +586,7 @@ describe('GET /api/menu', () => {
 ```
 Run: `corepack pnpm --filter @tabletap/api test src/routes/menu.test.ts` → FAIL (404).
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 `apps/api/src/lib/restaurant.ts`:
 ```ts
@@ -688,7 +688,7 @@ ordersRoutes  // POST /api/orders (guest, rate limit 10/min per session, Idempot
 ```
 Important Fastify detail: `@fastify/rate-limit` runs in `onRequest` by default, before `principalPlugin`'s `preHandler` resolves the principal. Register the plugin with `hook: 'preHandler'` in `buildApp` so route-level limits can key on the principal; app-level `preHandler` hooks (principal) run before route-level ones (rate limit), so the principal is available.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 `apps/api/src/routes/orders.test.ts`:
 ```ts
@@ -797,7 +797,7 @@ describe('orders', () => {
 ```
 The first test posts `priceCents: 1` inside an item on purpose: the schema does not know that field, Zod strips it, and the test asserts the database price. Run: `corepack pnpm --filter @tabletap/api test src/routes/orders.test.ts` → FAIL (404).
 
-- [ ] **Step 2: Implement the order library**
+- [x] **Step 2: Implement the order library**
 
 `apps/api/src/lib/orders.ts`:
 ```ts
@@ -884,6 +884,12 @@ Write the body as follows (replace the placeholder line above):
   });
   const subtotalCents = lines.reduce((sum, l) => sum + l.lineTotalCents, 0);
 
+  // Wrap the transaction below in try/catch: a retry that arrives while the first request is
+  // still inserting passes the `prior` check above and then loses the unique `idempotency_key`.
+  // It is the same request, so catch the Postgres unique violation (`23505` — Drizzle wraps
+  // driver errors, so read the code off the error or its `cause`), re-run the replay lookup and
+  // answer with the order the winner created rather than with a 500. A key held by another
+  // session still raises CONFLICT from that lookup; an error that is not `23505` rethrows.
   const order = await db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(schema.orders)
@@ -919,20 +925,38 @@ Write the body as follows (replace the placeholder line above):
 ```
 (Remove the `guestSessionId` field from the DTOs returned to clients in the routes — it is an internal scoping field; the route strips it.)
 
-- [ ] **Step 3: Routes and rate-limit hook**
+- [x] **Step 3: Routes and rate-limit hook**
 
 `apps/api/src/routes/orders.ts`:
 ```ts
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { IDEMPOTENCY_KEY_HEADER, IdempotencyKeySchema, OrderCreateRequestSchema, OrderResponseSchema, OrdersResponseSchema, can } from '@tabletap/shared';
+import { IDEMPOTENCY_KEY_HEADER, IdempotencyKeySchema, OrderCreateRequestSchema, OrderDtoSchema, OrderResponseSchema, OrdersResponseSchema, can, type OrderDto } from '@tabletap/shared';
 import { AppError } from '../lib/errors';
-import { createOrder, listOrders, loadOrder } from '../lib/orders';
+import { createOrder, listOrders, loadOrder, type InternalOrderDto } from '../lib/orders';
 import { restaurantIdFor } from '../lib/restaurant';
 import { requireAction, requireAuthenticated } from '../plugins/rbac';
 
-const strip = <T extends { guestSessionId: string | null }>({ guestSessionId: _omit, ...rest }: T) => rest;
+/**
+ * `guestSessionId` decides who may read an order and must never reach a client. Re-parsing
+ * through the public contract drops it — and anything else that is not in the contract. A
+ * destructuring `strip` would only drop the one field it names.
+ */
+const strip = (order: InternalOrderDto): OrderDto => OrderDtoSchema.parse(order);
+
+/**
+ * Fastify validates a declared `schema.body`/`schema.headers` before any preHandler, so the
+ * access guard would answer after the payload check: an anonymous caller would be told what is
+ * wrong with a body we were never going to read. POST /orders therefore validates its input
+ * inside the handler, once the guard has passed. A declared headers schema would also replace
+ * `request.headers` with the parsed subset, dropping the cookie the staff session resolves from.
+ */
+function validate<T>(schema: z.ZodType<T>, value: unknown): T {
+  const result = schema.safeParse(value);
+  if (!result.success) throw new AppError('VALIDATION_FAILED', 400, 'Request did not match the expected shape.', result.error.issues);
+  return result.data;
+}
 
 export async function ordersRoutes(app: FastifyInstance) {
   const r = app.withTypeProvider<ZodTypeProvider>();
@@ -947,16 +971,14 @@ export async function ordersRoutes(app: FastifyInstance) {
           keyGenerator: (request) => (request.principal.kind === 'guest' ? `guest:${request.principal.guestSessionId}` : request.ip),
         },
       },
-      schema: {
-        headers: z.object({ [IDEMPOTENCY_KEY_HEADER]: IdempotencyKeySchema }),
-        body: OrderCreateRequestSchema,
-        response: { 200: OrderResponseSchema, 201: OrderResponseSchema },
-      },
+      schema: { response: { 200: OrderResponseSchema, 201: OrderResponseSchema } },
     },
     async (request, reply) => {
       const principal = request.principal;
       if (principal.kind !== 'guest') throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
-      const { order, created } = await createOrder(app.db, { principal, body: request.body, idempotencyKey: request.headers[IDEMPOTENCY_KEY_HEADER] });
+      const idempotencyKey = validate(IdempotencyKeySchema, request.headers[IDEMPOTENCY_KEY_HEADER]);
+      const body = validate(OrderCreateRequestSchema, request.body);
+      const { order, created } = await createOrder(app.db, { principal, body, idempotencyKey });
       return reply.status(created ? 201 : 200).send({ order: strip(order) });
     },
   );
@@ -1009,7 +1031,7 @@ demoResetPlugin                               // starts the scheduler when demoM
 // @tabletap/db/seed also re-exports DEMO_STAFF and DEMO_RESTAURANT_SLUG
 ```
 
-- [ ] **Step 1: Failing config tests**
+- [x] **Step 1: Failing config tests**
 
 Append to `apps/api/src/config.test.ts` (inside `describe('loadConfig')`, `valid` is the existing fixture):
 ```ts
@@ -1026,7 +1048,7 @@ it('enables demo mode from the environment', () => {
 ```
 Run → FAIL. Implement in `config.ts`: schema fields `DEMO_MODE: z.enum(['true', 'false']).default('false')`, `DEMO_RESET_INTERVAL_MINUTES: z.coerce.number().int().nonnegative().default(60)`, `DEMO_PASSWORD: z.string().min(8).default('tabletap-demo')`; `Config` type adds `demoMode: boolean`; `loadConfig` returns `{ ...parsed.data, cookieSecure, demoMode: parsed.data.DEMO_MODE === 'true' }`. `TEST_CONFIG` in `src/test/helpers.ts` gains `DEMO_MODE: 'true', DEMO_RESET_INTERVAL_MINUTES: 0, DEMO_PASSWORD: 'tabletap-demo', demoMode: true`. Run the api suite → PASS. Commit `feat(api): demo mode configuration`.
 
-- [ ] **Step 2: Failing demo links tests**
+- [x] **Step 2: Failing demo links tests**
 
 `packages/db/src/seed/run.ts`: add `export { DEMO_STAFF, DEMO_RESTAURANT_SLUG } from './data';` (no behaviour change).
 
@@ -1080,7 +1102,7 @@ describe('GET /api/demo/links', () => {
 ```
 Run → FAIL (404 from the not-found handler in the first test).
 
-- [ ] **Step 3: Implement the route**
+- [x] **Step 3: Implement the route**
 
 `apps/api/src/routes/demo.ts`:
 ```ts
@@ -1126,7 +1148,7 @@ export async function demoRoutes(app: FastifyInstance) {
 ```
 Register in `server.ts` after `ordersRoutes`: `await app.register(demoRoutes, { prefix: '/api' });`. Run → PASS. Commit `feat(api): demo links endpoint`.
 
-- [ ] **Step 4: Failing scheduler test**
+- [x] **Step 4: Failing scheduler test**
 
 `apps/api/src/lib/demo-reset.test.ts`:
 ```ts
@@ -1168,7 +1190,7 @@ describe('scheduleDemoReset', () => {
 ```
 Run → FAIL.
 
-- [ ] **Step 5: Implement the scheduler and plugin**
+- [x] **Step 5: Implement the scheduler and plugin**
 
 `apps/api/src/lib/demo-reset.ts`:
 ```ts
@@ -1269,7 +1291,7 @@ export function formatCents(cents: number, currency = 'USD'): string   // 2600 �
 export function formatElapsed(fromIso: string, nowMs = Date.now()): string   // "Just now" | "1 min ago" | "12 min ago" | "1 h 5 min ago"
 ```
 
-- [ ] **Step 1: Failing tests for the pure helpers**
+- [x] **Step 1: Failing tests for the pure helpers**
 
 `apps/web/lib/money.test.ts`:
 ```ts
@@ -1399,7 +1421,7 @@ describe('api helpers', () => {
 ```
 Run: `corepack pnpm --filter @tabletap/web test` → FAIL (modules missing).
 
-- [ ] **Step 2: Implement the helpers**
+- [x] **Step 2: Implement the helpers**
 
 `apps/web/lib/money.ts`:
 ```ts
@@ -1455,7 +1477,10 @@ async function parseResponse<T>(res: Response, schema: ZodType<T>): Promise<T> {
 export async function apiFetch<T>(path: string, opts: { schema: ZodType<T>; cookie?: string | null; init?: RequestInit }): Promise<T> {
   const headers = new Headers(opts.init?.headers);
   if (opts.cookie) headers.set('cookie', `${GUEST_COOKIE}=${encodeURIComponent(opts.cookie)}`);
-  const res = await fetch(`${API_URL}${path}`, { ...opts.init, headers, cache: 'no-store' });
+  // Send a plain record, not the `Headers` object: `Headers` normalises the casing for us, but the
+  // test above reads `init.headers.cookie` off the call, and a server-rendered page has no request
+  // context to inherit, so keeping the outgoing headers inspectable is worth the conversion.
+  const res = await fetch(`${API_URL}${path}`, { ...opts.init, headers: Object.fromEntries(headers), cache: 'no-store' });
   return parseResponse(res, opts.schema);
 }
 
@@ -1521,16 +1546,21 @@ export interface CartLine {
 function indexMenu(menu: MenuResponse): Map<string, MenuItemDto> {
   return new Map(menu.categories.flatMap((c) => c.items).map((i) => [i.id, i]));
 }
+/**
+ * A line keeps its price even when the dish is sold out — the test above asserts 1100 on the
+ * unavailable line — so the guest can see what it would have cost. Only a line whose item has
+ * left the menu entirely has no price to show. `available: false` is what keeps an unorderable
+ * line out of the total and out of the payload.
+ */
 export function cartLines(cart: Cart, menu: MenuResponse): CartLine[] {
   const index = indexMenu(menu);
   return Object.entries(cart.items).map(([menuItemId, quantity]) => {
     const item = index.get(menuItemId) ?? null;
-    const available = item !== null && item.isAvailable;
-    return { menuItemId, quantity, item, lineTotalCents: available ? item.priceCents * quantity : 0, available };
+    return { menuItemId, quantity, item, lineTotalCents: item === null ? 0 : item.priceCents * quantity, available: item !== null && item.isAvailable };
   });
 }
 export function cartTotalCents(cart: Cart, menu: MenuResponse): number {
-  return cartLines(cart, menu).reduce((sum, l) => sum + l.lineTotalCents, 0);
+  return cartLines(cart, menu).filter((l) => l.available).reduce((sum, l) => sum + l.lineTotalCents, 0);
 }
 export function toOrderItems(cart: Cart, menu: MenuResponse): { menuItemId: string; quantity: number }[] {
   return cartLines(cart, menu).filter((l) => l.available).map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }));
@@ -1601,7 +1631,7 @@ export function useCart(tableId: string) {
 ```
 Run the four test files → PASS. Commit `feat(web): api client, basket store and formatting helpers`.
 
-- [ ] **Step 3: Failing test for the claim screen**
+- [x] **Step 3: Failing test for the claim screen**
 
 `apps/web/components/claim-table.test.tsx`:
 ```tsx
@@ -1618,14 +1648,14 @@ const json = (status: number, body: unknown) => new Response(JSON.stringify(body
 describe('ClaimTable', () => {
   afterEach(() => { vi.unstubAllGlobals(); replace.mockClear(); });
   it('claims the table and goes to the menu', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json(200, { table: { id: '1', number: 7, label: 'Table 7' }, expiresAt: '2026-09-03T14:00:00.000Z' })));
+    vi.stubGlobal('fetch', vi.fn(async () => json(200, { table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f01', number: 7, label: 'Table 7' }, expiresAt: '2026-09-03T14:00:00.000Z' })));
     render(<ClaimTable token="abc" />);
     expect(screen.getByRole('status')).toHaveTextContent('Finding your table…');
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/menu'));
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe('/api/guest/claim');
   });
   it('explains an expired code and can retry', async () => {
-    const f = vi.fn().mockResolvedValueOnce(json(401, { error: { code: 'TOKEN_EXPIRED', message: 'x' } })).mockResolvedValueOnce(json(200, { table: { id: '1', number: 7, label: 'Table 7' }, expiresAt: '2026-09-03T14:00:00.000Z' }));
+    const f = vi.fn().mockResolvedValueOnce(json(401, { error: { code: 'TOKEN_EXPIRED', message: 'x' } })).mockResolvedValueOnce(json(200, { table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f01', number: 7, label: 'Table 7' }, expiresAt: '2026-09-03T14:00:00.000Z' }));
     vi.stubGlobal('fetch', f);
     render(<ClaimTable token="abc" />);
     expect(await screen.findByText('This QR code has expired. Ask staff for a new one.')).toBeInTheDocument();
@@ -1641,7 +1671,7 @@ describe('ClaimTable', () => {
 ```
 Run → FAIL.
 
-- [ ] **Step 4: Implement the claim screen and static pages**
+- [x] **Step 4: Implement the claim screen and static pages**
 
 `apps/web/components/claim-table.tsx`:
 ```tsx
@@ -1649,7 +1679,7 @@ Run → FAIL.
 import { Button } from '@tabletap/ui';
 import { ClaimResponseSchema } from '@tabletap/shared';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiError, clientFetch } from '../lib/api';
 
 const MESSAGE: Record<string, string> = {
@@ -1661,22 +1691,43 @@ const UNREACHABLE = "Can't reach the server. Check the connection and try again.
 
 export function ClaimTable({ token }: { token: string }) {
   const router = useRouter();
+  const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const claim = useCallback(async () => {
-    setError(null);
-    try {
-      await clientFetch('/api/guest/claim', {
-        schema: ClaimResponseSchema,
-        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) },
-      });
-      router.replace('/menu');
-    } catch (err) {
-      setError(err instanceof ApiError ? (MESSAGE[err.code] ?? UNREACHABLE) : UNREACHABLE);
-    }
-  }, [router, token]);
+  // `useRouter()` can hand back a fresh object on any render, and naming it as a dependency
+  // would re-POST the claim on every render. Read it through a ref instead.
+  const routerRef = useRef(router);
   useEffect(() => {
-    void claim();
-  }, [claim]);
+    routerRef.current = router;
+  }, [router]);
+
+  // Claiming mints a guest session, so it must survive being asked twice: StrictMode runs every
+  // effect mount → cleanup → mount in development, and a second claim cannot see the cookie the
+  // first is still setting — the guest would end up with two sessions. `fired` records which
+  // attempt has already gone out and is never reset by the cleanup, so a same-attempt re-mount
+  // is a no-op while Try again, which bumps `attempt`, still sends a fresh claim. `alive` is a
+  // component-level ref, re-armed at the top of the effect so StrictMode's throwaway cleanup
+  // cannot strand the request that is genuinely in flight.
+  const fired = useRef(-1);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    const stop = () => {
+      alive.current = false;
+    };
+    if (fired.current === attempt) return stop;
+    fired.current = attempt;
+    void clientFetch('/api/guest/claim', {
+      schema: ClaimResponseSchema,
+      init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) },
+    })
+      .then(() => {
+        if (alive.current) routerRef.current.replace('/menu');
+      })
+      .catch((err: unknown) => {
+        if (alive.current) setError(err instanceof ApiError ? (MESSAGE[err.code] ?? UNREACHABLE) : UNREACHABLE);
+      });
+    return stop;
+  }, [token, attempt]);
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 p-6">
       <h1 className="font-display text-3xl font-semibold">Little Furnace</h1>
@@ -1685,7 +1736,7 @@ export function ClaimTable({ token }: { token: string }) {
       ) : (
         <div className="flex flex-col gap-4">
           <p role="alert">{error}</p>
-          <Button type="button" onClick={() => void claim()}>Try again</Button>
+          <Button type="button" onClick={() => { setError(null); setAttempt((n) => n + 1); }}>Try again</Button>
         </div>
       )}
     </main>
@@ -1748,7 +1799,7 @@ export function StatusBadge({ status }: { status: OrderStatus }): JSX.Element   
 <BasketSheet open onOpenChange lines currency onSetQuantity onRemove /> // bottom sheet; empty: "Nothing in the basket yet."; link "Go to checkout"
 ```
 
-- [ ] **Step 1: shadcn components and the ready token**
+- [x] **Step 1: shadcn components and the ready token**
 
 ```bash
 cd packages/ui && corepack pnpm dlx shadcn@latest add sheet textarea --yes && cd ../..
@@ -1757,7 +1808,7 @@ Fix imports to `../lib/utils` (as in M1), keep `@radix-ui/react-dialog` (added b
 
 Token: in `assets/design-tokens.json` set `primitive.color.status.ready` to `#2D853C`; run `corepack pnpm tokens`; in `packages/ui/src/tokens.test.ts` add inside the guest-surface test: `expect(contrastRatio(sem('primary-foreground'), sem('status-ready'))).toBeGreaterThanOrEqual(4.5)` and `expect(contrastRatio(sem('foreground'), sem('status-cooking'))).toBeGreaterThanOrEqual(4.5)` (write these first and watch the ready one fail with the old hex). Update `docs/brand-guidelines.md` (Semantic table ready row and the Accessibility ratios: recompute and state them), `design-system/tabletap/MASTER.md`, and `docs/design/components.md` (status badge: every status filled; foreground is `--primary-foreground` except `cooking`, which uses `--foreground`). Run `corepack pnpm brand:sync && git diff --exit-code -- assets/design-tokens.json packages/ui/tokens.css` to confirm the sync is still a no-op (it only touches ember/olive/ink).
 
-- [ ] **Step 2: Failing status badge test, then the component**
+- [x] **Step 2: Failing status badge test, then the component**
 
 `packages/ui/src/components/status-badge.test.tsx` (add `"include": ["src/**/*.test.{ts,tsx}"]` and `environment: 'jsdom'` + `@vitejs/plugin-react` to `packages/ui/vitest.config.ts`; add dev deps `@testing-library/react@16.3.3 @testing-library/jest-dom@7.0.1 jsdom@30.0.1 @vitejs/plugin-react@6.1.1` to `packages/ui`; keep node-environment tests working by putting `// @vitest-environment jsdom` at the top of tsx tests instead of changing the global environment):
 ```tsx
@@ -1805,7 +1856,7 @@ export function StatusBadge({ status, className }: { status: OrderStatus; classN
 ```
 Add `@tabletap/shared` as a dependency of `packages/ui` (`workspace:*`). Export from `src/index.ts`. Run ui tests → PASS. Commit `feat(ui): sheet, textarea and status badge; darker ready status`.
 
-- [ ] **Step 3: Failing web component tests**
+- [x] **Step 3: Failing web component tests**
 
 `apps/web/components/menu/quantity-stepper.test.tsx`:
 ```tsx
@@ -1931,7 +1982,7 @@ describe('MenuScreen', () => {
 ```
 Run → FAIL (modules missing).
 
-- [ ] **Step 4: Implement the components and the page**
+- [x] **Step 4: Implement the components and the page**
 
 `apps/web/components/menu/quantity-stepper.tsx`:
 ```tsx
@@ -2009,6 +2060,8 @@ export function BasketBar({ count, totalCents, currency, onOpen }: { count: numb
 }
 ```
 `apps/web/components/basket/basket-sheet.tsx`: `Sheet` with `side="bottom"`; `SheetContent` `aria-describedby` to a `SheetDescription` "Anything else?"; `SheetTitle` "Your basket"; lines: name, `QuantityStepper` (or "Sold out today. Remove it to continue." for unavailable/missing with only the Remove button), line total, `Button variant="ghost" aria-label={`Remove ${name}`}`; footer: subtotal, `Link href="/checkout"` styled as a primary button "Go to checkout" (only when at least one available line), `SheetClose` "Keep browsing"; empty state paragraph "Nothing in the basket yet." Missing item (`line.item === null`) shows "No longer on the menu" with Remove.
+
+`BasketSheet` also takes `returnFocusTo?: RefObject<HTMLElement | null>` — the ref of the "View basket" button in the bar — and restores focus to it from `SheetContent`'s `onCloseAutoFocus` (prevent the default, then `opener.focus()`). Radix returns focus to whatever was focused when the sheet opened, which after a stepper tap inside the sheet is not the bar; the spec requires `Esc` to hand focus back to the bar, so the opener is passed in explicitly rather than inferred.
 
 `apps/web/components/menu/menu-screen.tsx`:
 ```tsx
@@ -2100,7 +2153,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 <ElapsedSince iso intervalMs=30000 />           // aria-live="polite", re-renders on the interval
 ```
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 `apps/web/components/order/elapsed-since.test.tsx`:
 ```tsx
@@ -2200,9 +2253,13 @@ describe('CheckoutScreen', () => {
   });
 });
 ```
+Correction to the snippet above: `tableId` should be a uuid, not `'t1'`, in both the props and `orderBody` — use `U(1)` like the rest of the fixtures. Nothing validates it (it is only a `localStorage` key), but a fixture that does not match the contract misleads the next reader.
+
+Add one more file, `checkout-screen.hydration.test.tsx`: render with a full basket in `localStorage` and assert `replace` was *not* called with `/menu`. It is the regression test for the hydration bug described in Step 2.
+
 Run → FAIL.
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 `apps/web/components/order/elapsed-since.tsx`:
 ```tsx
@@ -2220,7 +2277,7 @@ export function ElapsedSince({ iso, intervalMs = 30_000 }: { iso: string; interv
 ```
 `apps/web/components/order/order-screen.tsx`: `<main>` with `<h1>` "Order #{number} sent to the kitchen.", `<p>Table {tableNumber}</p>`, `<StatusBadge status={order.status} />`, `<ElapsedSince iso={order.placedAt ?? order.createdAt} />`, `<ul>` lines "{quantity} × {name}" with `formatCents(lineTotalCents)`, total row, note under "Note for the kitchen" when present, `<Link href="/menu">Back to menu</Link>`.
 
-`apps/web/components/checkout/checkout-screen.tsx`: reads `useCart(tableId)`; `useEffect` → if `countItems(cart) === 0` `router.replace('/menu')`; lines via `cartLines(cart, menu)`; unavailable/missing lines and lines flagged by the last `ITEM_UNAVAILABLE` response show "Sold out today. Remove it to continue." with a `Remove <name>` button; note `Textarea` with `<Label htmlFor="note">Note for the kitchen</Label>`, `maxLength={280}`, counter "12 / 280"; `Total` row using `cartTotalCents`; idempotency key: `sessionStorage.getItem(`tt-idem:${tableId}`) ?? crypto.randomUUID()` stored on first use; submit: `clientFetch('/api/orders', { schema: OrderResponseSchema, init: { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': key }, body: JSON.stringify({ items: toOrderItems(cart, menu), ...(note.trim() ? { note: note.trim() } : {}) }) } })`; on success `clear()`, `sessionStorage.removeItem(key)`, `router.replace(`/orders/${order.id}`)`; `ApiError` mapping: 401 → `router.replace('/session-ended')`; `ITEM_UNAVAILABLE` → mark ids from `details.unavailable` and message "Some items are sold out today. Remove them to continue."; `VALIDATION_FAILED` → "Something in the basket is not right. Go back to the menu."; 429 → "Too many orders in a minute. Wait a moment and try again."; else "Can't reach the server. Check the connection and try again." Messages render in a `role="status"` `aria-live="polite"` paragraph next to the button; the button shows "Sending to the kitchen…" with `disabled` + `aria-busy` while submitting; disabled when no available lines.
+`apps/web/components/checkout/checkout-screen.tsx`: reads `useCart(tableId)`; the "empty basket → back to the menu" effect must read storage directly (`countItems(readCart(tableId)) > 0` → return), not the `cart` it renders from: the store's server snapshot is the empty basket until hydration commits, and a redirect fired from that snapshot sends a guest with a full basket back to the menu. `countItems(cart)` is only the effect's trigger, and a `placed` ref suppresses the redirect after a successful order empties the basket on purpose. Write the regression test first (`checkout-screen.hydration.test.tsx`). Lines via `cartLines(cart, menu)`; unavailable/missing lines and lines flagged by the last `ITEM_UNAVAILABLE` response show "Sold out today. Remove it to continue." with a `Remove <name>` button; note `Textarea` with `<Label htmlFor="note">Note for the kitchen</Label>`, `maxLength={280}`, counter "12 / 280"; `Total` row using `cartTotalCents`; idempotency key: `sessionStorage.getItem(`tt-idem:${tableId}`) ?? crypto.randomUUID()` stored on first use; submit: `clientFetch('/api/orders', { schema: z.object({ order: OrderDtoSchema.pick({ id: true }) }), init: { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': key }, body: JSON.stringify({ items: toOrderItems(cart, menu), ...(note.trim() ? { note: note.trim() } : {}) }) } })` — the confirmation page loads the order itself, so the POST reply is read for one field, and picking it off the contract keeps the id validated without making a placed order look like a network failure whenever the DTO grows a field this page never touches; on success `clear()`, `sessionStorage.removeItem(key)`, `router.replace(`/orders/${order.id}`)`; `ApiError` mapping: 401 → `router.replace('/session-ended')`; `ITEM_UNAVAILABLE` → mark ids from `details.unavailable` and message "Some items are sold out today. Remove them to continue."; `VALIDATION_FAILED` → "Something in the basket is not right. Go back to the menu."; 429 → "Too many orders in a minute. Wait a moment and try again."; else "Can't reach the server. Check the connection and try again." Messages render in a `role="status"` `aria-live="polite"` paragraph next to the button; the button shows "Sending to the kitchen…" with `disabled` + `aria-busy` while submitting; disabled when no available lines.
 
 `apps/web/app/checkout/page.tsx`: same server shape as `/menu` (cookie → `/api/me` + `/api/menu`), renders `<CheckoutScreen menu tableId />`; `dynamic = 'force-dynamic'`.
 `apps/web/app/orders/[id]/page.tsx`:
@@ -2272,7 +2329,7 @@ export async function fetchDemoLinks(): Promise<DemoLinksResponse | null>   // s
 LoginForm props += { demo?: { email: string; password: string; name: string } }   // signs in once on mount
 ```
 
-- [ ] **Step 1: Dependencies and the demo links helper**
+- [x] **Step 1: Dependencies and the demo links helper**
 
 ```bash
 corepack pnpm --filter @tabletap/web add --save-exact qrcode@1.5.4
@@ -2295,7 +2352,7 @@ export async function fetchDemoLinks(): Promise<DemoLinksResponse | null> {
 }
 ```
 
-- [ ] **Step 2: Failing landing test**
+- [x] **Step 2: Failing landing test**
 
 `apps/web/components/landing/landing-content.test.tsx`:
 ```tsx
@@ -2322,7 +2379,7 @@ describe('LandingContent', () => {
 ```
 Run → FAIL.
 
-- [ ] **Step 3: Implement the landing**
+- [x] **Step 3: Implement the landing**
 
 `apps/web/components/landing/landing-content.tsx` (presentational; no `'use client'`):
 - `<header>` with `<h1 className="font-display text-4xl font-semibold">TableTap</h1>` and the one-liner "Order from your table. The kitchen sees it the moment you tap."
@@ -2352,7 +2409,7 @@ export default async function LandingPage() {
 ```
 `apps/web/next.config.ts`: delete the `redirects()` block.
 
-- [ ] **Step 4: Failing demo sign-in tests, then the login changes**
+- [x] **Step 4: Failing demo sign-in tests, then the login changes**
 
 Append to `apps/web/components/login-form.test.tsx`:
 ```tsx
@@ -2371,7 +2428,7 @@ it('falls back to the form when the demo sign-in fails', async () => {
   expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
 });
 ```
-`LoginForm`: new optional prop `demo`; `const attempted = useRef(false)`; `useEffect(() => { if (!demo || attempted.current || session.isPending || session.data) return; attempted.current = true; setStatus({ kind: 'submitting' }); void client.signIn.email(demo).then((r) => { if (r.error) { setStatus({ kind: 'error', message: messageFor(r.error.status) }); } else { setStatus({ kind: 'idle' }); session.refetch?.(); } }).catch(() => setStatus({ kind: 'error', message: UNREACHABLE })); }, [client, demo, session])`; while `demo && status.kind === 'submitting'` render `<p role="status" aria-live="polite">Signing in as {demo.name}…</p>` instead of the form (the `Card` stays). Extract `messageFor(status?: number)` from the existing submit handler and reuse it.
+`LoginForm`: new optional prop `demo`; `const attempted = useRef(false)`; `useEffect(() => { if (!demo || attempted.current || session.isPending || session.data) return; attempted.current = true; setStatus({ kind: 'submitting' }); void client.signIn.email({ email: demo.email, password: demo.password }).then((r) => { if (r.error) { setStatus({ kind: 'error', message: messageFor(r.error.status) }); } else { setStatus({ kind: 'idle' }); session.refetch?.(); } }).catch(() => setStatus({ kind: 'error', message: UNREACHABLE })); }, [client, demo, session])`; while `demo && status.kind === 'submitting'` render `<p role="status" aria-live="polite">Signing in as {demo.name}…</p>` instead of the form (the `Card` stays). Extract `messageFor(status?: number)` from the existing submit handler and reuse it. Pass the two credential fields explicitly rather than spreading `demo`: `demo` also carries the display name, and the test asserts the call receives `{ email, password }` and nothing else.
 
 `apps/web/app/login/page.tsx`:
 ```tsx
@@ -2393,7 +2450,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 }
 ```
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run: web tests, lint, typecheck, `next build`, validate-tokens, prettier → PASS. Check with `curl -s http://localhost:3000/ | grep -c "Table 7 as a guest"` while `pnpm dev` runs for api and web if a database exists; otherwise the landing degrades (no links) and Task 10's e2e is the proof.
 ```bash
@@ -2413,7 +2470,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `scripts/lighthouse-audit.mjs`, `e2e/guest-order.spec.ts`
 - Modify: root `package.json` (devDependencies `lighthouse@13.4.1`, `chrome-launcher@1.2.1`; script `"lighthouse": "node scripts/lighthouse-audit.mjs"`), `.github/workflows/ci.yml`, `.prettierignore` (`docs/lighthouse-results.json`), `.gitignore` (nothing new)
 
-- [ ] **Step 1: The guest e2e (RED without a stack)**
+- [x] **Step 1: The guest e2e (RED without a stack)**
 
 `e2e/guest-order.spec.ts`:
 ```ts
@@ -2439,7 +2496,9 @@ test('a guest orders from the landing page QR link', async ({ page }) => {
   await expect(page.getByText('2 × Margherita Flatbread')).toBeVisible();
   await expect(page.getByText('1 × House Lemonade')).toBeVisible();
   await expect(page.getByText('No basil')).toBeVisible();
-  await expect(page.getByText('Placed')).toBeVisible();
+  // `{ exact: true }`: the heading and the elapsed counter both contain the word, and a
+  // substring match would resolve to three elements and fail on strict mode.
+  await expect(page.getByText('Placed', { exact: true })).toBeVisible();
 });
 
 test('an expired QR code explains itself', async ({ page }) => {
@@ -2449,7 +2508,7 @@ test('an expired QR code explains itself', async ({ page }) => {
 ```
 Run `corepack pnpm e2e` with nothing running → FAIL (connection refused). Record it.
 
-- [ ] **Step 2: The Lighthouse script**
+- [x] **Step 2: The Lighthouse script**
 
 ```bash
 corepack pnpm add -w --save-dev --save-exact lighthouse@13.4.1 chrome-launcher@1.2.1
@@ -2468,7 +2527,17 @@ import fs from 'node:fs';
 import { chromium } from 'playwright';
 
 const args = process.argv.slice(2);
-const opt = (name, dflt) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : dflt; };
+// Accept both `--flag value` and `--flag=value`, and refuse a flag whose value is missing or is
+// itself another flag — otherwise `--min-a11y --out x` silently audits against `NaN`.
+const opt = (name, dflt) => {
+  const eq = args.find((a) => a.startsWith(`--${name}=`));
+  if (eq !== undefined) return eq.slice(name.length + 3);
+  const i = args.indexOf(`--${name}`);
+  if (i < 0) return dflt;
+  const value = args[i + 1];
+  if (value === undefined || value.startsWith('--')) throw new Error(`--${name} needs a value (use --${name} <value> or --${name}=<value>)`);
+  return value;
+};
 const BASE = opt('base', 'http://localhost:3000');
 const MIN_A11Y = Number(opt('min-a11y', '95'));
 const OUT = opt('out', 'docs/lighthouse-results.json');
@@ -2507,11 +2576,11 @@ if (failing.length > 0) { console.error(`accessibility below ${MIN_A11Y}: ${fail
 ```
 Root `package.json` scripts: `"lighthouse": "node scripts/lighthouse-audit.mjs"`. `.prettierignore`: add `docs/lighthouse-results.json`. Sanity check without a stack: `node scripts/lighthouse-audit.mjs --base http://localhost:9` must fail fast with `demo links:`/fetch error, not a syntax error.
 
-- [ ] **Step 3: CI**
+- [x] **Step 3: CI**
 
 `.github/workflows/ci.yml` `compose-e2e`, after `- run: pnpm e2e`: `- run: pnpm lighthouse --base http://localhost:3000 --min-a11y 95` and `- if: always()` `uses: actions/upload-artifact@v4` with `name: lighthouse-results`, `path: docs/lighthouse-results.json`. Parse the YAML (`node -e "require('yaml').parse(require('fs').readFileSync('.github/workflows/ci.yml','utf8'))"`).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run: `corepack pnpm exec playwright test --list` shows four tests; prettier check; lint.
 ```bash
@@ -2531,15 +2600,15 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `docs/adr/0006-guest-reads-and-orders.md`, `docs/adr/0007-illustrated-menu.md`
 - Modify: `README.md`, `docs/backlog.md`, `docs/superpowers/specs/2026-09-03-m2-guest-flow-design.md` (status line), this plan (checkboxes)
 
-- [ ] **Step 1: ADRs** (`# ADR NNNN: <title>`, `Date: 2026-09-03`, `Status: accepted`, Context / Decision / Consequences):
+- [x] **Step 1: ADRs** (`# ADR NNNN: <title>`, `Date: 2026-09-03`, `Status: accepted`, Context / Decision / Consequences):
 - **0006 Guest reads, basket and order placement.** Context: guest pages must render fast on a phone; the API owns sessions and prices; the demo resets hourly. Decision: server components forward the `tt_guest` cookie to the API for reads; the basket is client-side per table; `POST /api/orders` creates the order as `placed` in one transaction with database prices and an `Idempotency-Key`; rate limit per guest session via the rate-limit plugin's `preHandler` hook. Rejected: Server Actions (no guest cookie on the Next origin), server-side draft orders. Consequences: `draft` unused; the guest never sees a price it did not get from the server; a reset logs guests out (`/session-ended`).
 - **0007 Illustrated menu instead of photography.** Context: no photo assets, no image-generation keys, a portfolio audience; performance and honesty. Decision: deterministic SVG plates from category kind + dish name, brand tokens only; `image_url` overrides when present. Consequences: zero image requests; consistent look; M5 uploads win per dish; the planner is unit-tested for determinism and bounds.
 
-- [ ] **Step 2: README** — add a "Try the demo" section (landing → QR/table 7 → basket → order; staff buttons), the new scripts (`lighthouse`), the env variables (`DEMO_MODE`, `DEMO_RESET_INTERVAL_MINUTES`), the guest URL list, the Lighthouse note (gate in CI; results in `docs/lighthouse-results.json` once CI runs), the M2 line in the milestone list. Keep the honesty note about Docker/CI.
+- [x] **Step 2: README** — add a "Try the demo" section (landing → QR/table 7 → basket → order; staff buttons), the new scripts (`lighthouse`), the env variables (`DEMO_MODE`, `DEMO_RESET_INTERVAL_MINUTES`), the guest URL list, the Lighthouse note (gate in CI; results in `docs/lighthouse-results.json` once CI runs), the M2 line in the milestone list. Keep the honesty note about Docker/CI.
 
-- [ ] **Step 3: Backlog** — mark as done (delete the bullets) the M1 items now addressed: indexes, `NEXT_PUBLIC_APP_URL`, `--status-ready`, light-surface timer assertions if added; append `## Deferred from M2` with anything the tasks reported (at least: currency on `OrderDto` for M5; basket lines for items renamed after a reset; landing performance score if below 90).
+- [x] **Step 3: Backlog** — mark as done (delete the bullets) the M1 items now addressed: indexes, `NEXT_PUBLIC_APP_URL`, `--status-ready`, light-surface timer assertions if added; append `## Deferred from M2` with anything the tasks reported (at least: currency on `OrderDto` for M5; basket lines for items renamed after a reset; landing performance score if below 90).
 
-- [ ] **Step 4: Status and gate**
+- [x] **Step 4: Status and gate**
 
 Spec status line → `Status: implemented on branch feat/m2-guest-flow (2026-09-03); merge pending final review`. Tick every checkbox in this plan.
 ```bash
