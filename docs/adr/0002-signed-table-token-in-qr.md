@@ -24,6 +24,7 @@ The QR encodes `${WEB_ORIGIN}/t/<token>`, where the token is a JWT signed with H
 ## Consequences
 
 - The table a guest is bound to comes from the server, not from anything the client can type. Guards scope by `principal.tableId`, never by a path parameter alone.
-- Changing `TABLE_TOKEN_SECRET` invalidates every printed QR code. In the demo that is a reseed; for a real deployment it would mean reprinting the stickers.
+- A demo reset does not invalidate a printed QR code. `seed --reset` deletes and re-inserts every row, but the ids are derived from natural keys rather than minted (`packages/db/src/seed/ids.ts`): table 7 of `little-furnace` keeps the same uuid across every reset, so a token signed a year ago still resolves to a table that exists. That is what makes the 365-day TTL above honest rather than aspirational.
+- Changing `TABLE_TOKEN_SECRET` invalidates every printed QR code. In the demo that is a reseed; for a real deployment it would mean reprinting the stickers. It is the only thing that does.
 - There is no key rotation: the tokens carry no `kid`, so two secrets cannot be live at once. Rotation is in `docs/backlog.md` alongside admin-triggered QR regeneration (M5).
 - A 365-day token in a public place is a long-lived credential for _one table_. It grants nothing except the right to open a session at that table, and the session itself expires in hours.

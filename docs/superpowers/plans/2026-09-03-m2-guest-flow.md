@@ -676,7 +676,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `apps/api/src/lib/orders.ts`, `apps/api/src/routes/orders.ts`, `apps/api/src/routes/orders.test.ts`
-- Modify: `apps/api/src/server.ts` (rate-limit `hook: 'preHandler'`, register routes)
+- Modify: `apps/api/src/server.ts` (register routes)
 
 **Interfaces (produced):**
 ```ts
@@ -686,7 +686,7 @@ export async function loadOrder(db: Db, orderId: string): Promise<(OrderDto & { 
 export async function listOrders(db: Db, filter: { guestSessionId: string } | { restaurantId: string }, limit?: number): Promise<OrderDto[]>
 ordersRoutes  // POST /api/orders (guest, rate limit 10/min per session, Idempotency-Key header), GET /api/orders/:id, GET /api/orders
 ```
-Important Fastify detail: `@fastify/rate-limit` runs in `onRequest` by default, before `principalPlugin`'s `preHandler` resolves the principal. Register the plugin with `hook: 'preHandler'` in `buildApp` so route-level limits can key on the principal; app-level `preHandler` hooks (principal) run before route-level ones (rate limit), so the principal is available.
+Important Fastify detail: `@fastify/rate-limit` runs in `onRequest`, before `principalPlugin`'s `preHandler` resolves the principal — and it stays there. Moving it to `preHandler` would let a route key on `request.principal`, but it would also put the limiter behind schema validation and the access guards, which answer first and would then go uncounted. `POST /api/orders` therefore builds its per-session key in `keyGenerator` from the signed `tt_guest` cookie: `@fastify/cookie` is registered before the limiter and parses the jar at `onRequest`, so `request.cookies[GUEST_COOKIE]` plus `request.unsignCookie` gives the session id, with `ip:<address>` as the fallback.
 
 - [x] **Step 1: Failing tests**
 
@@ -1002,7 +1002,7 @@ export async function ordersRoutes(app: FastifyInstance) {
   });
 }
 ```
-In `server.ts`: register rate-limit with `hook: 'preHandler'` (add to the existing options object) and `await app.register(ordersRoutes, { prefix: '/api' });` after `menuRoutes`. The `keyGenerator` type from `@fastify/rate-limit` receives a `FastifyRequest`; `request.principal` is typed through `src/types.ts`. If `hook: 'preHandler'` changes the order of the existing sign-in/claim rate-limit tests (they should be unaffected; the buckets are per IP), keep the tests and fix the registration, not the tests.
+In `server.ts`: leave rate-limit on its default hook and `await app.register(ordersRoutes, { prefix: '/api' });` after `menuRoutes`. The `keyGenerator` type from `@fastify/rate-limit` receives a `FastifyRequest`, which carries `cookies` and `unsignCookie` from `@fastify/cookie`. The existing sign-in/claim rate-limit tests must keep passing untouched; the buckets are per IP.
 
 Run the orders tests → PASS; the whole api suite (the M1 rate-limit tests must still pass), typecheck, lint → PASS.
 ```bash
@@ -2601,7 +2601,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Modify: `README.md`, `docs/backlog.md`, `docs/superpowers/specs/2026-09-03-m2-guest-flow-design.md` (status line), this plan (checkboxes)
 
 - [x] **Step 1: ADRs** (`# ADR NNNN: <title>`, `Date: 2026-09-03`, `Status: accepted`, Context / Decision / Consequences):
-- **0006 Guest reads, basket and order placement.** Context: guest pages must render fast on a phone; the API owns sessions and prices; the demo resets hourly. Decision: server components forward the `tt_guest` cookie to the API for reads; the basket is client-side per table; `POST /api/orders` creates the order as `placed` in one transaction with database prices and an `Idempotency-Key`; rate limit per guest session via the rate-limit plugin's `preHandler` hook. Rejected: Server Actions (no guest cookie on the Next origin), server-side draft orders. Consequences: `draft` unused; the guest never sees a price it did not get from the server; a reset logs guests out (`/session-ended`).
+- **0006 Guest reads, basket and order placement.** Context: guest pages must render fast on a phone; the API owns sessions and prices; the demo resets hourly. Decision: server components forward the `tt_guest` cookie to the API for reads; the basket is client-side per table; `POST /api/orders` creates the order as `placed` in one transaction with database prices and an `Idempotency-Key`; rate limit per guest session, keyed on the signed guest cookie at `onRequest` so refused requests are still counted. Rejected: Server Actions (no guest cookie on the Next origin), server-side draft orders. Consequences: `draft` unused; the guest never sees a price it did not get from the server; a reset logs guests out (`/session-ended`).
 - **0007 Illustrated menu instead of photography.** Context: no photo assets, no image-generation keys, a portfolio audience; performance and honesty. Decision: deterministic SVG plates from category kind + dish name, brand tokens only; `image_url` overrides when present. Consequences: zero image requests; consistent look; M5 uploads win per dish; the planner is unit-tested for determinism and bounds.
 
 - [x] **Step 2: README** — add a "Try the demo" section (landing → QR/table 7 → basket → order; staff buttons), the new scripts (`lighthouse`), the env variables (`DEMO_MODE`, `DEMO_RESET_INTERVAL_MINUTES`), the guest URL list, the Lighthouse note (gate in CI; results in `docs/lighthouse-results.json` once CI runs), the M2 line in the milestone list. Keep the honesty note about Docker/CI.
@@ -2633,5 +2633,5 @@ After Task 6 is merged into the feature branch, Tasks 7–8 (guest pages) and Ta
 ## Self-review notes (already applied)
 
 - Spec coverage: §3 → T1 (planner), T7 (cards); §4.1 → T2; §4.2 → T1; §4.3 → T3, T4, T5; §4.4–4.5 → T5; §5 → T6, T7, T8, T9; §6 → T7 (a11y), T10 (Lighthouse); §7 → every task + T10; §8 → parallel tracks note, T11; §9 → T11.
-- Names used across tasks: `ApiError`, `apiFetch`, `clientFetch`, `guestCookie` (T6) ← T7, T8, T9; `useCart`, `cartLines`, `cartTotalCents`, `toOrderItems`, `countItems`, `cartStorageKey` (T6) ← T7, T8; `formatCents` (T6) ← T7, T8; `formatElapsed` (T6) ← T8; `Plate`, `kindFromCategory` (T1) ← T7, T9; `StatusBadge`, `Sheet*`, `Textarea` (T7) ← T8; `MenuResponseSchema`, `OrderResponseSchema`, `MeResponseSchema`, `DemoLinksResponseSchema`, `IDEMPOTENCY_KEY_HEADER` (T1/M1) ← T3–T9; `restaurantId` on the guest principal (T2) ← T3, T4; `requireAction`, `requireAuthenticated` (M1) ← T3, T4; `DEMO_STAFF`, `DEMO_RESTAURANT_SLUG` re-export (T5) ← T5 route; rate-limit `hook: 'preHandler'` (T4) ← T5 (public route limits still keyed by ip).
+- Names used across tasks: `ApiError`, `apiFetch`, `clientFetch`, `guestCookie` (T6) ← T7, T8, T9; `useCart`, `cartLines`, `cartTotalCents`, `toOrderItems`, `countItems`, `cartStorageKey` (T6) ← T7, T8; `formatCents` (T6) ← T7, T8; `formatElapsed` (T6) ← T8; `Plate`, `kindFromCategory` (T1) ← T7, T9; `StatusBadge`, `Sheet*`, `Textarea` (T7) ← T8; `MenuResponseSchema`, `OrderResponseSchema`, `MeResponseSchema`, `DemoLinksResponseSchema`, `IDEMPOTENCY_KEY_HEADER` (T1/M1) ← T3–T9; `restaurantId` on the guest principal (T2) ← T3, T4; `requireAction`, `requireAuthenticated` (M1) ← T3, T4; `DEMO_STAFF`, `DEMO_RESTAURANT_SLUG` re-export (T5) ← T5 route; the rate limiter on its default `onRequest` hook, with `POST /api/orders` keyed on the signed guest cookie (T4) ← T5 (public route limits still keyed by ip).
 - Copy strings are identical between components and tests: "Add {name}", "Add one more {name}", "Remove one {name}", "Remove {name}", "View basket", "Your basket", "Anything else?", "Go to checkout", "Keep browsing", "Nothing in the basket yet.", "Sold out today", "Sold out today. Remove it to continue.", "Note for the kitchen", "Place order", "Sending to the kitchen…", "Order #N sent to the kitchen.", "Placed X min ago", "Back to menu", "Finding your table…", "Try again", "Table 7 as a guest", "Open the kitchen display", "Open the admin", "Signing in as {name}…".

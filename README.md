@@ -32,7 +32,7 @@ The two staff cards sign you in with one click: **Open the kitchen display** and
 
 Guest URLs added in M2: `/t/<token>`, `/menu`, `/checkout`, `/orders/<id>`, `/session-ended`. `/` is the landing page (M1's redirect to `/login` is gone).
 
-The demo data is wiped and re-seeded every `DEMO_RESET_INTERVAL_MINUTES` (default 60). A reset deletes guest sessions, so a guest who was mid-order gets sent to `/session-ended` on their next tap and starts again by scanning. With `DEMO_MODE=false` the landing degrades gracefully — the same page without the QR code and without the sign-in buttons — and `GET /api/demo/links` answers 404.
+The demo data is wiped and re-seeded every `DEMO_RESET_INTERVAL_MINUTES` (default 60). A reset deletes orders and guest sessions, so a guest who was mid-order gets sent to `/session-ended` on their next tap and starts again by scanning. Table ids are stable across resets, so the printed QR code and the basket kept under it both survive one. With `DEMO_MODE=false` the landing degrades gracefully — the same page without the QR code and without the sign-in buttons — and `GET /api/demo/links` answers 404.
 
 ## Stack
 
@@ -119,7 +119,7 @@ The API exposes demo mode behind three variables:
 | `DEMO_RESET_INTERVAL_MINUTES` | `60`            | Minutes between automatic re-seeds. `0` disables the scheduler and the landing says so.                 |
 | `DEMO_PASSWORD`               | `tabletap-demo` | Password for the three seeded staff accounts. Read by the seed and returned by the demo-links endpoint. |
 
-`GET /api/demo/links` is the only public endpoint added in M2 (30 requests a minute per IP, 404 when demo mode is off). It returns a freshly signed guest URL for table 7, the three staff accounts with their password, and the reset interval — everything the landing page needs, and nothing that is not already in this README. The reset itself is an in-process `setInterval` in the API that runs the seed in `--reset` mode; it never starts under `NODE_ENV=test`.
+`GET /api/demo/links` is the only public endpoint added in M2 (300 requests a minute per IP, 404 when demo mode is off). The landing calls it from the Next server, so every visitor reaches the API as one address; the web tier caches a successful answer for 30 seconds and the limit is a runaway guard rather than a per-visitor budget. It returns a freshly signed guest URL for table 7, the three staff accounts with their password, and the reset interval — everything the landing page needs, and nothing that is not already in this README. The reset itself is an in-process `setInterval` in the API that runs the seed in `--reset` mode; it never starts under `NODE_ENV=test`.
 
 ## Demo accounts
 
