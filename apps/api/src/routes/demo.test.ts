@@ -1,5 +1,5 @@
 import { verifyTableToken } from '@tabletap/shared/server';
-import { DemoLinksResponseSchema } from '@tabletap/shared';
+import { DemoLinksResponseSchema, RushResponseSchema } from '@tabletap/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDb } from '@tabletap/db/testing';
 import { seed } from '@tabletap/db/seed';
@@ -64,5 +64,29 @@ describe('GET /api/demo/links', () => {
     await own.close();
     expect(statuses.filter((s) => s !== 200)).toEqual([429]);
     expect(statuses.at(-1)).toBe(429);
+  });
+});
+
+describe('POST /api/demo/rush', () => {
+  let ctx: Awaited<ReturnType<typeof createTestApp>>;
+  beforeAll(async () => {
+    ctx = await createTestApp();
+  });
+  afterAll(async () => {
+    ctx.app.rush.stop();
+    await ctx.close();
+  });
+
+  it('starts a rush once and answers 409 while it runs', async () => {
+    const first = await ctx.app.inject({ method: 'POST', url: '/api/demo/rush' });
+    expect(first.statusCode).toBe(200);
+    expect(RushResponseSchema.parse(first.json())).toEqual({
+      started: true,
+      durationSeconds: 60,
+      ordersPlanned: 12,
+    });
+    const second = await ctx.app.inject({ method: 'POST', url: '/api/demo/rush' });
+    expect(second.statusCode).toBe(409);
+    expect(second.json().error.code).toBe('CONFLICT');
   });
 });

@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { DemoLinksResponseSchema } from '@tabletap/shared';
+import { DemoLinksResponseSchema, RushResponseSchema } from '@tabletap/shared';
 import { signTableToken } from '@tabletap/shared/server';
 import { schema } from '@tabletap/db';
 import { DEMO_RESTAURANT_SLUG, DEMO_STAFF } from '@tabletap/db/seed';
@@ -11,7 +11,8 @@ export const DEMO_TABLE_NUMBER = 7;
 
 /** Public in demo mode only: everything it returns is already public demo data (README). */
 export async function demoRoutes(app: FastifyInstance) {
-  app.withTypeProvider<ZodTypeProvider>().get(
+  const r = app.withTypeProvider<ZodTypeProvider>();
+  r.get(
     '/demo/links',
     {
       // The web tier calls this from the server on every landing render, so every visitor
@@ -53,6 +54,23 @@ export async function demoRoutes(app: FastifyInstance) {
         })),
         resetsEveryMinutes:
           config.DEMO_RESET_INTERVAL_MINUTES > 0 ? config.DEMO_RESET_INTERVAL_MINUTES : null,
+      };
+    },
+  );
+  r.post(
+    '/demo/rush',
+    {
+      config: { public: true, principal: false, rateLimit: { max: 2, timeWindow: '1 minute' } },
+      schema: { response: { 200: RushResponseSchema } },
+    },
+    async () => {
+      if (!app.config.demoMode) throw new AppError('NOT_FOUND', 404, 'Not found.');
+      if (!app.rush.start())
+        throw new AppError('CONFLICT', 409, 'A rush is already running. Give it a minute.');
+      return {
+        started: true as const,
+        durationSeconds: app.rush.durationSeconds,
+        ordersPlanned: app.rush.ordersPlanned,
       };
     },
   );

@@ -10,6 +10,7 @@ export const demoResetPlugin = fp(async (app: FastifyInstance) => {
   const stop = scheduleDemoReset({
     intervalMs: config.DEMO_RESET_INTERVAL_MINUTES * 60_000,
     run: async () => {
+      app.rush.stop();
       const result = await seed(app.db, {
         mode: 'reset',
         demoPassword: config.DEMO_PASSWORD,
@@ -18,6 +19,7 @@ export const demoResetPlugin = fp(async (app: FastifyInstance) => {
         webOrigin: config.WEB_ORIGIN,
       });
       app.log.info({ counts: result.counts }, 'demo data reset');
+      app.orderEvents.emit('demo:reset');
     },
     log: { error: (obj, msg) => app.log.error(obj, msg) },
   });

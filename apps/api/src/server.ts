@@ -13,6 +13,7 @@ import type { Config } from './config';
 import { OrderEvents } from './lib/order-events';
 import { authPlugin } from './plugins/auth';
 import { demoResetPlugin } from './plugins/demo-reset';
+import { demoRushPlugin } from './plugins/demo-rush';
 import { errorHandlerPlugin } from './plugins/error-handler';
 import { principalPlugin } from './plugins/principal';
 import { routeGuardPlugin } from './plugins/route-guard';
@@ -90,6 +91,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(routeGuardPlugin);
   await app.register(authPlugin);
   await app.register(principalPlugin);
+  await app.register(demoRushPlugin);
   await app.register(demoResetPlugin);
   await app.register(healthRoutes);
   await app.register(meRoutes, { prefix: '/api' });
