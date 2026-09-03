@@ -204,16 +204,14 @@ export async function insertPlacedOrder(
     })
     .returning();
   if (!inserted) throw new Error('order insert returned nothing');
-  await tx
-    .insert(schema.orderItems)
-    .values(
-      input.lines.map((l) => ({
-        ...l,
-        orderId: inserted.id,
-        createdAt: input.now,
-        updatedAt: input.now,
-      })),
-    );
+  await tx.insert(schema.orderItems).values(
+    input.lines.map((l) => ({
+      ...l,
+      orderId: inserted.id,
+      createdAt: input.now,
+      updatedAt: input.now,
+    })),
+  );
   await recordAudit(tx, {
     actorType: input.actor.actorType,
     actorId: input.actor.actorId,
