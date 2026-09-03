@@ -1,6 +1,6 @@
 # M2 Guest Flow + Demo Landing — Design Spec
 
-Date: 2026-09-03. Status: implemented and merged into main on 2026-09-03 (final review clean after one fix wave; compose, e2e and Lighthouse verified in CI only once a remote exists).
+Date: 2026-09-03. Status: implemented and merged into main on 2026-09-03 (final review clean after one fix wave). Docker Compose, the Playwright e2e suite and the Lighthouse gate were run for the first time on the owner's machine the same day; the three defects that run exposed are listed in `docs/backlog.md` under "Found on the first Compose run" and fixed on main.
 Project: TableTap — QR table ordering with a real-time kitchen display (portfolio full-stack project).
 Milestone: M2 of six. Builds on M1 Foundation (`docs/superpowers/specs/2026-09-02-m1-foundation-design.md`, merged into `main` on 2026-09-03). The master brief remains the permanent context; this spec covers M2 only.
 
