@@ -1,6 +1,6 @@
 # M1 Foundation — Design Spec
 
-Date: 2026-09-02. Status: implemented on branch feat/m1-foundation (2026-09-03); merge pending final review.
+Date: 2026-09-02. Status: implemented and merged into main on 2026-09-03 (final review clean after one fix wave; compose + e2e verified in CI only once a remote exists).
 Project: TableTap — QR table ordering with a real-time kitchen display (portfolio full-stack project).
 Milestone: M1 of six (M1 Foundation → M2 Guest flow + Demo landing → M3 Kitchen display → M4 Payments → M5 Admin → M6 Polish + Portfolio). The master brief is the permanent context for every milestone; this spec covers M1 only.
 
