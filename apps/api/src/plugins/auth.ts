@@ -31,7 +31,9 @@ async function forward(app: FastifyInstance, request: FastifyRequest, reply: Fas
   // better-auth answers an unknown path under /api/auth with an empty 404. Everything else it
   // says stays untranslated, but a bare `null` there is no answer at all: use our envelope.
   if (response.status === 404) {
-    return reply.send({ error: { code: 'NOT_FOUND', message: `Route ${request.method} ${request.url} not found` } });
+    return reply.send({
+      error: { code: 'NOT_FOUND', message: `Route ${request.method} ${request.url} not found` },
+    });
   }
   return reply.send(null);
 }
@@ -45,5 +47,10 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
     config: { public: true, principal: false, rateLimit: { max: 10, timeWindow: '1 minute' } },
     handler,
   });
-  app.route({ method: ['GET', 'POST'], url: '/api/auth/*', config: { public: true, principal: false }, handler });
+  app.route({
+    method: ['GET', 'POST'],
+    url: '/api/auth/*',
+    config: { public: true, principal: false },
+    handler,
+  });
 });

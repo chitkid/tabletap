@@ -4,7 +4,10 @@ import { createDb } from '@tabletap/db';
 import { loadConfig } from './config';
 import { buildApp } from './server';
 
-loadDotenv({ path: [resolve(process.cwd(), '.env'), resolve(process.cwd(), '../../.env')], quiet: true });
+loadDotenv({
+  path: [resolve(process.cwd(), '.env'), resolve(process.cwd(), '../../.env')],
+  quiet: true,
+});
 const config = loadConfig();
 const { db, close } = createDb(config.DATABASE_URL);
 const app = await buildApp({ db, config });

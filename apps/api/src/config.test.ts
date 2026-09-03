@@ -21,10 +21,15 @@ describe('loadConfig', () => {
     expect(c.TRUST_PROXY).toBe('loopback,uniquelocal');
   });
   it('coerces numbers', () => {
-    expect(loadConfig({ ...valid, PORT: '5000', GUEST_SESSION_TTL_HOURS: '2' })).toMatchObject({ PORT: 5000, GUEST_SESSION_TTL_HOURS: 2 });
+    expect(loadConfig({ ...valid, PORT: '5000', GUEST_SESSION_TTL_HOURS: '2' })).toMatchObject({
+      PORT: 5000,
+      GUEST_SESSION_TTL_HOURS: 2,
+    });
   });
   it('lists every invalid variable in one readable error', () => {
-    expect(() => loadConfig({ ...valid, BETTER_AUTH_SECRET: 'short', WEB_ORIGIN: 'not a url' })).toThrow(/BETTER_AUTH_SECRET[\s\S]*WEB_ORIGIN/);
+    expect(() =>
+      loadConfig({ ...valid, BETTER_AUTH_SECRET: 'short', WEB_ORIGIN: 'not a url' }),
+    ).toThrow(/BETTER_AUTH_SECRET[\s\S]*WEB_ORIGIN/);
   });
 
   describe('cookieSecure', () => {
@@ -36,10 +41,14 @@ describe('loadConfig', () => {
       expect(loadConfig({ ...valid, NODE_ENV: 'test' }).cookieSecure).toBe(false);
     });
     it('honours an explicit COOKIE_SECURE=false under production', () => {
-      expect(loadConfig({ ...valid, NODE_ENV: 'production', COOKIE_SECURE: 'false' }).cookieSecure).toBe(false);
+      expect(
+        loadConfig({ ...valid, NODE_ENV: 'production', COOKIE_SECURE: 'false' }).cookieSecure,
+      ).toBe(false);
     });
     it('honours an explicit COOKIE_SECURE=true under development', () => {
-      expect(loadConfig({ ...valid, NODE_ENV: 'development', COOKIE_SECURE: 'true' }).cookieSecure).toBe(true);
+      expect(
+        loadConfig({ ...valid, NODE_ENV: 'development', COOKIE_SECURE: 'true' }).cookieSecure,
+      ).toBe(true);
     });
   });
 });

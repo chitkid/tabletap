@@ -17,7 +17,10 @@ describe('rate limiting behind a trusted proxy', () => {
     ctx.app.inject({
       method: 'POST',
       url: '/api/auth/sign-in/email',
-      headers: { origin: TEST_CONFIG.WEB_ORIGIN, ...(forwardedFor === undefined ? {} : { 'x-forwarded-for': forwardedFor }) },
+      headers: {
+        origin: TEST_CONFIG.WEB_ORIGIN,
+        ...(forwardedFor === undefined ? {} : { 'x-forwarded-for': forwardedFor }),
+      },
       payload: { email: 'nobody@littlefurnace.demo', password: 'wrong' },
     });
 

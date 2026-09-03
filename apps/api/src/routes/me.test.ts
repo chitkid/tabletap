@@ -4,13 +4,19 @@ import { createTestApp, signInAs } from '../test/helpers';
 
 describe('GET /api/me', () => {
   let ctx: Awaited<ReturnType<typeof createTestApp>>;
-  beforeAll(async () => { ctx = await createTestApp(); });
-  afterAll(async () => { await ctx.close(); });
+  beforeAll(async () => {
+    ctx = await createTestApp();
+  });
+  afterAll(async () => {
+    await ctx.close();
+  });
 
   it('returns 401 UNAUTHORIZED for anonymous', async () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/me' });
     expect(res.statusCode).toBe(401);
-    expect(res.json()).toEqual({ error: { code: 'UNAUTHORIZED', message: 'Sign in to continue.' } });
+    expect(res.json()).toEqual({
+      error: { code: 'UNAUTHORIZED', message: 'Sign in to continue.' },
+    });
   });
   it.each([
     ['admin@littlefurnace.demo', 'admin', 'Mara Quinn'],
@@ -24,7 +30,11 @@ describe('GET /api/me', () => {
     expect(body.principal).toMatchObject({ kind: 'staff', email, role, name });
   });
   it('treats a garbage session cookie as anonymous', async () => {
-    const res = await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie: 'better-auth.session_token=garbage' } });
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/me',
+      headers: { cookie: 'better-auth.session_token=garbage' },
+    });
     expect(res.statusCode).toBe(401);
   });
 });

@@ -22,9 +22,16 @@ export interface SeedResult {
 
 export async function seed(db: Db, opts: SeedOptions): Promise<SeedResult> {
   const now = opts.now ?? new Date();
-  const existing = await db.select({ id: schema.restaurants.id }).from(schema.restaurants).where(eq(schema.restaurants.slug, DEMO_RESTAURANT_SLUG));
+  const existing = await db
+    .select({ id: schema.restaurants.id })
+    .from(schema.restaurants)
+    .where(eq(schema.restaurants.slug, DEMO_RESTAURANT_SLUG));
   if (opts.mode === 'if-empty' && existing.length > 0) {
-    return { skipped: true, counts: { restaurants: 0, tables: 0, categories: 0, items: 0, users: 0 }, guestUrls: [] };
+    return {
+      skipped: true,
+      counts: { restaurants: 0, tables: 0, categories: 0, items: 0, users: 0 },
+      guestUrls: [],
+    };
   }
 
   const passwordHash = await hashPassword(opts.demoPassword);
@@ -75,7 +82,15 @@ export async function seed(db: Db, opts: SeedOptions): Promise<SeedResult> {
 
     for (const staff of DEMO_STAFF) {
       const userId = uuidv7();
-      await tx.insert(schema.users).values({ id: userId, name: staff.name, email: staff.email, emailVerified: true, role: staff.role, createdAt: now, updatedAt: now });
+      await tx.insert(schema.users).values({
+        id: userId,
+        name: staff.name,
+        email: staff.email,
+        emailVerified: true,
+        role: staff.role,
+        createdAt: now,
+        updatedAt: now,
+      });
       await tx.insert(schema.accounts).values({
         id: uuidv7(),
         userId,
@@ -102,7 +117,13 @@ export async function seed(db: Db, opts: SeedOptions): Promise<SeedResult> {
 
   return {
     skipped: false,
-    counts: { restaurants: 1, tables: inserted.tables.length, categories: inserted.categories, items: inserted.items, users: inserted.users },
+    counts: {
+      restaurants: 1,
+      tables: inserted.tables.length,
+      categories: inserted.categories,
+      items: inserted.items,
+      users: inserted.users,
+    },
     guestUrls,
   };
 }

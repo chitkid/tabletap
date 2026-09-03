@@ -22,7 +22,10 @@ function markGuard(guard: preHandlerAsyncHookHandler): preHandlerAsyncHookHandle
 
 /** True only for a preHandler produced by one of the require* factories below. */
 export function isRbacGuard(candidate: unknown): boolean {
-  return typeof candidate === 'function' && (candidate as unknown as Record<symbol, unknown>)[GUARD] === true;
+  return (
+    typeof candidate === 'function' &&
+    (candidate as unknown as Record<symbol, unknown>)[GUARD] === true
+  );
 }
 
 export function requireAuthenticated(): preHandlerAsyncHookHandler {

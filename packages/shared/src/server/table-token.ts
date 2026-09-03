@@ -46,7 +46,13 @@ export async function verifyTableToken(
       currentDate: opts.now,
     });
     const { sub, rid, tn, iat, exp } = payload;
-    if (typeof sub !== 'string' || typeof rid !== 'string' || typeof tn !== 'number' || typeof iat !== 'number' || typeof exp !== 'number') {
+    if (
+      typeof sub !== 'string' ||
+      typeof rid !== 'string' ||
+      typeof tn !== 'number' ||
+      typeof iat !== 'number' ||
+      typeof exp !== 'number'
+    ) {
       throw new TableTokenVerifyError('TOKEN_INVALID');
     }
     return { tableId: sub, restaurantId: rid, tableNumber: tn, issuedAt: iat, expiresAt: exp };

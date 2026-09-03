@@ -3,7 +3,11 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import type { Db } from '@tabletap/db';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod';
+import {
+  serializerCompiler,
+  validatorCompiler,
+  type ZodTypeProvider,
+} from 'fastify-type-provider-zod';
 import { randomUUID } from 'node:crypto';
 import type { Config } from './config';
 import { authPlugin } from './plugins/auth';
@@ -33,7 +37,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         ? false
         : {
             level: config.LOG_LEVEL,
-            redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
+            redact: [
+              'req.headers.cookie',
+              'req.headers.authorization',
+              'res.headers["set-cookie"]',
+            ],
             ...(config.NODE_ENV === 'development' ? { transport: { target: 'pino-pretty' } } : {}),
           },
     // Fastify's own requestIdHeader takes the header verbatim; disable it and validate here.

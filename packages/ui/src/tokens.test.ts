@@ -62,7 +62,10 @@ describe('design tokens', () => {
     // meaningful non-text element and owes 3:1 against whatever it is drawn on.
     for (const token of ['border', 'input']) {
       for (const surface of ['background', 'card']) {
-        expect(contrastRatio(sem(token), sem(surface)), `${token} on ${surface}`).toBeGreaterThanOrEqual(3);
+        expect(
+          contrastRatio(sem(token), sem(surface)),
+          `${token} on ${surface}`,
+        ).toBeGreaterThanOrEqual(3);
         expect(
           contrastRatio(dark(token), dark(surface)),
           `dark ${token} on ${surface}`,

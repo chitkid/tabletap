@@ -28,23 +28,23 @@
 Every row below is the value `packages/ui/tokens.css` emits for the `:root` (guest and admin) block,
 under the Tailwind alias `packages/ui/theme.css` gives it.
 
-| Role | Hex | CSS Variable |
-|------|-----|--------------|
-| Primary | `#C23E18` | `--color-primary` |
-| Primary foreground | `#FFFDF9` | `--color-primary-foreground` |
-| Secondary | `#EDE6DA` | `--color-secondary` |
+| Role                 | Hex       | CSS Variable                   |
+| -------------------- | --------- | ------------------------------ |
+| Primary              | `#C23E18` | `--color-primary`              |
+| Primary foreground   | `#FFFDF9` | `--color-primary-foreground`   |
+| Secondary            | `#EDE6DA` | `--color-secondary`            |
 | Secondary foreground | `#1C1917` | `--color-secondary-foreground` |
-| Accent | `#6B7A3C` | `--color-accent` |
-| Accent foreground | `#FFFDF9` | `--color-accent-foreground` |
-| Background | `#F6F1E8` | `--color-background` |
-| Foreground | `#1C1917` | `--color-foreground` |
-| Card | `#FFFDF9` | `--color-card` |
-| Muted | `#EDE6DA` | `--color-muted` |
-| Muted foreground | `#6F675F` | `--color-muted-foreground` |
-| Border | `#918269` | `--color-border` |
-| Input | `#918269` | `--color-input` |
-| Destructive | `#B3261E` | `--color-destructive` |
-| Ring | `#C23E18` | `--color-ring` |
+| Accent               | `#6B7A3C` | `--color-accent`               |
+| Accent foreground    | `#FFFDF9` | `--color-accent-foreground`    |
+| Background           | `#F6F1E8` | `--color-background`           |
+| Foreground           | `#1C1917` | `--color-foreground`           |
+| Card                 | `#FFFDF9` | `--color-card`                 |
+| Muted                | `#EDE6DA` | `--color-muted`                |
+| Muted foreground     | `#6F675F` | `--color-muted-foreground`     |
+| Border               | `#918269` | `--color-border`               |
+| Input                | `#918269` | `--color-input`                |
+| Destructive          | `#B3261E` | `--color-destructive`          |
+| Ring                 | `#C23E18` | `--color-ring`                 |
 
 **Color Notes (reconciled to `packages/ui/tokens.css`).** This is the guest and admin `:root` block; the kitchen surface reads the `.dark, [data-surface="kitchen"]` block instead, listed in `design-system/tabletap/pages/kitchen.md`.
 
@@ -67,10 +67,14 @@ Ember stays the single call-to-action hue: `--primary` for the fill, `--ring` fo
 - **Google Fonts:** [Bricolage Grotesque + IBM Plex Sans + IBM Plex Mono](https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap)
 
 **Font Loading:**
+
 ```html
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
 ```
 
 ```css
@@ -83,48 +87,48 @@ Every price, quantity, table number, elapsed time and money column sets `font-va
 
 ### Spacing
 
-*Density: 4/10 — Standard*
+_Density: 4/10 — Standard_
 
 **The generator's `--space-xs … --space-3xl` scale does not exist in this project and has been replaced here rather than translated.** Spacing comes from two mechanisms, and a screen built against the invented names would compile to nothing.
 
 **1. The primitive scale in `packages/ui/tokens.css`.** Component tokens reference it; `--button-padding-x` is `--primitive-space-4`, `--order-card-padding` likewise.
 
-| Token | Value |
-|-------|-------|
-| `--primitive-space-1` | `0.25rem` |
-| `--primitive-space-2` | `0.5rem` |
-| `--primitive-space-3` | `0.75rem` |
-| `--primitive-space-4` | `1rem` |
-| `--primitive-space-6` | `1.5rem` |
-| `--primitive-space-8` | `2rem` |
-| `--primitive-space-12` | `3rem` |
+| Token                  | Value     |
+| ---------------------- | --------- |
+| `--primitive-space-1`  | `0.25rem` |
+| `--primitive-space-2`  | `0.5rem`  |
+| `--primitive-space-3`  | `0.75rem` |
+| `--primitive-space-4`  | `1rem`    |
+| `--primitive-space-6`  | `1.5rem`  |
+| `--primitive-space-8`  | `2rem`    |
+| `--primitive-space-12` | `3rem`    |
 
 **2. Tailwind's spacing utilities** (`p-4`, `gap-6`, `px-3`), which multiply the step number by `--spacing`. That multiplier is the surface density dial: the guest and kitchen surfaces take Tailwind's default, and `packages/ui/theme.css` sets `--spacing: 0.2rem` under `[data-surface="admin"]`, which is the whole of the admin surface's density — one declaration, not a parallel set of classes. See `design-system/tabletap/pages/admin.md`.
 
 ### Radii
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--radius-sm` | `0.375rem` | Small controls |
-| `--radius` | `0.625rem` | Buttons, inputs, the Tailwind `rounded-md` alias |
-| `--radius-lg` | `1rem` | Cards, sheets |
-| `--primitive-radius-full` | `9999px` | Badges, the cart counter |
+| Token                     | Value      | Usage                                            |
+| ------------------------- | ---------- | ------------------------------------------------ |
+| `--radius-sm`             | `0.375rem` | Small controls                                   |
+| `--radius`                | `0.625rem` | Buttons, inputs, the Tailwind `rounded-md` alias |
+| `--radius-lg`             | `1rem`     | Cards, sheets                                    |
+| `--primitive-radius-full` | `9999px`   | Badges, the cart counter                         |
 
 ### Shadow Depths
 
 Two only. There is no `--shadow-lg` and no `--shadow-xl`; anything that reached for one uses `--shadow-md`.
 
-| Level | Value | Usage |
-|-------|-------|-------|
-| `--shadow-sm` | `0 1px 2px rgba(28, 25, 23, 0.08)` | Cards, inputs, the outline button |
-| `--shadow-md` | `0 6px 20px rgba(28, 25, 23, 0.12)` | Hovered card, sheet, dialog |
+| Level         | Value                               | Usage                             |
+| ------------- | ----------------------------------- | --------------------------------- |
+| `--shadow-sm` | `0 1px 2px rgba(28, 25, 23, 0.08)`  | Cards, inputs, the outline button |
+| `--shadow-md` | `0 6px 20px rgba(28, 25, 23, 0.12)` | Hovered card, sheet, dialog       |
 
 ### Durations
 
-| Token | Value | Usage |
-|-------|-------|-------|
+| Token             | Value   | Usage                                                 |
+| ----------------- | ------- | ----------------------------------------------------- |
 | `--duration-fast` | `120ms` | Colour transitions on hover, active and focus-visible |
-| `--duration-base` | `180ms` | Anything larger, once M6 defines it |
+| `--duration-base` | `180ms` | Anything larger, once M6 defines it                   |
 
 ---
 
@@ -211,7 +215,9 @@ A card that is a link or a button also takes `cursor: pointer`; a card that is o
 .input:focus-visible {
   outline: none;
   /* 2px ring in --ring with a 2px offset filled by --background, per brand §1. */
-  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  box-shadow:
+    0 0 0 2px var(--background),
+    0 0 0 4px var(--ring);
 }
 ```
 

@@ -30,14 +30,14 @@
 
 Per `docs/brand-guidelines.md` §2 kitchen type scale — nothing on this surface is smaller than 16px, and body text is 20px or larger:
 
-| Element | Size | Font | Weight | Line Height |
-|---------|------|------|--------|-------------|
-| Ticket table number | 32px | Bricolage Grotesque (display) | 700 | 1.1 |
-| Ticket item line | 22px | IBM Plex Sans (body) | 500 | 1.35 |
-| Kitchen body | 20px (minimum on this surface) | IBM Plex Sans (body) | 400 | 1.4 |
-| Modifier / note | 18px | IBM Plex Sans (body) | 400 | 1.4 |
-| Timer | 28px | IBM Plex Mono | 500 | 1.1 |
-| Column header | 16px | IBM Plex Sans (body) | 600 | 1.2 |
+| Element             | Size                           | Font                          | Weight | Line Height |
+| ------------------- | ------------------------------ | ----------------------------- | ------ | ----------- |
+| Ticket table number | 32px                           | Bricolage Grotesque (display) | 700    | 1.1         |
+| Ticket item line    | 22px                           | IBM Plex Sans (body)          | 500    | 1.35        |
+| Kitchen body        | 20px (minimum on this surface) | IBM Plex Sans (body)          | 400    | 1.4         |
+| Modifier / note     | 18px                           | IBM Plex Sans (body)          | 400    | 1.4         |
+| Timer               | 28px                           | IBM Plex Mono                 | 500    | 1.1         |
+| Column header       | 16px                           | IBM Plex Sans (body)          | 600    | 1.2         |
 
 Timer digits and table numbers set `font-variant-numeric: tabular-nums` so elapsed time does not jitter as it ticks.
 
@@ -58,22 +58,22 @@ The sizes above are the target scale, not a shipped mechanism. `[data-surface="k
 
 **Order status (dark-surface values, six states) — color is never the only carrier of meaning; every status chip pairs its color with its label text and an icon:**
 
-| State | Dark surface hex | Meaning |
-|-------|-------------------|---------|
-| Placed | `#8AB4E8` | Order received, not yet paid |
-| Paid | `#6CC7B5` | Payment settled |
-| Cooking | `#F0B84B` | On the pass, being made |
-| Ready | `#7BD389` | Ready to collect or run |
-| Served | `#B8AFA5` | Delivered to the table, closed |
-| Cancelled | `#F28B82` | Cancelled or refunded |
+| State     | Dark surface hex | Meaning                        |
+| --------- | ---------------- | ------------------------------ |
+| Placed    | `#8AB4E8`        | Order received, not yet paid   |
+| Paid      | `#6CC7B5`        | Payment settled                |
+| Cooking   | `#F0B84B`        | On the pass, being made        |
+| Ready     | `#7BD389`        | Ready to collect or run        |
+| Served    | `#B8AFA5`        | Delivered to the table, closed |
+| Cancelled | `#F28B82`        | Cancelled or refunded          |
 
 **Timer thresholds (reuse the status hues, dark surface):**
 
-| Threshold | Hex | Trigger |
-|-----------|-----|---------|
-| Timer OK | `#7BD389` | Under 5 minutes elapsed |
-| Timer Warning | `#F0B84B` | 5 minutes elapsed |
-| Timer Late | `#F28B82` | 10 minutes elapsed |
+| Threshold     | Hex       | Trigger                 |
+| ------------- | --------- | ----------------------- |
+| Timer OK      | `#7BD389` | Under 5 minutes elapsed |
+| Timer Warning | `#F0B84B` | 5 minutes elapsed       |
+| Timer Late    | `#F28B82` | 10 minutes elapsed      |
 
 ### Component Overrides
 

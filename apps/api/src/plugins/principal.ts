@@ -31,7 +31,10 @@ export const principalPlugin = fp(async (app: FastifyInstance) => {
 
     if (resolved.slidTo !== undefined && guestCookie !== undefined) {
       reply.setCookie(GUEST_COOKIE, guestCookie, guestCookieOptions(app.config, resolved.slidTo));
-    } else if (resolved.clearGuestCookie || (forgedGuestCookie && resolved.principal.kind === 'anonymous')) {
+    } else if (
+      resolved.clearGuestCookie ||
+      (forgedGuestCookie && resolved.principal.kind === 'anonymous')
+    ) {
       reply.clearCookie(GUEST_COOKIE, { path: '/' });
     }
   });

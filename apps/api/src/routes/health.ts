@@ -10,7 +10,12 @@ export async function healthRoutes(app: FastifyInstance) {
     } catch {
       db = 'fail';
     }
-    const body = { status: db === 'ok' ? 'ok' : 'degraded', version: pkg.version, uptime: process.uptime(), checks: { db } };
+    const body = {
+      status: db === 'ok' ? 'ok' : 'degraded',
+      version: pkg.version,
+      uptime: process.uptime(),
+      checks: { db },
+    };
     return reply.status(db === 'ok' ? 200 : 503).send(body);
   });
 }

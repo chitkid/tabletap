@@ -16,8 +16,12 @@ const opts: SeedOptions = {
 };
 
 let ctx: Awaited<ReturnType<typeof createTestDb>>;
-beforeAll(async () => { ctx = await createTestDb(); });
-afterAll(async () => { await ctx.close(); });
+beforeAll(async () => {
+  ctx = await createTestDb();
+});
+afterAll(async () => {
+  await ctx.close();
+});
 
 async function countRows() {
   const [r, t, c, i, u, a] = await Promise.all([
@@ -28,33 +32,67 @@ async function countRows() {
     ctx.db.select({ n: count() }).from(schema.users),
     ctx.db.select({ n: count() }).from(schema.accounts),
   ]);
-  return { restaurants: r[0]?.n, tables: t[0]?.n, categories: c[0]?.n, items: i[0]?.n, users: u[0]?.n, accounts: a[0]?.n };
+  return {
+    restaurants: r[0]?.n,
+    tables: t[0]?.n,
+    categories: c[0]?.n,
+    items: i[0]?.n,
+    users: u[0]?.n,
+    accounts: a[0]?.n,
+  };
 }
 
 describe('seed', () => {
   it('seeds Little Furnace with 12 tables, 4 categories, 20 items and 3 staff', async () => {
     const result = await seed(ctx.db, opts);
     expect(result.skipped).toBe(false);
-    expect(result.counts).toEqual({ restaurants: 1, tables: 12, categories: 4, items: 20, users: 3 });
-    expect(await countRows()).toEqual({ restaurants: 1, tables: 12, categories: 4, items: 20, users: 3, accounts: 3 });
-    const [restaurant] = await ctx.db.select().from(schema.restaurants).where(eq(schema.restaurants.slug, DEMO_RESTAURANT_SLUG));
+    expect(result.counts).toEqual({
+      restaurants: 1,
+      tables: 12,
+      categories: 4,
+      items: 20,
+      users: 3,
+    });
+    expect(await countRows()).toEqual({
+      restaurants: 1,
+      tables: 12,
+      categories: 4,
+      items: 20,
+      users: 3,
+      accounts: 3,
+    });
+    const [restaurant] = await ctx.db
+      .select()
+      .from(schema.restaurants)
+      .where(eq(schema.restaurants.slug, DEMO_RESTAURANT_SLUG));
     expect(restaurant?.name).toBe('Little Furnace');
     expect(restaurant?.currency).toBe('USD');
   });
   it('marks exactly one item unavailable', async () => {
-    const unavailable = await ctx.db.select().from(schema.menuItems).where(eq(schema.menuItems.isAvailable, false));
+    const unavailable = await ctx.db
+      .select()
+      .from(schema.menuItems)
+      .where(eq(schema.menuItems.isAvailable, false));
     expect(unavailable.map((i) => i.name)).toEqual(['Burrata & Peaches']);
   });
   it('creates staff accounts whose password verifies with better-auth', async () => {
     for (const staff of DEMO_STAFF) {
-      const [user] = await ctx.db.select().from(schema.users).where(eq(schema.users.email, staff.email));
+      const [user] = await ctx.db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, staff.email));
       expect(user?.role).toBe(staff.role);
       expect(user?.name).toBe(staff.name);
-      const [account] = await ctx.db.select().from(schema.accounts).where(eq(schema.accounts.userId, user!.id));
+      const [account] = await ctx.db
+        .select()
+        .from(schema.accounts)
+        .where(eq(schema.accounts.userId, user!.id));
       expect(account?.providerId).toBe('credential');
       expect(account?.issuer).toBe('local:credential');
       expect(account?.accountId).toBe(user!.id);
-      expect(await verifyPassword({ hash: account!.password!, password: 'tabletap-demo' })).toBe(true);
+      expect(await verifyPassword({ hash: account!.password!, password: 'tabletap-demo' })).toBe(
+        true,
+      );
     }
   });
   it('returns one signed guest URL per table', async () => {

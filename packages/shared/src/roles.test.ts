@@ -28,6 +28,7 @@ describe('can()', () => {
     }
   });
   it('has a decision for every action and role', () => {
-    for (const action of ACTIONS) for (const role of ROLES) expect(typeof can(role, action)).toBe('boolean');
+    for (const action of ACTIONS)
+      for (const role of ROLES) expect(typeof can(role, action)).toBe('boolean');
   });
 });

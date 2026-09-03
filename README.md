@@ -68,22 +68,22 @@ pnpm dev                             # web on :3000, api on :4000
 
 Run from the repository root.
 
-| Script                       | What it does                                                                                        |
-| ---------------------------- | --------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                   | Runs every package's dev task through Turbo (web on :3000, api on :4000)                            |
-| `pnpm build`                 | Builds every package                                                                                |
-| `pnpm lint`                  | ESLint across the workspace                                                                         |
-| `pnpm typecheck`             | `tsc --noEmit` in every package                                                                     |
-| `pnpm test`                  | Vitest in every package, over PGlite                                                                |
-| `pnpm e2e`                   | Playwright smoke test against a running stack (`E2E_BASE_URL`, default <http://localhost:3000>)     |
-| `pnpm tokens`                | Regenerates `packages/ui/tokens.css` from `assets/design-tokens.json`                               |
-| `pnpm validate-tokens`       | Fails if `apps/` or `packages/ui/src` contains a raw hex, `rgb()`/`hsl()` or a px/rem value (0 and 1px excepted), Tailwind arbitrary values included |
+| Script                       | What it does                                                                                                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                   | Runs every package's dev task through Turbo (web on :3000, api on :4000)                                                                                          |
+| `pnpm build`                 | Builds every package                                                                                                                                              |
+| `pnpm lint`                  | ESLint across the workspace                                                                                                                                       |
+| `pnpm typecheck`             | `tsc --noEmit` in every package                                                                                                                                   |
+| `pnpm test`                  | Vitest in every package, over PGlite                                                                                                                              |
+| `pnpm e2e`                   | Playwright smoke test against a running stack (`E2E_BASE_URL`, default <http://localhost:3000>)                                                                   |
+| `pnpm tokens`                | Regenerates `packages/ui/tokens.css` from `assets/design-tokens.json`                                                                                             |
+| `pnpm validate-tokens`       | Fails if `apps/` or `packages/ui/src` contains a raw hex, `rgb()`/`hsl()` or a px/rem value (0 and 1px excepted), Tailwind arbitrary values included              |
 | `pnpm brand:sync`            | Rebuilds the `ember` / `olive` / `ink` primitive scales in `assets/design-tokens.json` from `docs/brand-guidelines.md`, then regenerates `packages/ui/tokens.css` |
-| `pnpm db:generate`           | drizzle-kit: generates a migration from the schema                                                  |
-| `pnpm db:migrate`            | Applies committed migrations to `DATABASE_URL`                                                      |
-| `pnpm db:seed -- --if-empty` | Seeds the demo data unless it is already there                                                      |
-| `pnpm db:seed -- --reset`    | Wipes the demo data and re-seeds it in one transaction                                              |
-| `pnpm format`                | Prettier over the repository                                                                        |
+| `pnpm db:generate`           | drizzle-kit: generates a migration from the schema                                                                                                                |
+| `pnpm db:migrate`            | Applies committed migrations to `DATABASE_URL`                                                                                                                    |
+| `pnpm db:seed -- --if-empty` | Seeds the demo data unless it is already there                                                                                                                    |
+| `pnpm db:seed -- --reset`    | Wipes the demo data and re-seeds it in one transaction                                                                                                            |
+| `pnpm format`                | Prettier over the repository                                                                                                                                      |
 
 ## Demo accounts
 

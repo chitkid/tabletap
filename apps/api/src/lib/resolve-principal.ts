@@ -24,7 +24,10 @@ export interface ResolvedPrincipal {
  * Staff session first, then an unexpired guest session, then anonymous. Pure with respect to
  * the request/reply pair so it can be read and tested on its own; the caller owns the cookie jar.
  */
-export async function resolvePrincipal(app: FastifyInstance, input: ResolvePrincipalInput): Promise<ResolvedPrincipal> {
+export async function resolvePrincipal(
+  app: FastifyInstance,
+  input: ResolvePrincipalInput,
+): Promise<ResolvedPrincipal> {
   const now = input.now ?? new Date();
 
   let session: Awaited<ReturnType<typeof app.auth.api.getSession>>;
@@ -39,7 +42,13 @@ export async function resolvePrincipal(app: FastifyInstance, input: ResolvePrinc
     const role = StaffRoleSchema.safeParse(session.user.role);
     if (role.success) {
       return {
-        principal: { kind: 'staff', userId: session.user.id, email: session.user.email, name: session.user.name, role: role.data },
+        principal: {
+          kind: 'staff',
+          userId: session.user.id,
+          email: session.user.email,
+          name: session.user.name,
+          role: role.data,
+        },
         clearGuestCookie: false,
       };
     }
@@ -53,11 +62,20 @@ export async function resolvePrincipal(app: FastifyInstance, input: ResolvePrinc
   let expiresAt = guest.expiresAt;
   let slidTo: Date | undefined;
   if (now.getTime() - guest.lastSeenAt.getTime() > SLIDE_AFTER_MS) {
-    expiresAt = await touchGuestSession(app.db, guest.id, { ttlHours: app.config.GUEST_SESSION_TTL_HOURS, now });
+    expiresAt = await touchGuestSession(app.db, guest.id, {
+      ttlHours: app.config.GUEST_SESSION_TTL_HOURS,
+      now,
+    });
     slidTo = expiresAt;
   }
   return {
-    principal: { kind: 'guest', guestSessionId: guest.id, tableId: guest.tableId, tableNumber: guest.tableNumber, expiresAt: expiresAt.toISOString() },
+    principal: {
+      kind: 'guest',
+      guestSessionId: guest.id,
+      tableId: guest.tableId,
+      tableNumber: guest.tableNumber,
+      expiresAt: expiresAt.toISOString(),
+    },
     ...(slidTo === undefined ? {} : { slidTo }),
     clearGuestCookie: false,
   };

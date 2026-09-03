@@ -32,6 +32,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`Invalid environment:\n${lines.join('\n')}`);
   }
   const { COOKIE_SECURE, NODE_ENV } = parsed.data;
-  const cookieSecure = COOKIE_SECURE === undefined ? NODE_ENV === 'production' : COOKIE_SECURE === 'true';
+  const cookieSecure =
+    COOKIE_SECURE === undefined ? NODE_ENV === 'production' : COOKIE_SECURE === 'true';
   return { ...parsed.data, cookieSecure };
 }

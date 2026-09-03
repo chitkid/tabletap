@@ -3,7 +3,10 @@ import { resolve } from 'node:path';
 import { createDb } from '../client';
 import { seed } from '../seed/run';
 
-loadDotenv({ path: [resolve(process.cwd(), '.env'), resolve(process.cwd(), '../../.env')], quiet: true });
+loadDotenv({
+  path: [resolve(process.cwd(), '.env'), resolve(process.cwd(), '../../.env')],
+  quiet: true,
+});
 
 const arg = process.argv.slice(2).find((a) => a === '--if-empty' || a === '--reset');
 if (!arg) {

@@ -14,7 +14,11 @@ describe('GET /health', () => {
   });
 
   it('reports ok with a db check and echoes the request id', async () => {
-    const res = await ctx.app.inject({ method: 'GET', url: '/health', headers: { 'x-request-id': 'req-123' } });
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: '/health',
+      headers: { 'x-request-id': 'req-123' },
+    });
     expect(res.statusCode).toBe(200);
     const body = HealthResponseSchema.parse(res.json());
     expect(body.status).toBe('ok');
@@ -25,10 +29,16 @@ describe('GET /health', () => {
 
   it('replaces an inbound request id that is not a plain token', async () => {
     const oversized = 'a'.repeat(200);
-    const res = await ctx.app.inject({ method: 'GET', url: '/health', headers: { 'x-request-id': oversized } });
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: '/health',
+      headers: { 'x-request-id': oversized },
+    });
     expect(res.statusCode).toBe(200);
     expect(res.headers['x-request-id']).not.toBe(oversized);
-    expect(res.headers['x-request-id']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(res.headers['x-request-id']).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
   });
 
   it('reports degraded with 503 when the database is gone', async () => {

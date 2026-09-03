@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
-export const ORDER_STATUSES = ['draft', 'placed', 'paid', 'cooking', 'ready', 'served', 'cancelled'] as const;
+export const ORDER_STATUSES = [
+  'draft',
+  'placed',
+  'paid',
+  'cooking',
+  'ready',
+  'served',
+  'cancelled',
+] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const OrderStatusSchema = z.enum(ORDER_STATUSES);
 

@@ -16,7 +16,11 @@ const FIX = [
 export const routeGuardPlugin = fp(async (app: FastifyInstance) => {
   app.addHook('onRoute', (route: RouteOptions) => {
     if (route.config?.public === true) return;
-    const preHandlers = Array.isArray(route.preHandler) ? route.preHandler : route.preHandler === undefined ? [] : [route.preHandler];
+    const preHandlers = Array.isArray(route.preHandler)
+      ? route.preHandler
+      : route.preHandler === undefined
+        ? []
+        : [route.preHandler];
     if (preHandlers.some(isRbacGuard)) return;
     const method = Array.isArray(route.method) ? route.method.join('|') : route.method;
     throw new Error(`Route ${method} ${route.url} has no access guard: ${FIX}`);

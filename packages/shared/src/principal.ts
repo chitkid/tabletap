@@ -16,7 +16,11 @@ export const GuestPrincipalSchema = z.object({
   expiresAt: z.iso.datetime(),
 });
 export const AnonymousPrincipalSchema = z.object({ kind: z.literal('anonymous') });
-export const PrincipalSchema = z.discriminatedUnion('kind', [StaffPrincipalSchema, GuestPrincipalSchema, AnonymousPrincipalSchema]);
+export const PrincipalSchema = z.discriminatedUnion('kind', [
+  StaffPrincipalSchema,
+  GuestPrincipalSchema,
+  AnonymousPrincipalSchema,
+]);
 export type StaffPrincipal = z.infer<typeof StaffPrincipalSchema>;
 export type GuestPrincipal = z.infer<typeof GuestPrincipalSchema>;
 export type Principal = z.infer<typeof PrincipalSchema>;

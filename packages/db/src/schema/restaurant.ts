@@ -14,7 +14,9 @@ export const tables = pgTable(
   'tables',
   {
     id: id(),
-    restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+    restaurantId: uuid('restaurant_id')
+      .notNull()
+      .references(() => restaurants.id, { onDelete: 'cascade' }),
     number: integer('number').notNull(),
     label: text('label').notNull(),
     seats: integer('seats').notNull().default(2),

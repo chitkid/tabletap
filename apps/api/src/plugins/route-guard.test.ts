@@ -19,22 +19,30 @@ describe('route guard invariant', () => {
   };
 
   it('refuses to boot when a route declares neither a guard nor public access', async () => {
-    await expect(boot((app) => app.get('/unguarded', async () => ({})))).rejects.toThrow(/GET \/unguarded/);
+    await expect(boot((app) => app.get('/unguarded', async () => ({})))).rejects.toThrow(
+      /GET \/unguarded/,
+    );
   });
 
   it('names the ways to fix an unguarded route', async () => {
-    await expect(boot((app) => app.get('/unguarded', async () => ({})))).rejects.toThrow(/public: true[\s\S]*requireAction/);
+    await expect(boot((app) => app.get('/unguarded', async () => ({})))).rejects.toThrow(
+      /public: true[\s\S]*requireAction/,
+    );
   });
 
   it('does not accept an arbitrary preHandler as a guard', async () => {
-    await expect(boot((app) => app.get('/looks-guarded', { preHandler: async () => {} }, async () => ({})))).rejects.toThrow(/GET \/looks-guarded/);
+    await expect(
+      boot((app) => app.get('/looks-guarded', { preHandler: async () => {} }, async () => ({}))),
+    ).rejects.toThrow(/GET \/looks-guarded/);
   });
 
   it('accepts a route marked public and a route carrying an rbac guard', async () => {
     await boot((app) => {
       app.get('/open', { config: { public: true, principal: false } }, async () => ({ ok: true }));
       app.get('/closed', { preHandler: requireAction('menu.read') }, async () => ({ ok: true }));
-      app.get('/closed-array', { preHandler: [requireAction('menu.read')] }, async () => ({ ok: true }));
+      app.get('/closed-array', { preHandler: [requireAction('menu.read')] }, async () => ({
+        ok: true,
+      }));
     });
     expect((await ctx!.app.inject({ method: 'GET', url: '/open' })).statusCode).toBe(200);
     expect((await ctx!.app.inject({ method: 'GET', url: '/closed' })).statusCode).toBe(401);

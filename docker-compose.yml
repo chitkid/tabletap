@@ -6,11 +6,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tabletap}
       POSTGRES_DB: ${POSTGRES_DB:-tabletap}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tabletap} -d ${POSTGRES_DB:-tabletap}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-tabletap} -d ${POSTGRES_DB:-tabletap}']
       interval: 5s
       timeout: 3s
       retries: 10
@@ -26,7 +26,7 @@ services:
       NODE_ENV: production
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
-      - "4000:4000"
+      - '4000:4000'
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,7 +40,7 @@ services:
     environment:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       api:
         condition: service_healthy

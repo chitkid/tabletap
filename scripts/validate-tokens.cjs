@@ -71,7 +71,8 @@ const patterns = {
     suggestion: 'Use var(--color-*) token',
     // Black and white stay allowed in a stylesheet, where they are usually an overlay or a
     // shadow. In component source they have to be a token like anything else.
-    allow: (match, ext) => STYLESHEET_EXTENSIONS.has(ext) && BLACK_OR_WHITE.has(match.toLowerCase()),
+    allow: (match, ext) =>
+      STYLESHEET_EXTENSIONS.has(ext) && BLACK_OR_WHITE.has(match.toLowerCase()),
   },
   functionColor: {
     regex: /\b(?:rgba?|hsla?)\s*\(/gi,

@@ -7,9 +7,15 @@ import { restaurants, tables } from './restaurant';
 
 export const orders = pgTable('orders', {
   id: id(),
-  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
-  tableId: uuid('table_id').notNull().references(() => tables.id, { onDelete: 'restrict' }),
-  guestSessionId: uuid('guest_session_id').references(() => guestSessions.id, { onDelete: 'set null' }),
+  restaurantId: uuid('restaurant_id')
+    .notNull()
+    .references(() => restaurants.id, { onDelete: 'cascade' }),
+  tableId: uuid('table_id')
+    .notNull()
+    .references(() => tables.id, { onDelete: 'restrict' }),
+  guestSessionId: uuid('guest_session_id').references(() => guestSessions.id, {
+    onDelete: 'set null',
+  }),
   status: orderStatusEnum('status').notNull().default('draft'),
   subtotalCents: integer('subtotal_cents').notNull().default(0),
   totalCents: integer('total_cents').notNull().default(0),
@@ -25,8 +31,12 @@ export const orders = pgTable('orders', {
 
 export const orderItems = pgTable('order_items', {
   id: id(),
-  orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
-  menuItemId: uuid('menu_item_id').notNull().references(() => menuItems.id, { onDelete: 'restrict' }),
+  orderId: uuid('order_id')
+    .notNull()
+    .references(() => orders.id, { onDelete: 'cascade' }),
+  menuItemId: uuid('menu_item_id')
+    .notNull()
+    .references(() => menuItems.id, { onDelete: 'restrict' }),
   nameSnapshot: text('name_snapshot').notNull(),
   unitPriceCents: integer('unit_price_cents').notNull(),
   quantity: integer('quantity').notNull(),
@@ -36,7 +46,9 @@ export const orderItems = pgTable('order_items', {
 
 export const payments = pgTable('payments', {
   id: id(),
-  orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  orderId: uuid('order_id')
+    .notNull()
+    .references(() => orders.id, { onDelete: 'cascade' }),
   provider: paymentProviderEnum('provider').notNull(),
   providerSessionId: text('provider_session_id'),
   providerPaymentIntentId: text('provider_payment_intent_id'),

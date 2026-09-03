@@ -159,10 +159,7 @@ function main() {
     console.error(`Token source not found: ${tokensPath}`);
     process.exit(1);
   }
-  const tokens = updateDesignTokens(
-    JSON.parse(fs.readFileSync(tokensPath, 'utf-8')),
-    colors,
-  );
+  const tokens = updateDesignTokens(JSON.parse(fs.readFileSync(tokensPath, 'utf-8')), colors);
 
   if (dryRun) {
     console.log('Would update the three brand scales in design-tokens.json:');

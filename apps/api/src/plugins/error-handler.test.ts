@@ -14,7 +14,11 @@ describe('error handler', () => {
     ctx.app.get('/teapot', { config: { public: true, principal: false } }, async () => {
       throw new AppError('NOT_FOUND', 404, 'Nothing here');
     });
-    ctx.app.post('/validate', { config: { public: true, principal: false }, schema: { body: z.object({ n: z.number() }) } }, async () => ({ ok: true }));
+    ctx.app.post(
+      '/validate',
+      { config: { public: true, principal: false }, schema: { body: z.object({ n: z.number() }) } },
+      async () => ({ ok: true }),
+    );
     await ctx.app.ready();
   });
   afterAll(async () => {
@@ -24,7 +28,10 @@ describe('error handler', () => {
   it('maps AppError to its status and code', async () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/teapot' });
     expect(res.statusCode).toBe(404);
-    expect(ErrorEnvelopeSchema.parse(res.json()).error).toEqual({ code: 'NOT_FOUND', message: 'Nothing here' });
+    expect(ErrorEnvelopeSchema.parse(res.json()).error).toEqual({
+      code: 'NOT_FOUND',
+      message: 'Nothing here',
+    });
   });
 
   it('maps validation failures to 400 VALIDATION_FAILED with details', async () => {
@@ -38,20 +45,32 @@ describe('error handler', () => {
   it('hides internals behind 500 INTERNAL', async () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/boom' });
     expect(res.statusCode).toBe(500);
-    expect(res.json()).toEqual({ error: { code: 'INTERNAL', message: 'Something went wrong on our side.' } });
+    expect(res.json()).toEqual({
+      error: { code: 'INTERNAL', message: 'Something went wrong on our side.' },
+    });
     expect(JSON.stringify(res.json())).not.toContain('secret stack');
   });
 
   it('answers an unsupported content type with the envelope and no framework wording', async () => {
-    const res = await ctx.app.inject({ method: 'POST', url: '/api/guest/claim', headers: { 'content-type': 'application/xml' }, payload: '<token/>' });
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/guest/claim',
+      headers: { 'content-type': 'application/xml' },
+      payload: '<token/>',
+    });
     expect(res.statusCode).toBe(415);
-    expect(ErrorEnvelopeSchema.parse(res.json()).error).toEqual({ code: 'VALIDATION_FAILED', message: 'Request could not be processed.' });
+    expect(ErrorEnvelopeSchema.parse(res.json()).error).toEqual({
+      code: 'VALIDATION_FAILED',
+      message: 'Request could not be processed.',
+    });
     expect(res.body).not.toContain('Unsupported Media Type');
   });
 
   it('returns NOT_FOUND envelope for unknown routes', async () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/nope' });
     expect(res.statusCode).toBe(404);
-    expect(res.json()).toEqual({ error: { code: 'NOT_FOUND', message: 'Route GET /nope not found' } });
+    expect(res.json()).toEqual({
+      error: { code: 'NOT_FOUND', message: 'Route GET /nope not found' },
+    });
   });
 });
