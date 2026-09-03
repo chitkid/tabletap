@@ -12,6 +12,8 @@ const tokens = JSON.parse(
   ),
 ) as Tree;
 
+const theme = readFileSync(fileURLToPath(new URL('../theme.css', import.meta.url)), 'utf8');
+
 function get(path: string): string {
   const node = path
     .split('.')
@@ -81,5 +83,12 @@ describe('design tokens', () => {
   });
   it('kitchen body size is at least 20px', () => {
     expect(parseFloat(sem('kitchen-body-size'))).toBeGreaterThanOrEqual(1.25); // rem
+  });
+  it('scales Tailwind text sizes on the kitchen surface (body 20px, nothing under 16px)', () => {
+    const block = theme.slice(theme.indexOf("[data-surface='kitchen']"));
+    expect(block).toMatch(/--text-xs:\s*1rem/);
+    expect(block).toMatch(/--text-base:\s*1\.25rem/);
+    expect(block).toMatch(/--text-xl:\s*1\.75rem/);
+    expect(block).toMatch(/--text-2xl:\s*2rem/);
   });
 });

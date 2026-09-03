@@ -52,10 +52,23 @@
   --plate-slot-5: var(--primitive-color-ink-500);
 }
 
-/* Kitchen: dark tokens come from tokens.css; here only type size. */
+/* Kitchen: dark tokens come from tokens.css. Type scale per pages/kitchen.md: nothing under 16px,
+   body 20px. Tailwind's text-* utilities read these variables, so the override reaches every utility. */
 [data-surface='kitchen'] {
   font-size: var(--kitchen-body-size);
   color-scheme: dark;
+  --text-xs: 1rem;
+  --text-xs--line-height: 1.25;
+  --text-sm: 1.125rem;
+  --text-sm--line-height: 1.4;
+  --text-base: 1.25rem;
+  --text-base--line-height: 1.4;
+  --text-lg: 1.375rem;
+  --text-lg--line-height: 1.35;
+  --text-xl: 1.75rem;
+  --text-xl--line-height: 1.1;
+  --text-2xl: 2rem;
+  --text-2xl--line-height: 1.1;
 }
 /* Admin: denser spacing scale (Tailwind multiplies every spacing utility by --spacing). */
 [data-surface='admin'] {

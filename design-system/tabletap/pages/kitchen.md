@@ -18,7 +18,7 @@
 ### Layout Overrides
 
 - **Max Width:** none — full-bleed ticket board, not a centered marketing layout
-- **Layout:** Columns by order status (Placed, Paid, Cooking, Ready); new tickets enter at the top of their column. A cook reads this from roughly a metre away, often at an angle, sometimes through steam — layout must stay legible at that distance.
+- **Layout:** Three columns: New (placed and paid), Cooking, Ready; the oldest ticket sits at the top of its column, the newest carries the ember left edge. A cook reads this from roughly a metre away, often at an angle, sometimes through steam — layout must stay legible at that distance.
 - **Sections:** 1. Status column headers, 2. Ticket cards (table number, item lines, elapsed timer, status chip), 3. Timer band with 5/10 minute thresholds per ticket
 
 ### Spacing Overrides
@@ -41,7 +41,7 @@ Per `docs/brand-guidelines.md` §2 kitchen type scale — nothing on this surfac
 
 Timer digits and table numbers set `font-variant-numeric: tabular-nums` so elapsed time does not jitter as it ticks.
 
-The sizes above are the target scale, not a shipped mechanism. `[data-surface="kitchen"]` sets `font-size: var(--kitchen-body-size)` (`1.25rem`) on the surface root, which moves anything sized in `em` or inherited; Tailwind's `text-*` utilities are rem-based and therefore ignore it. Overriding the `--text-*` scale under the surface is a decision M3 has to make before it builds the board — it is in `docs/backlog.md`.
+Shipped in M3: `[data-surface="kitchen"]` in `packages/ui/theme.css` overrides Tailwind's `--text-*` scale (xs 16, sm 18, base 20, lg 22, xl 28, 2xl 32 px).
 
 ### Color Overrides
 
@@ -88,7 +88,7 @@ The sizes above are the target scale, not a shipped mechanism. `[data-surface="k
 ## Page-Specific Components
 
 - Ticket card: table number, item list (with modifiers/notes), elapsed timer, status chip
-- Status column header (Placed / Paid / Cooking / Ready)
+- Status column header (New / Cooking / Ready)
 - Timer badge (OK / Warning / Late, reusing the status hues above)
 - "Bump" / mark-ready control at the bottom edge of each ticket card
 
