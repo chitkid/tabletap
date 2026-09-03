@@ -40,6 +40,18 @@
   --shadow-md: var(--primitive-shadow-md);
 }
 
+/* Plate illustrations (packages/ui/src/components/plate.tsx) draw only with these aliases. */
+:root {
+  --plate-base: var(--card);
+  --plate-rim: var(--border);
+  --plate-slot-0: var(--primitive-color-oat-sunken);
+  --plate-slot-1: var(--primitive-color-ember-500);
+  --plate-slot-2: var(--primitive-color-ember-100);
+  --plate-slot-3: var(--primitive-color-olive-500);
+  --plate-slot-4: var(--primitive-color-olive-100);
+  --plate-slot-5: var(--primitive-color-ink-500);
+}
+
 /* Kitchen: dark tokens come from tokens.css; here only type size. */
 [data-surface='kitchen'] {
   font-size: var(--kitchen-body-size);
