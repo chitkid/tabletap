@@ -9,7 +9,7 @@ import {
   Input,
   Label,
 } from '@tabletap/ui';
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { authClient } from '../lib/auth-client';
 
 export interface AuthClientLike {
@@ -36,14 +36,49 @@ const MESSAGE_BY_STATUS: Record<number, string> = {
 };
 const UNREACHABLE = "Can't reach the server. Check the connection and try again.";
 
+function messageFor(status?: number): string {
+  return (status === undefined ? undefined : MESSAGE_BY_STATUS[status]) ?? UNREACHABLE;
+}
+
+/** The seeded credentials the landing hands over for a one-click demo sign-in. */
+export interface DemoAccount {
+  email: string;
+  password: string;
+  name: string;
+}
+
 export function LoginForm({
   client = authClient as unknown as AuthClientLike,
+  demo,
 }: {
   client?: AuthClientLike;
+  demo?: DemoAccount;
 }) {
   const session = client.useSession();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const errorId = useId();
+
+  // One attempt per mount, whatever the outcome: the effect re-runs on every render (both
+  // `demo` and the session object are fresh identities each time), and a failed sign-in that
+  // retried itself would hammer the API and lock the visitor out of the fallback form.
+  const attempted = useRef(false);
+  useEffect(() => {
+    if (!demo || attempted.current || session.isPending || session.data) return;
+    attempted.current = true;
+    setStatus({ kind: 'submitting' });
+    void client.signIn
+      // `demo` also carries the display name; the credential call gets only the credentials.
+      .email({ email: demo.email, password: demo.password })
+      .then((result) => {
+        if (result.error) {
+          setStatus({ kind: 'error', message: messageFor(result.error.status) });
+          return;
+        }
+        setStatus({ kind: 'idle' });
+        session.refetch?.();
+      })
+      .catch(() => setStatus({ kind: 'error', message: UNREACHABLE }));
+  }, [client, demo, session]);
 
   if (session.data) {
     const { name, role } = session.data.user;
@@ -78,9 +113,7 @@ export function LoginForm({
         password: String(data.get('password') ?? ''),
       });
       if (result.error) {
-        const known =
-          result.error.status === undefined ? undefined : MESSAGE_BY_STATUS[result.error.status];
-        setStatus({ kind: 'error', message: known ?? UNREACHABLE });
+        setStatus({ kind: 'error', message: messageFor(result.error.status) });
         return;
       }
       setStatus({ kind: 'idle' });
@@ -98,38 +131,42 @@ export function LoginForm({
         <CardDescription>Use the demo accounts from the README.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="username"
-              required
-              className="h-11"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              className="h-11"
-              aria-describedby={status.kind === 'error' ? errorId : undefined}
-              aria-invalid={status.kind === 'error' || undefined}
-            />
-          </div>
-          <p id={errorId} role="status" aria-live="polite" className="min-h-6 text-destructive">
-            {status.kind === 'error' ? status.message : ''}
-          </p>
-          <Button type="submit" disabled={submitting} aria-busy={submitting}>
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </form>
+        {demo && submitting ? (
+          <p role="status" aria-live="polite">{`Signing in as ${demo.name}…`}</p>
+        ) : (
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="username"
+                required
+                className="h-11"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                className="h-11"
+                aria-describedby={status.kind === 'error' ? errorId : undefined}
+                aria-invalid={status.kind === 'error' || undefined}
+              />
+            </div>
+            <p id={errorId} role="status" aria-live="polite" className="min-h-6 text-destructive">
+              {status.kind === 'error' ? status.message : ''}
+            </p>
+            <Button type="submit" disabled={submitting} aria-busy={submitting}>
+              {submitting ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        )}
       </CardContent>
     </Card>
   );

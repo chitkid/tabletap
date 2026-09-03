@@ -98,4 +98,34 @@ describe('LoginForm', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     expect(client.signOut).toHaveBeenCalled();
   });
+  it('signs in once with the demo credentials and shows who it is signing in as', async () => {
+    const email = vi.fn(async () => ({ error: null }));
+    const client = makeClient({ signIn: { email } });
+    render(
+      <LoginForm
+        client={client}
+        demo={{
+          email: 'kitchen@littlefurnace.demo',
+          password: 'tabletap-demo',
+          name: 'Theo Baptiste',
+        }}
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Signing in as Theo Baptiste…');
+    await waitFor(() =>
+      expect(email).toHaveBeenCalledWith({
+        email: 'kitchen@littlefurnace.demo',
+        password: 'tabletap-demo',
+      }),
+    );
+    expect(email).toHaveBeenCalledTimes(1);
+  });
+  it('falls back to the form when the demo sign-in fails', async () => {
+    const client = makeClient({
+      signIn: { email: vi.fn(async () => ({ error: { status: 401 } })) },
+    });
+    render(<LoginForm client={client} demo={{ email: 'x@y.z', password: 'p', name: 'X' }} />);
+    expect(await screen.findByText("That email and password don't match.")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+  });
 });
