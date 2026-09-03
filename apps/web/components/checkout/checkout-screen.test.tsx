@@ -56,7 +56,12 @@ const orderBody = {
     totalCents: 800,
     note: null,
     placedAt: '2026-09-03T10:00:00.000Z',
+    cookingAt: null,
+    readyAt: null,
+    servedAt: null,
+    cancelledAt: null,
     createdAt: '2026-09-03T10:00:00.000Z',
+    updatedAt: '2026-09-03T10:00:00.000Z',
   },
 };
 

@@ -97,11 +97,31 @@ export const OrderDtoSchema = z.object({
   totalCents: z.number().int().nonnegative(),
   note: z.string().nullable(),
   placedAt: z.iso.datetime().nullable(),
+  cookingAt: z.iso.datetime().nullable(),
+  readyAt: z.iso.datetime().nullable(),
+  servedAt: z.iso.datetime().nullable(),
+  cancelledAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 export type OrderDto = z.infer<typeof OrderDtoSchema>;
 export const OrderResponseSchema = z.object({ order: OrderDtoSchema });
 export const OrdersResponseSchema = z.object({ orders: z.array(OrderDtoSchema) });
+
+export const TransitionRequestSchema = z.object({ to: OrderStatusSchema });
+export type TransitionRequest = z.infer<typeof TransitionRequestSchema>;
+export const ActiveOrdersQuerySchema = z.object({ active: z.literal('1').optional() });
+export const SocketTokenResponseSchema = z.object({
+  token: z.string().min(1),
+  expiresInSeconds: z.number().int().positive(),
+});
+export type SocketTokenResponse = z.infer<typeof SocketTokenResponseSchema>;
+export const RushResponseSchema = z.object({
+  started: z.literal(true),
+  durationSeconds: z.number().int().positive(),
+  ordersPlanned: z.number().int().positive(),
+});
+export type RushResponse = z.infer<typeof RushResponseSchema>;
 
 export const DemoLinksResponseSchema = z.object({
   guest: z.object({ tableNumber: z.number().int().positive(), url: z.url() }),

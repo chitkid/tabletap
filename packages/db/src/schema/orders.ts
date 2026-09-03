@@ -26,6 +26,7 @@ export const orders = pgTable(
     idempotencyKey: text('idempotency_key').unique(),
     placedAt: timestamp('placed_at', { withTimezone: true }),
     paidAt: timestamp('paid_at', { withTimezone: true }),
+    cookingAt: timestamp('cooking_at', { withTimezone: true }),
     readyAt: timestamp('ready_at', { withTimezone: true }),
     servedAt: timestamp('served_at', { withTimezone: true }),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),

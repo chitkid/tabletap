@@ -59,6 +59,13 @@ describe('orders', () => {
     });
     expect(order.number).toBeGreaterThan(0);
     expect(order.placedAt).not.toBeNull();
+    expect(order).toMatchObject({
+      cookingAt: null,
+      readyAt: null,
+      servedAt: null,
+      cancelledAt: null,
+    });
+    expect(order.updatedAt).toBe(order.createdAt);
     expect(
       order.items.map((i) => [i.name, i.unitPriceCents, i.quantity, i.lineTotalCents]),
     ).toEqual([

@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "cooking_at" timestamp with time zone;

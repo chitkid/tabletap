@@ -162,7 +162,12 @@ describe('M2 contracts', () => {
         totalCents: 400,
         note: null,
         placedAt: '2026-09-03T10:00:00.000Z',
+        cookingAt: null,
+        readyAt: null,
+        servedAt: null,
+        cancelledAt: null,
         createdAt: '2026-09-03T10:00:00.000Z',
+        updatedAt: '2026-09-03T10:00:00.000Z',
       }).success,
     ).toBe(true);
     expect(
@@ -179,5 +184,63 @@ describe('M2 contracts', () => {
         resetsEveryMinutes: 60,
       }).success,
     ).toBe(true);
+  });
+});
+
+import {
+  ActiveOrdersQuerySchema,
+  RushResponseSchema,
+  SOCKET_ROOMS,
+  SocketTokenResponseSchema,
+  TransitionRequestSchema,
+} from './index';
+
+describe('M3 contracts', () => {
+  const base = {
+    id: U1,
+    number: 42,
+    status: 'placed',
+    tableId: U1,
+    tableNumber: 7,
+    items: [],
+    subtotalCents: 0,
+    totalCents: 0,
+    note: null,
+    placedAt: '2026-09-03T12:00:00.000Z',
+    createdAt: '2026-09-03T12:00:00.000Z',
+  };
+  it('adds INVALID_TRANSITION', () => {
+    expect(ERROR_CODES).toContain('INVALID_TRANSITION');
+  });
+  it('requires updatedAt and the per-status timestamps on an order', () => {
+    expect(OrderDtoSchema.safeParse(base).success).toBe(false);
+    const full = {
+      ...base,
+      updatedAt: base.createdAt,
+      cookingAt: null,
+      readyAt: null,
+      servedAt: null,
+      cancelledAt: null,
+    };
+    expect(OrderDtoSchema.parse({ ...full, guestSessionId: 'x' })).not.toHaveProperty(
+      'guestSessionId',
+    );
+  });
+  it('validates the small request and response shapes', () => {
+    expect(TransitionRequestSchema.safeParse({ to: 'cooking' }).success).toBe(true);
+    expect(TransitionRequestSchema.safeParse({ to: 'baked' }).success).toBe(false);
+    expect(ActiveOrdersQuerySchema.parse({})).toEqual({});
+    expect(ActiveOrdersQuerySchema.safeParse({ active: 'yes' }).success).toBe(false);
+    expect(SocketTokenResponseSchema.safeParse({ token: 't', expiresInSeconds: 60 }).success).toBe(
+      true,
+    );
+    expect(
+      RushResponseSchema.safeParse({ started: true, durationSeconds: 60, ordersPlanned: 12 })
+        .success,
+    ).toBe(true);
+  });
+  it('names the rooms', () => {
+    expect(SOCKET_ROOMS.kitchen).toBe('kitchen');
+    expect(SOCKET_ROOMS.table(U1)).toBe(`table:${U1}`);
   });
 });

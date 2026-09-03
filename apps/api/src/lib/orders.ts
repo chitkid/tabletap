@@ -29,7 +29,12 @@ function toDto(order: OrderRow, items: ItemRow[], tableNumber: number): Internal
     totalCents: order.totalCents,
     note: order.note,
     placedAt: order.placedAt ? order.placedAt.toISOString() : null,
+    cookingAt: order.cookingAt ? order.cookingAt.toISOString() : null,
+    readyAt: order.readyAt ? order.readyAt.toISOString() : null,
+    servedAt: order.servedAt ? order.servedAt.toISOString() : null,
+    cancelledAt: order.cancelledAt ? order.cancelledAt.toISOString() : null,
     createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
     guestSessionId: order.guestSessionId,
   };
 }

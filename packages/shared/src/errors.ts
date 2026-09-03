@@ -9,6 +9,7 @@ export const ERROR_CODES = [
   'RATE_LIMITED',
   'ITEM_UNAVAILABLE',
   'CONFLICT',
+  'INVALID_TRANSITION',
   'INTERNAL',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
