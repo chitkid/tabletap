@@ -35,5 +35,6 @@ test('a guest orders from the landing page QR link', async ({ page }) => {
 
 test('an expired QR code explains itself', async ({ page }) => {
   await page.goto('/t/not-a-token');
-  await expect(page.getByRole('alert')).toHaveText('This QR code is not valid.');
+  // Scoped to main: Next.js appends its own empty role="alert" route announcer to the body.
+  await expect(page.getByRole('main').getByRole('alert')).toHaveText('This QR code is not valid.');
 });
