@@ -16,12 +16,14 @@ import { demoResetPlugin } from './plugins/demo-reset';
 import { errorHandlerPlugin } from './plugins/error-handler';
 import { principalPlugin } from './plugins/principal';
 import { routeGuardPlugin } from './plugins/route-guard';
+import { realtimePlugin } from './realtime/server';
 import { demoRoutes } from './routes/demo';
 import { guestRoutes } from './routes/guest';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
 import { menuRoutes } from './routes/menu';
 import { ordersRoutes } from './routes/orders';
+import { socketTokenRoutes } from './routes/socket-token';
 import { tablesRoutes } from './routes/tables';
 import './types';
 
@@ -96,5 +98,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(menuRoutes, { prefix: '/api' });
   await app.register(ordersRoutes, { prefix: '/api' });
   await app.register(demoRoutes, { prefix: '/api' });
+  await app.register(socketTokenRoutes, { prefix: '/api' });
+  await app.register(realtimePlugin);
   return app;
 }

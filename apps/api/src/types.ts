@@ -3,6 +3,7 @@ import type { Principal } from '@tabletap/shared';
 import type { Config } from './config';
 import type { Auth } from './auth';
 import type { OrderEvents } from './lib/order-events';
+import type { RealtimeServer } from './realtime/server';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -10,6 +11,7 @@ declare module 'fastify' {
     config: Config;
     auth: Auth;
     orderEvents: OrderEvents;
+    io: RealtimeServer;
   }
   interface FastifyRequest {
     principal: Principal;
