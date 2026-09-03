@@ -15,7 +15,7 @@ function makeClient(over: Partial<AuthClientLike> = {}): AuthClientLike {
 describe('LoginForm', () => {
   it('submits email and password', async () => {
     const client = makeClient();
-    render(<LoginForm client={client} />);
+    render(<LoginForm client={client} next="/kitchen" />);
     await userEvent.type(screen.getByLabelText('Email'), 'kitchen@littlefurnace.demo');
     await userEvent.type(screen.getByLabelText('Password'), 'tabletap-demo');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -28,7 +28,7 @@ describe('LoginForm', () => {
     const client = makeClient({
       signIn: { email: vi.fn(async () => ({ error: { status: 401, message: 'Invalid' } })) },
     });
-    render(<LoginForm client={client} />);
+    render(<LoginForm client={client} next="/kitchen" />);
     await userEvent.type(screen.getByLabelText('Email'), 'a@b.c');
     await userEvent.type(screen.getByLabelText('Password'), 'x');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -42,7 +42,7 @@ describe('LoginForm', () => {
         email: vi.fn(async () => ({ error: { status: 429, message: 'Too many requests' } })),
       },
     });
-    render(<LoginForm client={client} />);
+    render(<LoginForm client={client} next="/kitchen" />);
     await userEvent.type(screen.getByLabelText('Email'), 'a@b.c');
     await userEvent.type(screen.getByLabelText('Password'), 'x');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -58,7 +58,7 @@ describe('LoginForm', () => {
         }),
       },
     });
-    render(<LoginForm client={client} />);
+    render(<LoginForm client={client} next="/kitchen" />);
     await userEvent.type(screen.getByLabelText('Email'), 'a@b.c');
     await userEvent.type(screen.getByLabelText('Password'), 'x');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -78,7 +78,7 @@ describe('LoginForm', () => {
         ),
       },
     });
-    render(<LoginForm client={client} />);
+    render(<LoginForm client={client} next="/kitchen" />);
     await userEvent.type(screen.getByLabelText('Email'), 'a@b.c');
     await userEvent.type(screen.getByLabelText('Password'), 'x');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -86,17 +86,19 @@ describe('LoginForm', () => {
     resolve({ error: null });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled());
   });
-  it('renders the signed-in state with a sign out button', async () => {
+  it('navigates to `next` once the session resolves', async () => {
+    const navigate = vi.fn();
     const client = makeClient({
       useSession: () => ({
         data: { user: { name: 'Theo Baptiste', role: 'kitchen' } },
         isPending: false,
       }),
     });
-    render(<LoginForm client={client} />);
-    expect(screen.getByText('Signed in as Theo Baptiste (kitchen)')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
-    expect(client.signOut).toHaveBeenCalled();
+    render(<LoginForm client={client} next="/kitchen" navigate={navigate} />);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Signed in as Theo Baptiste. Opening the kitchen…',
+    );
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/kitchen'));
   });
   it('signs in once with the demo credentials and shows who it is signing in as', async () => {
     const email = vi.fn(async () => ({ error: null }));
@@ -104,6 +106,7 @@ describe('LoginForm', () => {
     render(
       <LoginForm
         client={client}
+        next="/kitchen"
         demo={{
           email: 'kitchen@littlefurnace.demo',
           password: 'tabletap-demo',
@@ -124,7 +127,13 @@ describe('LoginForm', () => {
     const client = makeClient({
       signIn: { email: vi.fn(async () => ({ error: { status: 401 } })) },
     });
-    render(<LoginForm client={client} demo={{ email: 'x@y.z', password: 'p', name: 'X' }} />);
+    render(
+      <LoginForm
+        client={client}
+        next="/kitchen"
+        demo={{ email: 'x@y.z', password: 'p', name: 'X' }}
+      />,
+    );
     expect(await screen.findByText("That email and password don't match.")).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
   });

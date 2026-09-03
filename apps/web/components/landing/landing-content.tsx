@@ -12,6 +12,7 @@ import {
   Plate,
 } from '@tabletap/ui';
 import Link from 'next/link';
+import { RushButton } from '../kitchen/rush-button';
 
 /** The three plates in the header are the only decoration on the page. */
 const PLATES = [
@@ -24,15 +25,15 @@ const STAFF_CARDS = [
   {
     title: 'Kitchen',
     /** `product` is what the card says with demo mode off: no sign-in is on offer then. */
-    product: 'Tickets appear the moment a guest orders. Arrives in the next milestone.',
-    demo: 'Tickets appear the moment a guest orders. Arrives in the next milestone; today it signs you in as kitchen staff.',
+    product: 'Tickets appear the moment a guest orders, on a live board.',
+    demo: 'Tickets appear the moment a guest orders. Opens the live board signed in as kitchen staff.',
     href: '/login?demo=kitchen',
     cta: 'Open the kitchen display',
   },
   {
     title: 'Admin',
     product: 'Menu, tables, QR codes and a dashboard. Arrives later.',
-    demo: 'Menu, tables, QR codes and a dashboard. Arrives later; today it signs you in as an admin.',
+    demo: 'Menu, tables, QR codes and a dashboard. Arrives later; today it opens the kitchen board as an admin.',
     href: '/login?demo=admin',
     cta: 'Open the admin',
   },
@@ -150,6 +151,14 @@ export function LandingContent({
             ))}
           </div>
           {links ? <p className="text-sm text-muted-foreground">{resetNotice(links)}</p> : null}
+          {links ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <RushButton />
+              <p className="text-sm text-muted-foreground">
+                Twelve orders over one minute, so the board has something to do.
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <section aria-labelledby="how-it-works" className="flex flex-col gap-3">

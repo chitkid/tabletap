@@ -50,13 +50,21 @@ export interface DemoAccount {
 export function LoginForm({
   client = authClient as unknown as AuthClientLike,
   demo,
+  next,
+  navigate = (href: string) => window.location.replace(href),
 }: {
   client?: AuthClientLike;
   demo?: DemoAccount;
+  next: string;
+  navigate?: (href: string) => void;
 }) {
   const session = client.useSession();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const errorId = useId();
+
+  useEffect(() => {
+    if (session.data) navigate(next);
+  }, [session.data, navigate, next]);
 
   // One attempt per mount, whatever the outcome: the effect re-runs on every render (both
   // `demo` and the session object are fresh identities each time), and a failed sign-in that
@@ -81,25 +89,11 @@ export function LoginForm({
   }, [client, demo, session]);
 
   if (session.data) {
-    const { name, role } = session.data.user;
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{`Signed in as ${name} (${role ?? 'staff'})`}</CardTitle>
-          <CardDescription>
-            Kitchen and admin screens arrive in the next milestones.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => void client.signOut().then(() => session.refetch?.())}
-          >
-            Sign out
-          </Button>
-        </CardContent>
-      </Card>
+      <p
+        role="status"
+        aria-live="polite"
+      >{`Signed in as ${session.data.user.name}. Opening the kitchen…`}</p>
     );
   }
 
@@ -128,7 +122,9 @@ export function LoginForm({
     <Card>
       <CardHeader>
         <CardTitle>Staff sign in</CardTitle>
-        <CardDescription>Use the demo accounts from the README.</CardDescription>
+        <CardDescription>
+          Use the demo accounts from the README. The kitchen board opens after sign-in.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {demo && submitting ? (

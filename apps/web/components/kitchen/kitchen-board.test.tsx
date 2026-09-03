@@ -1,52 +1,11 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { OrderDto } from '@tabletap/shared';
-import { describe, expect, it, vi, type Mock } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { AppSocket } from '../../lib/socket';
+import { fakeSocket } from '../../test/fake-socket';
 import { KitchenBoard } from './kitchen-board';
 
-type Handler = (...args: never[]) => void;
-type Snapshot = { orders: OrderDto[]; serverTime: string };
-/**
- * Annotated because the literal below refers to itself (`on` returns the socket, `emit` stores
- * the ack on it): without the annotation the inferred type is circular.
- */
-interface FakeSocket {
-  on(event: string, fn: Handler): FakeSocket;
-  off: Mock;
-  removeAllListeners: Mock;
-  connect: Mock;
-  disconnect: Mock;
-  emit: Mock;
-  io: { on(event: string, fn: Handler): FakeSocket };
-  lastAck: undefined | ((s: Snapshot) => void);
-  fire(event: string, ...args: unknown[]): void;
-}
-
-function fakeSocket() {
-  const handlers = new Map<string, Handler[]>();
-  const managerHandlers = new Map<string, Handler[]>();
-  const on = (map: Map<string, Handler[]>) => (event: string, fn: Handler) => {
-    map.set(event, [...(map.get(event) ?? []), fn]);
-    return socket;
-  };
-  const socket: FakeSocket = {
-    on: on(handlers),
-    off: vi.fn(),
-    removeAllListeners: vi.fn(),
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    emit: vi.fn((event: string, ack?: (snapshot: Snapshot) => void) => {
-      if (event === 'subscribe') socket.lastAck = ack;
-    }),
-    io: { on: on(managerHandlers) },
-    lastAck: undefined,
-    fire(event: string, ...args: unknown[]) {
-      for (const fn of handlers.get(event) ?? []) (fn as (...a: unknown[]) => void)(...args);
-    },
-  };
-  return socket;
-}
 const order = (id: string, patch: Partial<OrderDto> = {}): OrderDto => ({
   id,
   number: Number(id.replace('o', '')),

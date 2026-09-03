@@ -45,4 +45,13 @@ describe('LandingContent', () => {
     expect(screen.queryByRole('link', { name: 'Table 7 as a guest' })).toBeNull();
     expect(screen.getByText('Scan the QR code on your table to order.')).toBeInTheDocument();
   });
+  it('offers Simulate rush and the live board copy in demo mode', () => {
+    render(<LandingContent links={links} qrSvg="<svg />" />);
+    expect(screen.getByRole('button', { name: 'Simulate rush' })).toBeInTheDocument();
+    expect(screen.getByText(/Opens the live board signed in as kitchen staff/)).toBeInTheDocument();
+  });
+  it('hides Simulate rush without demo mode', () => {
+    render(<LandingContent links={null} qrSvg={null} />);
+    expect(screen.queryByRole('button', { name: 'Simulate rush' })).toBeNull();
+  });
 });

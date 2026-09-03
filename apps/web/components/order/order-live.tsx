@@ -1,0 +1,63 @@
+'use client';
+import type { OrderDto } from '@tabletap/shared';
+import { useEffect, useState } from 'react';
+import { createSocket, type AppSocket } from '../../lib/socket';
+import { OrderScreen, headlineFor } from './order-screen';
+
+/** The receipt keeps itself current: one socket, one room (the table's), one order to watch. */
+export function OrderLive({
+  initial,
+  currency,
+  socketFactory = createSocket,
+}: {
+  initial: OrderDto;
+  currency: string;
+  socketFactory?: () => AppSocket;
+}) {
+  const [order, setOrder] = useState(initial);
+  const [cleared, setCleared] = useState(false);
+  useEffect(() => {
+    const socket = socketFactory();
+    const take = (next: OrderDto) => {
+      if (next.id !== initial.id) return;
+      setOrder((prev) => (Date.parse(next.updatedAt) >= Date.parse(prev.updatedAt) ? next : prev));
+    };
+    socket.on('connect', () =>
+      socket.emit('subscribe', (snapshot) => {
+        const mine = snapshot.orders.find((o) => o.id === initial.id);
+        if (mine) take(mine);
+        else setCleared(true);
+      }),
+    );
+    socket.on('order:updated', ({ order: next }) => take(next));
+    socket.on('demo:reset', () => setCleared(true));
+    socket.connect();
+    return () => {
+      socket.removeAllListeners();
+      socket.disconnect();
+    };
+  }, [initial.id, socketFactory]);
+  return (
+    <>
+      {!cleared && order.status === 'ready' ? (
+        <p role="alert" className="sr-only">
+          {headlineFor(order)}
+        </p>
+      ) : null}
+      {cleared ? (
+        // `OrderScreen` renders its own live region (the elapsed-time clock); once the order is
+        // gone that clock is no longer telling the truth, so the cleared notice replaces the
+        // whole receipt rather than sitting on top of it.
+        <p
+          role="status"
+          aria-live="polite"
+          className="mx-auto w-full max-w-2xl px-4 pt-6 text-muted-foreground"
+        >
+          This order was cleared by the hourly demo reset.
+        </p>
+      ) : (
+        <OrderScreen order={order} currency={currency} />
+      )}
+    </>
+  );
+}

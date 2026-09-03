@@ -4,6 +4,25 @@ import Link from 'next/link';
 import { formatCents } from '../../lib/money';
 import { ElapsedSince } from './elapsed-since';
 
+/** The one-line status a guest reads first, in the brand voice, for every stage of the order. */
+export function headlineFor(order: OrderDto): string {
+  switch (order.status) {
+    case 'cooking':
+      return `Order #${order.number} is being made.`;
+    case 'ready':
+      return `Order #${order.number} is ready.`;
+    case 'served':
+      return `Order #${order.number} was served. Enjoy.`;
+    case 'cancelled':
+      return `Order #${order.number} was cancelled.`;
+    // 'draft', 'placed' and 'paid' all read as freshly sent: a guest never sees 'draft' (the
+    // order does not exist for them until it is placed), and 'paid' is the M3 interim status
+    // that sits alongside 'placed' before the kitchen picks it up (ADR 0009).
+    default:
+      return `Order #${order.number} sent to the kitchen.`;
+  }
+}
+
 /**
  * The receipt a guest keeps open on the table. It says the one thing they came for in the first
  * line — the order is with the kitchen — and then answers, in order, the questions that follow:
@@ -13,9 +32,7 @@ export function OrderScreen({ order, currency }: { order: OrderDto; currency: st
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6">
       <header className="flex flex-col gap-3">
-        <h1 className="font-display text-3xl font-semibold">
-          {`Order #${order.number} sent to the kitchen.`}
-        </h1>
+        <h1 className="font-display text-3xl font-semibold">{headlineFor(order)}</h1>
         <div className="flex flex-wrap items-center gap-3">
           <StatusBadge status={order.status} />
           <span className="text-muted-foreground">{`Table ${order.tableNumber}`}</span>

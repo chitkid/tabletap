@@ -41,4 +41,14 @@ describe('OrderScreen', () => {
     expect(screen.getByText('No basil')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to menu' })).toHaveAttribute('href', '/menu');
   });
+  it.each([
+    ['placed', 'Order #42 sent to the kitchen.'],
+    ['cooking', 'Order #42 is being made.'],
+    ['ready', 'Order #42 is ready.'],
+    ['served', 'Order #42 was served. Enjoy.'],
+    ['cancelled', 'Order #42 was cancelled.'],
+  ] as const)('headline for %s', (status, text) => {
+    render(<OrderScreen order={{ ...order, status }} currency="USD" />);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(text);
+  });
 });

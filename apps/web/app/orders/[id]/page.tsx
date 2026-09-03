@@ -1,6 +1,6 @@
 import { OrderResponseSchema, type OrderDto } from '@tabletap/shared';
 import { notFound, redirect } from 'next/navigation';
-import { OrderScreen } from '../../../components/order/order-screen';
+import { OrderLive } from '../../../components/order/order-live';
 import { ApiError, apiFetch } from '../../../lib/api';
 import { guestCookie } from '../../../lib/guest-cookie';
 
@@ -24,5 +24,5 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   }
   // The order DTO carries no currency and M2 has one restaurant, priced in USD. M5 adds the
   // currency to the DTO; until then the guest surface must not invent one per page.
-  return <OrderScreen order={order} currency="USD" />;
+  return <OrderLive initial={order} currency="USD" />;
 }
