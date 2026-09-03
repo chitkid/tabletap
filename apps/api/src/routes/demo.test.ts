@@ -53,10 +53,16 @@ describe('GET /api/demo/links', () => {
     await app.close();
     await close();
   });
-  it('is rate-limited to 30 per minute per ip', async () => {
-    let last = 0;
-    for (let i = 0; i < 31; i++)
-      last = (await ctx.app.inject({ method: 'GET', url: '/api/demo/links' })).statusCode;
-    expect(last).toBe(429);
+  // Every landing render asks for these links from the web container, so one ip is every
+  // visitor. The limit is a runaway guard, not a per-visitor budget.
+  // Own app, so the bucket starts full and the count is exact.
+  it('is rate-limited to 300 per minute per ip', async () => {
+    const own = await createTestApp();
+    const statuses: number[] = [];
+    for (let i = 0; i < 301; i++)
+      statuses.push((await own.app.inject({ method: 'GET', url: '/api/demo/links' })).statusCode);
+    await own.close();
+    expect(statuses.filter((s) => s !== 200)).toEqual([429]);
+    expect(statuses.at(-1)).toBe(429);
   });
 });

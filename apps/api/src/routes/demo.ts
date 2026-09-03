@@ -14,7 +14,10 @@ export async function demoRoutes(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().get(
     '/demo/links',
     {
-      config: { public: true, principal: false, rateLimit: { max: 30, timeWindow: '1 minute' } },
+      // The web tier calls this from the server on every landing render, so every visitor
+      // arrives as the same ip. The limit is here to stop a runaway loop, not to budget
+      // visitors; the web tier also caches the answer for 30 seconds (lib/demo-links.ts).
+      config: { public: true, principal: false, rateLimit: { max: 300, timeWindow: '1 minute' } },
       schema: { response: { 200: DemoLinksResponseSchema } },
     },
     async () => {
