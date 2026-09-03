@@ -22,8 +22,14 @@ const EnvSchema = z.object({
    * from the production image).
    */
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
+  /** Gates GET /api/demo/links and the hourly demo reset scheduler. */
+  DEMO_MODE: z.enum(['true', 'false']).default('false'),
+  /** Minutes between automatic demo data resets; 0 disables the scheduler. */
+  DEMO_RESET_INTERVAL_MINUTES: z.coerce.number().int().nonnegative().default(60),
+  /** Password for the three seeded staff accounts. */
+  DEMO_PASSWORD: z.string().min(8).default('tabletap-demo'),
 });
-export type Config = z.infer<typeof EnvSchema> & { cookieSecure: boolean };
+export type Config = z.infer<typeof EnvSchema> & { cookieSecure: boolean; demoMode: boolean };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const parsed = EnvSchema.safeParse(env);
@@ -31,8 +37,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     const lines = parsed.error.issues.map((i) => `  ${i.path.join('.') || '(root)'}: ${i.message}`);
     throw new Error(`Invalid environment:\n${lines.join('\n')}`);
   }
-  const { COOKIE_SECURE, NODE_ENV } = parsed.data;
+  const { COOKIE_SECURE, NODE_ENV, DEMO_MODE } = parsed.data;
   const cookieSecure =
     COOKIE_SECURE === undefined ? NODE_ENV === 'production' : COOKIE_SECURE === 'true';
-  return { ...parsed.data, cookieSecure };
+  return { ...parsed.data, cookieSecure, demoMode: DEMO_MODE === 'true' };
 }

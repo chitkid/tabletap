@@ -51,4 +51,17 @@ describe('loadConfig', () => {
       ).toBe(true);
     });
   });
+
+  it('defaults demo mode off with an hourly reset interval', () => {
+    const c = loadConfig(valid);
+    expect(c.demoMode).toBe(false);
+    expect(c.DEMO_RESET_INTERVAL_MINUTES).toBe(60);
+    expect(c.DEMO_PASSWORD).toBe('tabletap-demo');
+  });
+  it('enables demo mode from the environment', () => {
+    expect(
+      loadConfig({ ...valid, DEMO_MODE: 'true', DEMO_RESET_INTERVAL_MINUTES: '0' }),
+    ).toMatchObject({ demoMode: true, DEMO_RESET_INTERVAL_MINUTES: 0 });
+    expect(() => loadConfig({ ...valid, DEMO_MODE: 'yes' })).toThrow(/DEMO_MODE/);
+  });
 });
