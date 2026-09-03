@@ -23,7 +23,7 @@ The failure mode to avoid is three stylesheets that drift: an ember that is `#C2
 
 **Surfaces are overrides, not stylesheets.** `packages/ui/theme.css` is hand-written and short. The generated dark semantic block is emitted under `.dark, [data-surface="kitchen"]`, so the kitchen board is the dark theme rather than a second design; `[data-surface="kitchen"]` adds only the larger body size and `color-scheme: dark`. `[data-surface="admin"]` sets `--spacing: 0.2rem`, which Tailwind 4 multiplies through every spacing utility, so the admin surface gets its density from one declaration instead of a parallel set of classes. The same file maps the tokens into Tailwind's `@theme inline`.
 
-**Contrast is enforced, not assumed.** `pnpm validate-tokens` scans `apps/` and rejects raw hex, `rgb()` and multi-digit px or rem values, so a hardcoded colour cannot get past review; a unit test checks WCAG contrast ratios for the semantic pairs on both surfaces. Both run in CI.
+**Contrast is enforced, not assumed.** `pnpm validate-tokens` scans `apps/` and `packages/ui/src` and rejects raw hex (`#RGB` through `#RRGGBBAA`), `rgb()`/`rgba()`/`hsl()`/`hsla()`, and any px or rem value except `0` and `1px` — anywhere on the line, so a Tailwind arbitrary value such as `text-[#fff]` or `w-[300px]` is caught too. `packages/ui/src/validate-tokens.test.ts` pins those rules against fixtures. A unit test checks WCAG contrast ratios for the semantic pairs on both surfaces, text and non-text. All of it runs in CI.
 
 ## Consequences
 

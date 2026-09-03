@@ -13,7 +13,7 @@
     "test": "turbo run test",
     "e2e": "playwright test",
     "tokens": "node scripts/generate-tokens.cjs --config assets/design-tokens.json -o packages/ui/tokens.css",
-    "validate-tokens": "node scripts/validate-tokens.cjs --dir apps/",
+    "validate-tokens": "node scripts/validate-tokens.cjs --dir apps/ && node scripts/validate-tokens.cjs --dir packages/ui/src",
     "brand:sync": "node scripts/sync-brand-to-tokens.cjs",
     "db:generate": "pnpm --filter @tabletap/db generate",
     "db:migrate": "pnpm --filter @tabletap/db migrate",

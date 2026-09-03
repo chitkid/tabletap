@@ -77,7 +77,7 @@ Run from the repository root.
 | `pnpm test`                  | Vitest in every package, over PGlite                                                                |
 | `pnpm e2e`                   | Playwright smoke test against a running stack (`E2E_BASE_URL`, default <http://localhost:3000>)     |
 | `pnpm tokens`                | Regenerates `packages/ui/tokens.css` from `assets/design-tokens.json`                               |
-| `pnpm validate-tokens`       | Fails if `apps/` contains raw hex, `rgb()` or hardcoded px/rem values                               |
+| `pnpm validate-tokens`       | Fails if `apps/` or `packages/ui/src` contains a raw hex, `rgb()`/`hsl()` or a px/rem value (0 and 1px excepted), Tailwind arbitrary values included |
 | `pnpm brand:sync`            | Rebuilds the `ember` / `olive` / `ink` primitive scales in `assets/design-tokens.json` from `docs/brand-guidelines.md`, then regenerates `packages/ui/tokens.css` |
 | `pnpm db:generate`           | drizzle-kit: generates a migration from the schema                                                  |
 | `pnpm db:migrate`            | Applies committed migrations to `DATABASE_URL`                                                      |

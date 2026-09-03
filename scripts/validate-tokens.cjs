@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Validate token usage in codebase
- * Finds hardcoded values that should use design tokens
+ * Validate token usage in the codebase.
+ * Finds hardcoded values that should come from a design token.
  *
  * Usage:
- *   node validate-tokens.cjs --dir src/
- *   node validate-tokens.cjs --dir src/ --fix
+ *   node scripts/validate-tokens.cjs --dir apps/
+ *   node scripts/validate-tokens.cjs --dir packages/ui/src
  */
 
 const fs = require('fs');
@@ -18,31 +18,35 @@ function parseArgs() {
   const args = process.argv.slice(2);
   const options = {
     dir: null,
-    fix: false,
-    ignore: ['node_modules', '.git', 'dist', 'build', '.next']
+    ignore: ['node_modules', '.git', 'dist', 'build', '.next'],
   };
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir' || args[i] === '-d') {
       options.dir = args[++i];
-    } else if (args[i] === '--fix') {
-      options.fix = true;
     } else if (args[i] === '--ignore' || args[i] === '-i') {
       options.ignore.push(args[++i]);
     } else if (args[i] === '--help' || args[i] === '-h') {
       console.log(`
-Usage: node validate-tokens.cjs [options]
+Usage: node scripts/validate-tokens.cjs [options]
 
 Options:
   -d, --dir <path>      Directory to scan (required)
-  --fix                 Show suggested fixes (no auto-fix)
   -i, --ignore <dir>    Additional directories to ignore
   -h, --help            Show this help
 
 Checks for:
-  - Hardcoded hex colors (#RGB, #RRGGBB)
-  - Hardcoded pixel values (except 0, 1px)
-  - Hardcoded rem values in CSS
+  - Hardcoded hex colors (#RGB, #RGBA, #RRGGBB, #RRGGBBAA), including inside
+    Tailwind arbitrary values such as text-[#fff]
+  - Hardcoded rgb() / rgba() / hsl() / hsla() colors
+  - Hardcoded pixel values anywhere on the line, including Tailwind arbitrary
+    values such as w-[300px]. Only 0 (unitless) and 1px are allowed
+  - Hardcoded rem values, including gap-[1.5rem]
+
+Not scanned:
+  - packages/ui/tokens.css and packages/ui/theme.css - the token definitions
+  - *.test.ts / *.test.tsx and friends - a test may name a colour it is asserting on
+  - minified files and tailwind.config.*
       `);
       process.exit(0);
     }
@@ -51,30 +55,40 @@ Checks for:
   return options;
 }
 
+const STYLESHEET_EXTENSIONS = new Set(['.css', '.scss']);
+const BLACK_OR_WHITE = new Set(['#000', '#fff', '#000000', '#ffffff']);
+
 /**
- * Patterns to detect hardcoded values
+ * Patterns to detect hardcoded values.
+ *
+ * None of them requires a preceding colon: a raw value inside a Tailwind arbitrary utility
+ * (`p-[13px]`, `text-[#fff]`) is exactly the case the earlier `:\s*` anchor let through.
  */
 const patterns = {
   hexColor: {
-    regex: /#([0-9A-Fa-f]{3}){1,2}\b/g,
+    regex: /#(?:[0-9A-Fa-f]{3,4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})\b/g,
     message: 'Hardcoded hex color',
-    suggestion: 'Use var(--color-*) token'
+    suggestion: 'Use var(--color-*) token',
+    // Black and white stay allowed in a stylesheet, where they are usually an overlay or a
+    // shadow. In component source they have to be a token like anything else.
+    allow: (match, ext) => STYLESHEET_EXTENSIONS.has(ext) && BLACK_OR_WHITE.has(match.toLowerCase()),
   },
-  rgbColor: {
-    regex: /rgb\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)/gi,
-    message: 'Hardcoded RGB color',
-    suggestion: 'Use var(--color-*) token'
+  functionColor: {
+    regex: /\b(?:rgba?|hsla?)\s*\(/gi,
+    message: 'Hardcoded rgb()/rgba()/hsl()/hsla() color',
+    suggestion: 'Use var(--color-*) token',
   },
   pixelValue: {
-    regex: /:\s*(\d{2,})px/g, // 2+ digit px values
+    regex: /(?<![\w.#-])\d*\.?\d+px\b/g,
     message: 'Hardcoded pixel value',
-    suggestion: 'Use var(--space-*) or var(--radius-*) token'
+    suggestion: 'Use var(--space-*) or var(--radius-*) token; only 0 and 1px are allowed',
+    allow: (match) => match === '1px',
   },
   remValue: {
-    regex: /:\s*\d+\.?\d*rem(?![^{]*\$value)/g, // rem not in token definition
+    regex: /(?<![\w.#-])\d*\.?\d+rem\b/g,
     message: 'Hardcoded rem value',
-    suggestion: 'Use var(--space-*) or var(--font-size-*) token'
-  }
+    suggestion: 'Use var(--space-*) or var(--font-size-*) token',
+  },
 };
 
 /**
@@ -83,14 +97,15 @@ const patterns = {
 const extensions = ['.css', '.scss', '.tsx', '.jsx', '.ts', '.js', '.vue', '.svelte'];
 
 /**
- * Files/patterns to skip
+ * Files skipped by an exact path, relative to the repository root the script is run from.
+ * These two are where the tokens are defined; everything else consumes them.
  */
-const skipPatterns = [
-  /\.min\.(css|js)$/,
-  /tailwind\.config/,
-  /globals\.css/, // Token definitions
-  /tokens\.(css|json)/
-];
+const exactSkips = new Set(['packages/ui/tokens.css', 'packages/ui/theme.css']);
+
+/**
+ * Files skipped by shape.
+ */
+const skipPatterns = [/\.min\.(css|js)$/, /tailwind\.config/, /\.test\.[cm]?[jt]sx?$/];
 
 /**
  * Get all files recursively
@@ -120,7 +135,9 @@ function getFiles(dir, ignore, files = []) {
  * Check if file should be skipped
  */
 function shouldSkip(filePath) {
-  return skipPatterns.some(pattern => pattern.test(filePath));
+  const relative = path.relative(process.cwd(), filePath).split(path.sep).join('/');
+  if (exactSkips.has(relative)) return true;
+  return skipPatterns.some((pattern) => pattern.test(filePath));
 }
 
 /**
@@ -128,6 +145,7 @@ function shouldSkip(filePath) {
  */
 function scanFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
+  const ext = path.extname(filePath);
   const lines = content.split('\n');
   const violations = [];
 
@@ -138,24 +156,19 @@ function scanFile(filePath) {
     }
 
     for (const [name, pattern] of Object.entries(patterns)) {
-      const matches = line.match(pattern.regex);
-      if (matches) {
-        matches.forEach(match => {
-          // Skip common exceptions
-          if (name === 'hexColor' && ['#000', '#fff', '#FFF', '#000000', '#FFFFFF'].includes(match.toUpperCase())) {
-            return; // Skip black/white, often intentional
-          }
+      for (const match of line.matchAll(pattern.regex)) {
+        const value = match[0];
+        if (pattern.allow && pattern.allow(value, ext)) continue;
 
-          violations.push({
-            file: filePath,
-            line: index + 1,
-            column: line.indexOf(match) + 1,
-            value: match,
-            type: name,
-            message: pattern.message,
-            suggestion: pattern.suggestion,
-            context: line.trim().substring(0, 80)
-          });
+        violations.push({
+          file: filePath,
+          line: index + 1,
+          column: match.index + 1,
+          value,
+          type: name,
+          message: pattern.message,
+          suggestion: pattern.suggestion,
+          context: line.trim().substring(0, 80),
         });
       }
     }
@@ -169,21 +182,21 @@ function scanFile(filePath) {
  */
 function formatReport(violations) {
   if (violations.length === 0) {
-    return '✅ No token violations found';
+    return 'No token violations found';
   }
 
-  let report = `⚠️  Found ${violations.length} potential token violations:\n\n`;
+  let report = `Found ${violations.length} potential token violations:\n\n`;
 
   // Group by file
   const byFile = {};
-  violations.forEach(v => {
+  violations.forEach((v) => {
     if (!byFile[v.file]) byFile[v.file] = [];
     byFile[v.file].push(v);
   });
 
   for (const [file, fileViolations] of Object.entries(byFile)) {
-    report += `📁 ${file}\n`;
-    fileViolations.forEach(v => {
+    report += `${file}\n`;
+    fileViolations.forEach((v) => {
       report += `   Line ${v.line}: ${v.message}\n`;
       report += `   Found: ${v.value}\n`;
       report += `   Suggestion: ${v.suggestion}\n`;
@@ -193,11 +206,11 @@ function formatReport(violations) {
 
   // Summary
   const byType = {};
-  violations.forEach(v => {
+  violations.forEach((v) => {
     byType[v.type] = (byType[v.type] || 0) + 1;
   });
 
-  report += `\n📊 Summary:\n`;
+  report += `\nSummary:\n`;
   for (const [type, count] of Object.entries(byType)) {
     report += `   ${patterns[type].message}: ${count}\n`;
   }
