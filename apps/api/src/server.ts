@@ -11,6 +11,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import type { Config } from './config';
 import { authPlugin } from './plugins/auth';
+import { demoResetPlugin } from './plugins/demo-reset';
 import { errorHandlerPlugin } from './plugins/error-handler';
 import { principalPlugin } from './plugins/principal';
 import { routeGuardPlugin } from './plugins/route-guard';
@@ -85,6 +86,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(routeGuardPlugin);
   await app.register(authPlugin);
   await app.register(principalPlugin);
+  await app.register(demoResetPlugin);
   await app.register(healthRoutes);
   await app.register(meRoutes, { prefix: '/api' });
   await app.register(guestRoutes, { prefix: '/api' });
