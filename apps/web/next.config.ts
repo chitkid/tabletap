@@ -12,8 +12,5 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: '/api/:path*', destination: `${apiUrl}/api/:path*` }];
   },
-  async redirects() {
-    return [{ source: '/', destination: '/login', permanent: false }];
-  },
 };
 export default nextConfig;
