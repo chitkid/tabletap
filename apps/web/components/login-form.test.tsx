@@ -36,6 +36,20 @@ describe('LoginForm', () => {
     expect(alert).toHaveTextContent("That email and password don't match.");
     expect(screen.getByLabelText('Password')).toHaveAttribute('aria-describedby', alert.id);
   });
+  it('names the rate limit on a 429', async () => {
+    const client = makeClient({
+      signIn: {
+        email: vi.fn(async () => ({ error: { status: 429, message: 'Too many requests' } })),
+      },
+    });
+    render(<LoginForm client={client} />);
+    await userEvent.type(screen.getByLabelText('Email'), 'a@b.c');
+    await userEvent.type(screen.getByLabelText('Password'), 'x');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Too many attempts. Wait a minute and try again.',
+    );
+  });
   it('shows a network message on other failures', async () => {
     const client = makeClient({
       signIn: {

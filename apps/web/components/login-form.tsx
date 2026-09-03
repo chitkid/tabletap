@@ -29,6 +29,13 @@ export interface AuthClientLike {
 
 type Status = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'error'; message: string };
 
+/** Brand voice: name what happened and what to do, no apology. */
+const MESSAGE_BY_STATUS: Record<number, string> = {
+  401: "That email and password don't match.",
+  429: 'Too many attempts. Wait a minute and try again.',
+};
+const UNREACHABLE = "Can't reach the server. Check the connection and try again.";
+
 export function LoginForm({
   client = authClient as unknown as AuthClientLike,
 }: {
@@ -71,22 +78,15 @@ export function LoginForm({
         password: String(data.get('password') ?? ''),
       });
       if (result.error) {
-        setStatus({
-          kind: 'error',
-          message:
-            result.error.status === 401
-              ? "That email and password don't match."
-              : "Can't reach the server. Check the connection and try again.",
-        });
+        const known =
+          result.error.status === undefined ? undefined : MESSAGE_BY_STATUS[result.error.status];
+        setStatus({ kind: 'error', message: known ?? UNREACHABLE });
         return;
       }
       setStatus({ kind: 'idle' });
       session.refetch?.();
     } catch {
-      setStatus({
-        kind: 'error',
-        message: "Can't reach the server. Check the connection and try again.",
-      });
+      setStatus({ kind: 'error', message: UNREACHABLE });
     }
   }
 
