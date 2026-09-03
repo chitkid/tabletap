@@ -7,6 +7,7 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -23,6 +24,7 @@ jobs:
 
   compose-e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -34,6 +36,8 @@ jobs:
       - run: cp .env.example .env
       - run: docker compose up -d --build --wait
       - run: curl -fsS http://localhost:4000/health
+      # The web container has no healthcheck, so `--wait` returns as soon as it is running.
+      - run: curl -fsS --retry 20 --retry-delay 3 --retry-all-errors -o /dev/null http://localhost:3000/login
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm e2e
       - if: failure()
