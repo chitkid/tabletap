@@ -48,7 +48,7 @@ One consequence to keep in mind while building: the multiplier also scales the s
 
 - Admin is **light**, not dark — it reuses the guest surface's light neutral tokens as neutral TableTap chrome (not the restaurant-branded treatment): Background Oat `#F6F1E8`, Surface `#FFFDF9` (panels/cards), Sunken `#EDE6DA` (table row stripes only — never put Muted Text on a striped row, it fails contrast per brand rule 2; use full Text `#1C1917` instead), Text `#1C1917`, Muted Text `#6F675F`, Border `#918269` (the `--border` and `--input` token). It was darkened from `#E0D8CB`, which measured 1.26:1 on Oat and failed the WCAG 1.4.11 3:1 non-text bar; admin dividers and table rules are therefore visibly stronger than the earlier value — 3.33:1 on the background, 3.69:1 on a panel.
 - Ember `#C23E18` is the single accent — used for the active nav item, primary buttons, and focus ring. No second accent hue.
-- Order status badges and any status-colored chart series reuse the six-state semantic table (light-surface values): Placed `#3B6EA5`, Paid `#1F7A6D`, Cooking `#B7791F`, Ready `#2F8A3E`, Served `#6F675F`, Cancelled `#B3261E`.
+- Order status badges and any status-colored chart series reuse the six-state semantic table (light-surface values): Placed `#3B6EA5`, Paid `#1F7A6D`, Cooking `#B7791F`, Ready `#2D853C`, Served `#6F675F`, Cancelled `#B3261E`.
 - Non-status chart series (e.g. revenue trend, category breakdown) use Olive `#6B7A3C` for large marks/fills and Olive Dark `#4F5B2C` for any olive text, per brand's "chart series that are not statuses" rule — never invent a second accent color for charts.
 
 ### Component Overrides

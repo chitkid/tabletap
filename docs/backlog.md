@@ -16,7 +16,7 @@ Noticed while reviewing the M1 branch; none of it blocks the milestone.
 - `/health` swallows the `select 1` error silently. Log it at debug so a degraded response says why.
 - The debug log in `principal` / `resolve-principal` includes the raw caught error object; log `err.message` only.
 - The guest cookie's `secure` flag now comes from `COOKIE_SECURE`. Revisit when a staging tier exists that is neither the local demo nor production.
-- `--status-ready` (`#2F8A3E`) as a filled badge on light surfaces is 4.28:1. Darken to `#2D853C` in the brand document and the token if a filled badge is wanted (M2).
+- ~~`--status-ready` (`#2F8A3E`) as a filled badge on light surfaces is 4.28:1. Darken to `#2D853C` in the brand document and the token if a filled badge is wanted (M2).~~ Done in M2: the token is `#2D853C` (4.56:1) and `tokens.test.ts` gates the badge label against its fill.
 - The admin surface's `--spacing: 0.2rem` scales `h-11` buttons down to about 35 px. Revisit the density mechanism before M5 builds real admin screens.
 - The `--button-*` component tokens are not consumed by `button.tsx`.
 - Generated colour shades above 600 collapse to near-black for the `ink` and `olive` bases. Nothing references them; the semantic layer uses 100-600 only.

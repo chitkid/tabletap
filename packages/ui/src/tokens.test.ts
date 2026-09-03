@@ -47,6 +47,12 @@ describe('design tokens', () => {
     expect(contrastRatio(sem('card-foreground'), sem('card'))).toBeGreaterThanOrEqual(4.5);
     for (const s of ['placed', 'paid', 'cooking', 'ready', 'served', 'cancelled'])
       expect(contrastRatio(sem(`status-${s}`), sem('background')), s).toBeGreaterThanOrEqual(3);
+    // Every guest status badge is filled, so its label owes AA against its own fill, not just
+    // the 3:1 non-text bar against the page.
+    expect(contrastRatio(sem('primary-foreground'), sem('status-ready'))).toBeGreaterThanOrEqual(
+      4.5,
+    );
+    expect(contrastRatio(sem('foreground'), sem('status-cooking'))).toBeGreaterThanOrEqual(4.5);
   });
   it('kitchen surface passes WCAG AA', () => {
     expect(contrastRatio(dark('foreground'), dark('background'))).toBeGreaterThanOrEqual(4.5);

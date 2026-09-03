@@ -12,17 +12,19 @@ because that is what the code says.
 
 ## Scope
 
-| Component      | Implemented                                         |
-| -------------- | --------------------------------------------------- |
-| `button`       | M1 — `packages/ui/src/components/button.tsx`        |
-| `status-badge` | M2 (guest) and M3 (kitchen), on the M1 `badge` base |
-| `dish-card`    | M2 (guest menu)                                     |
-| `order-card`   | M3 (kitchen display)                                |
-| `cart-counter` | M2 (guest cart)                                     |
+| Component      | Implemented                                        |
+| -------------- | -------------------------------------------------- |
+| `button`       | M1 — `packages/ui/src/components/button.tsx`       |
+| `status-badge` | M2 — `packages/ui/src/components/status-badge.tsx` |
+| `dish-card`    | M2 — `apps/web/components/menu/dish-card.tsx`      |
+| `order-card`   | M3 (kitchen display)                               |
+| `cart-counter` | M2 (guest cart)                                    |
 
-`dish-card`, `order-card`, `cart-counter` and the status variants of `status-badge` are specified here
-and built later; their component tokens (`--dish-card-*`, `--order-card-*`, `--status-badge-*`,
-`--cart-counter-*`) already exist in `tokens.css`, so the later work is assembly, not new design.
+`order-card` and `cart-counter` are specified here and built later; their component tokens
+(`--dish-card-*`, `--order-card-*`, `--status-badge-*`, `--cart-counter-*`) already exist in
+`tokens.css`, so the later work is assembly, not new design. In M2 the guest surface has no cart
+counter bubble: the sticky basket bar carries the count as text ("2 items · $26.00"), which is the
+same information in a place a thumb can reach.
 
 No component consumes a `--<component>-*` token yet. The two that ship in M1, `button` and `badge`,
 take their shape from Tailwind utilities written into the variant definition. The component layer of
@@ -127,9 +129,12 @@ shape from Tailwind utilities rather than from its component tokens: `h-7`, `px-
 `tokens.css`, and nothing reads them yet.
 
 The base ships six variants — `default`, `secondary`, `destructive`, `outline`, `ghost`, `link` —
-and none of them is a status. The status variants below are M2 (guest) and M3 (kitchen). The badge is
-not interactive by default; the `hover` and `active` rows apply only where it is rendered as a link
-or button, which in the base is the `[a&]:hover:` treatment.
+and none of them is a status. The status variants below ship in M2 as their own component,
+`packages/ui/src/components/status-badge.tsx`: it repeats the base's shape utilities rather than
+extending the variant list, because a status is not one of six looks a caller chooses between but a
+value of the order, so it takes an `OrderStatus` and nothing else. The badge is not interactive by
+default; the `hover` and `active` rows apply only where it is rendered as a link or button, which in
+the base is the `[a&]:hover:` treatment.
 
 | State         | background          | foreground            | border   | elevation | motion            |
 | ------------- | ------------------- | --------------------- | -------- | --------- | ----------------- |
@@ -142,14 +147,19 @@ or button, which in the base is the `[a&]:hover:` treatment.
 `<status>` is one of `placed`, `paid`, `cooking`, `ready`, `served`, `cancelled`. The foreground is
 chosen per status by measured contrast against the fill, not by taste:
 
-| Status               | Guest and admin foreground | Measured          | Kitchen foreground     | Measured |
-| -------------------- | -------------------------- | ----------------- | ---------------------- | -------- |
-| `--status-placed`    | `--primary-foreground`     | 5.22:1            | `--primary-foreground` | 8.63:1   |
-| `--status-paid`      | `--primary-foreground`     | 5.09:1            | `--primary-foreground` | 9.24:1   |
-| `--status-cooking`   | `--foreground`             | 4.80:1            | `--primary-foreground` | 10.29:1  |
-| `--status-ready`     | `--primary-foreground`     | 4.28:1 (see note) | `--primary-foreground` | 10.17:1  |
-| `--status-served`    | `--primary-foreground`     | 5.47:1            | `--primary-foreground` | 8.57:1   |
-| `--status-cancelled` | `--primary-foreground`     | 6.43:1            | `--primary-foreground` | 7.76:1   |
+| Status               | Guest and admin foreground | Measured | Kitchen foreground     | Measured |
+| -------------------- | -------------------------- | -------- | ---------------------- | -------- |
+| `--status-placed`    | `--primary-foreground`     | 5.22:1   | `--primary-foreground` | 8.63:1   |
+| `--status-paid`      | `--primary-foreground`     | 5.09:1   | `--primary-foreground` | 9.24:1   |
+| `--status-cooking`   | `--foreground`             | 4.80:1   | `--primary-foreground` | 10.29:1  |
+| `--status-ready`     | `--primary-foreground`     | 4.56:1   | `--primary-foreground` | 10.17:1  |
+| `--status-served`    | `--primary-foreground`     | 5.47:1   | `--primary-foreground` | 8.57:1   |
+| `--status-cancelled` | `--primary-foreground`     | 6.43:1   | `--primary-foreground` | 7.76:1   |
+
+Every status is filled on every surface — there is no outline treatment and no per-status exception.
+`--primary-foreground` carries the label on five of the six; `--status-cooking` is the one that takes
+`--foreground`, because its amber is too light for the pale label. `packages/ui/src/tokens.test.ts`
+gates both of those pairs at 4.5:1, so a status colour cannot drift back under AA unnoticed.
 
 On the kitchen surface `--primary-foreground` resolves to the night background, so every kitchen badge
 is dark text on a light status fill.
@@ -180,18 +190,13 @@ control carries the accessible name ("Basket, 3 items"), not the bubble.
 
 The pairs the token contract test gates are in `packages/ui/src/tokens.test.ts`; it fails the build if
 any of them drops below its bar (4.5:1 for text pairs, 3:1 for status and timer colours against their
-surface). Three notes that the test does not cover:
+surface, and 4.5:1 for the two badge labels on their own fill). Two notes that the test does not cover:
 
-1. `--status-ready` on the guest and admin surfaces reaches 4.28:1 with `--primary-foreground` and
-   4.02:1 with `--foreground`, so a filled Ready badge is below AA for its label on light surfaces. It
-   clears the 3:1 non-text bar, so the badge fill and the timer-ok border are fine as they are; until
-   the brand value is darkened, a Ready badge that must carry small text on a light surface uses the
-   outline treatment instead — background `--card`, foreground `--foreground`, border `--status-ready`.
-2. Disabled controls fade the whole control (50 percent opacity), which lowers the label-to-fill ratio.
+1. Disabled controls fade the whole control (50 percent opacity), which lowers the label-to-fill ratio.
    WCAG 1.4.3 exempts inactive controls, and the disabled state is never the only signal. Where a
    disabled control must stay legible — anything on the kitchen surface — use `--muted` with
    `--muted-foreground` instead of fading.
-3. `--muted-foreground` must not sit on `--muted` (4.48:1, just under AA). Text inside inputs, striped
+2. `--muted-foreground` must not sit on `--muted` (4.48:1, just under AA). Text inside inputs, striped
    rows and inset panels uses `--foreground`. This is the brand's rule 2, and it is why the M1 input
    keeps a transparent fill over `--background` rather than a sunken one.
 

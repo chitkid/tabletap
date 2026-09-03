@@ -86,7 +86,7 @@ Six order statuses, each with a light-surface and a dark-surface value. Colour i
 | Placed    | #3B6EA5                 | #8AB4E8                | Order received, not yet paid   |
 | Paid      | #1F7A6D                 | #6CC7B5                | Payment settled                |
 | Cooking   | #B7791F                 | #F0B84B                | On the pass, being made        |
-| Ready     | #2F8A3E                 | #7BD389                | Ready to collect or run        |
+| Ready     | #2D853C                 | #7BD389                | Ready to collect or run        |
 | Served    | #6F675F                 | #B8AFA5                | Delivered to the table, closed |
 | Cancelled | #B3261E                 | #F28B82                | Cancelled or refunded          |
 
@@ -94,13 +94,13 @@ Timer thresholds reuse the status hues rather than adding new ones:
 
 | Threshold     | Light   | Dark    | Trigger                 |
 | ------------- | ------- | ------- | ----------------------- |
-| Timer OK      | #2F8A3E | #7BD389 | Under 5 minutes elapsed |
+| Timer OK      | #2D853C | #7BD389 | Under 5 minutes elapsed |
 | Timer Warning | #B7791F | #F0B84B | 5 minutes elapsed       |
 | Timer Late    | #B3261E | #F28B82 | 10 minutes elapsed      |
 
 ### Accessibility
 
-Every ratio below was computed with the WCAG 2.1 relative-luminance formula against the exact hex pairs listed. Every text pair passed its required check on the first pass. Two values were moved: the guest and kitchen borders, which failed WCAG 1.4.11 for non-text contrast — see that block below.
+Every ratio below was computed with the WCAG 2.1 relative-luminance formula against the exact hex pairs listed. Every text pair passed its required check on the first pass. Three values were moved: the guest and kitchen borders, which failed WCAG 1.4.11 for non-text contrast (see that block below), and Ready, darkened from #2F8A3E to #2D853C in M2 — the badge label sits on the status fill, and at #2F8A3E the label measured 4.28:1 against Surface #FFFDF9, below AA. The darker green measures 4.56:1 and keeps the same hue.
 
 **Required pairs**
 
@@ -118,9 +118,27 @@ Every ratio below was computed with the WCAG 2.1 relative-luminance formula agai
 | Placed    | 4.71:1         | 8.63:1             |
 | Paid      | 4.59:1         | 9.24:1             |
 | Cooking   | 3.24:1         | 10.29:1            |
-| Ready     | 3.87:1         | 10.17:1            |
+| Ready     | 4.12:1         | 10.17:1            |
 | Served    | 4.94:1         | 8.57:1             |
 | Cancelled | 5.81:1         | 7.76:1             |
+
+**Status labels on their own fill (minimum 4.5:1)**
+
+Every status badge is filled, so its label owes AA against the fill it sits on, not only 3.0:1 against
+the page. The label colour is Surface #FFFDF9 on five of the six and Text #1C1917 on Cooking, whose
+amber is too light for the pale label.
+
+| Status    | Label           | On the light fill | On the kitchen fill |
+| --------- | --------------- | ----------------- | ------------------- |
+| Placed    | Surface #FFFDF9 | 5.22:1            | 8.63:1              |
+| Paid      | Surface #FFFDF9 | 5.09:1            | 9.24:1              |
+| Cooking   | Text #1C1917    | 4.80:1            | 10.29:1             |
+| Ready     | Surface #FFFDF9 | 4.56:1            | 10.17:1             |
+| Served    | Surface #FFFDF9 | 5.47:1            | 8.57:1              |
+| Cancelled | Surface #FFFDF9 | 6.43:1            | 7.76:1              |
+
+On the kitchen surface the label token resolves to the night background, so a kitchen badge is dark
+text on a light status fill; those ratios are the ones already listed against Kitchen #151311.
 
 **Supporting pairs, measured**
 

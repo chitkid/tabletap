@@ -5,5 +5,8 @@ export * from './components/input';
 export * from './components/label';
 export * from './components/card';
 export * from './components/badge';
+export * from './components/sheet';
+export * from './components/textarea';
+export * from './components/status-badge';
 export * from './components/plate';
 export * from './lib/plate-plan';

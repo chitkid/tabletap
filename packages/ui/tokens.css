@@ -50,7 +50,7 @@
   --primitive-color-status-paid-dark: #6CC7B5;
   --primitive-color-status-cooking: #B7791F;
   --primitive-color-status-cooking-dark: #F0B84B;
-  --primitive-color-status-ready: #2F8A3E;
+  --primitive-color-status-ready: #2D853C;
   --primitive-color-status-ready-dark: #7BD389;
   --primitive-color-status-served: #6F675F;
   --primitive-color-status-served-dark: #B8AFA5;
@@ -116,10 +116,10 @@
   --status-placed: #3B6EA5;
   --status-paid: #1F7A6D;
   --status-cooking: #B7791F;
-  --status-ready: #2F8A3E;
+  --status-ready: #2D853C;
   --status-served: #6F675F;
   --status-cancelled: #B3261E;
-  --timer-ok: #2F8A3E;
+  --timer-ok: #2D853C;
   --timer-warn: #B7791F;
   --timer-late: #B3261E;
   --font-display: 'Bricolage Grotesque', 'Trebuchet MS', system-ui, sans-serif;
