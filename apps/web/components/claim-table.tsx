@@ -28,9 +28,25 @@ export function ClaimTable({ token }: { token: string }) {
     routerRef.current = router;
   }, [router]);
 
+  // Claiming is a POST that mints a guest session, so it has to survive being asked twice.
+  // StrictMode runs every effect mount → cleanup → mount in development, and a second claim
+  // cannot see the cookie the first one is still setting: the guest would end up with two
+  // sessions. `fired` records which attempt has already gone out and is never reset by the
+  // cleanup, so a same-attempt re-invocation is a no-op while Try again, which bumps `attempt`,
+  // still sends a fresh claim.
+  const fired = useRef(-1);
+  const alive = useRef(true);
+
   // `attempt` is the retry trigger: bumping it is what re-runs the claim.
   useEffect(() => {
-    let live = true;
+    // Re-arm before the guard: StrictMode's throwaway cleanup must not strand the one request
+    // that is genuinely in flight.
+    alive.current = true;
+    const stop = () => {
+      alive.current = false;
+    };
+    if (fired.current === attempt) return stop;
+    fired.current = attempt;
     void clientFetch('/api/guest/claim', {
       schema: ClaimResponseSchema,
       init: {
@@ -40,14 +56,12 @@ export function ClaimTable({ token }: { token: string }) {
       },
     })
       .then(() => {
-        if (live) routerRef.current.replace('/menu');
+        if (alive.current) routerRef.current.replace('/menu');
       })
       .catch((err: unknown) => {
-        if (live) setError(messageFor(err));
+        if (alive.current) setError(messageFor(err));
       });
-    return () => {
-      live = false;
-    };
+    return stop;
   }, [token, attempt]);
 
   return (

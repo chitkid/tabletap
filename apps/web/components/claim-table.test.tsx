@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const replace = vi.fn();
@@ -28,6 +29,22 @@ describe('ClaimTable', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Finding your table…');
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/menu'));
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe('/api/guest/claim');
+  });
+  it('claims the table once under StrictMode', async () => {
+    const f = vi.fn(async () =>
+      json(200, {
+        table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f01', number: 7, label: 'Table 7' },
+        expiresAt: '2026-09-03T14:00:00.000Z',
+      }),
+    );
+    vi.stubGlobal('fetch', f);
+    render(
+      <StrictMode>
+        <ClaimTable token="abc" />
+      </StrictMode>,
+    );
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/menu'));
+    expect(f).toHaveBeenCalledTimes(1);
   });
   it('explains an expired code and can retry', async () => {
     const f = vi
