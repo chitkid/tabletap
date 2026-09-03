@@ -23,7 +23,8 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-tabletap}:${POSTGRES_PASSWORD:-tabletap}@postgres:5432/${POSTGRES_DB:-tabletap}
       PORT: 4000
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: production
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
       - "4000:4000"
     depends_on:

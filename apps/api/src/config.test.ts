@@ -26,4 +26,20 @@ describe('loadConfig', () => {
   it('lists every invalid variable in one readable error', () => {
     expect(() => loadConfig({ ...valid, BETTER_AUTH_SECRET: 'short', WEB_ORIGIN: 'not a url' })).toThrow(/BETTER_AUTH_SECRET[\s\S]*WEB_ORIGIN/);
   });
+
+  describe('cookieSecure', () => {
+    it('defaults to true when NODE_ENV=production', () => {
+      expect(loadConfig({ ...valid, NODE_ENV: 'production' }).cookieSecure).toBe(true);
+    });
+    it('defaults to false when NODE_ENV is not production', () => {
+      expect(loadConfig(valid).cookieSecure).toBe(false);
+      expect(loadConfig({ ...valid, NODE_ENV: 'test' }).cookieSecure).toBe(false);
+    });
+    it('honours an explicit COOKIE_SECURE=false under production', () => {
+      expect(loadConfig({ ...valid, NODE_ENV: 'production', COOKIE_SECURE: 'false' }).cookieSecure).toBe(false);
+    });
+    it('honours an explicit COOKIE_SECURE=true under development', () => {
+      expect(loadConfig({ ...valid, NODE_ENV: 'development', COOKIE_SECURE: 'true' }).cookieSecure).toBe(true);
+    });
+  });
 });

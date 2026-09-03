@@ -14,12 +14,24 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   /** Fastify `trustProxy`: only these peers may set the client ip the rate limiter keys on. */
   TRUST_PROXY: z.string().default('loopback,uniquelocal'),
+  /**
+   * Overrides the `Secure` flag on the tt_guest and better-auth cookies. Left unset, it
+   * follows NODE_ENV so containers running a production build over plain HTTP (the local
+   * Docker Compose demo) still get non-secure cookies without forcing NODE_ENV=development
+   * (which would also enable the dev-only pino-pretty transport, a devDependency absent
+   * from the production image).
+   */
+  COOKIE_SECURE: z.enum(['true', 'false']).optional(),
 });
-export type Config = z.infer<typeof EnvSchema>;
+export type Config = z.infer<typeof EnvSchema> & { cookieSecure: boolean };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const parsed = EnvSchema.safeParse(env);
-  if (parsed.success) return parsed.data;
-  const lines = parsed.error.issues.map((i) => `  ${i.path.join('.') || '(root)'}: ${i.message}`);
-  throw new Error(`Invalid environment:\n${lines.join('\n')}`);
+  if (!parsed.success) {
+    const lines = parsed.error.issues.map((i) => `  ${i.path.join('.') || '(root)'}: ${i.message}`);
+    throw new Error(`Invalid environment:\n${lines.join('\n')}`);
+  }
+  const { COOKIE_SECURE, NODE_ENV } = parsed.data;
+  const cookieSecure = COOKIE_SECURE === undefined ? NODE_ENV === 'production' : COOKIE_SECURE === 'true';
+  return { ...parsed.data, cookieSecure };
 }

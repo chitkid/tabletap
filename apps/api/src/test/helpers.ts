@@ -21,6 +21,7 @@ export const TEST_CONFIG: Config = {
   GUEST_SESSION_TTL_HOURS: 4,
   LOG_LEVEL: 'silent',
   TRUST_PROXY: 'loopback,uniquelocal',
+  cookieSecure: false,
 };
 export const TEST_DEMO_PASSWORD = 'tabletap-demo';
 

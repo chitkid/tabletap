@@ -18,7 +18,7 @@ export function guestCookieOptions(config: Config, expiresAt: Date): CookieSeria
     signed: true,
     httpOnly: true,
     sameSite: 'lax',
-    secure: config.NODE_ENV === 'production',
+    secure: config.cookieSecure,
     path: '/',
     expires: expiresAt,
   };

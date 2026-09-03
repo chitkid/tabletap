@@ -13,7 +13,7 @@ export function createAuth(opts: { db: Db; config: Config }) {
     database: drizzleAdapter(opts.db, { provider: 'pg', usePlural: true, schema }),
     emailAndPassword: { enabled: true, disableSignUp: true },
     user: { additionalFields: { role: { type: 'string', required: true, defaultValue: 'waiter', input: false } } },
-    advanced: { useSecureCookies: config.NODE_ENV === 'production' },
+    advanced: { useSecureCookies: config.cookieSecure },
   });
 }
 export type Auth = ReturnType<typeof createAuth>;
