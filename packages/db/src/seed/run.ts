@@ -5,6 +5,7 @@ import { uuidv7 } from 'uuidv7';
 import type { Db } from '../client';
 import * as schema from '../schema/index';
 import { DEMO_MENU, DEMO_RESTAURANT, DEMO_RESTAURANT_SLUG, DEMO_STAFF, DEMO_TABLES } from './data';
+import { stableId } from './ids';
 
 export { DEMO_STAFF, DEMO_RESTAURANT_SLUG } from './data';
 
@@ -53,23 +54,42 @@ export async function seed(db: Db, opts: SeedOptions): Promise<SeedResult> {
     await tx.delete(schema.accounts);
     await tx.delete(schema.users);
 
-    const [restaurant] = await tx.insert(schema.restaurants).values(DEMO_RESTAURANT).returning();
+    // Ids are derived from the natural keys, not minted: the rows are new after every reset,
+    // but a printed QR token still names a table that exists and a basket keyed on a table id
+    // is still that table's basket (ADR 0002, ADR 0006).
+    const slug = DEMO_RESTAURANT_SLUG;
+    const [restaurant] = await tx
+      .insert(schema.restaurants)
+      .values({ ...DEMO_RESTAURANT, id: stableId('restaurant', slug) })
+      .returning();
     if (!restaurant) throw new Error('seed: restaurant insert returned nothing');
 
     const tables = await tx
       .insert(schema.tables)
-      .values(DEMO_TABLES.map((t) => ({ ...t, restaurantId: restaurant.id })))
+      .values(
+        DEMO_TABLES.map((t) => ({
+          ...t,
+          id: stableId('table', `${slug}:${t.number}`),
+          restaurantId: restaurant.id,
+        })),
+      )
       .returning();
 
     let items = 0;
     for (const [categoryIndex, group] of DEMO_MENU.entries()) {
       const [category] = await tx
         .insert(schema.menuCategories)
-        .values({ restaurantId: restaurant.id, name: group.category, sortOrder: categoryIndex })
+        .values({
+          id: stableId('category', `${slug}:${group.category}`),
+          restaurantId: restaurant.id,
+          name: group.category,
+          sortOrder: categoryIndex,
+        })
         .returning();
       if (!category) throw new Error('seed: category insert returned nothing');
       await tx.insert(schema.menuItems).values(
         group.items.map((item, index) => ({
+          id: stableId('item', `${slug}:${group.category}:${item.name}`),
           categoryId: category.id,
           name: item.name,
           description: item.description,
