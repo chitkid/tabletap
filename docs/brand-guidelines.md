@@ -1,6 +1,6 @@
-# Little Furnace — Brand Guidelines v1.0
+# Little Furnace — Brand Guidelines v1.1
 
-> Last updated: 2026-09-03
+> Last updated: 2026-09-03 (v1.1)
 > Status: Active for M1
 
 TableTap is the product: QR table ordering with a real-time kitchen display. Little Furnace is the seeded demo tenant that TableTap ships with — a neighbourhood wood-fired place serving flatbreads, grain bowls and a short list of sides and drinks. You order from the table and the food comes when it is ready; fast-casual pace, warm room. The name and the furnace image set the two surfaces: the kitchen surface takes the dark back-of-house character, the guest surface takes the warmth. The guest surface wears the restaurant brand; kitchen and admin wear neutral TableTap chrome — dark for kitchen, light and dense for admin — with ember as the single accent. All three come from the token base defined here. This document is the source of truth: the design system, `assets/design-tokens.json` and every UI string derive from it.
@@ -49,7 +49,7 @@ Ink. Charcoal: the text colour on the guest surface and the ground of the kitche
 |------|-----|-----|-------|
 | Ink | #1C1917 | rgb(28,25,23) | Body and heading text on the guest surface; card surface on the kitchen surface |
 | Ink Dark | #151311 | rgb(21,19,17) | Kitchen page background |
-| Ink Light | #3D3631 | rgb(61,54,49) | Kitchen borders and dividers; heavy rules on the guest surface |
+| Ink Light | #3D3631 | rgb(61,54,49) | Heavy rules on the guest surface. Not the kitchen border: that value is the neutral Border below, which has to clear 3:1 |
 
 ### Neutral Palette
 
@@ -64,7 +64,7 @@ Two neutral sets. The guest surface is light and warm; the kitchen surface is da
 | Sunken | #EDE6DA | rgb(237,230,218) | Input wells, table row stripes, inset panels |
 | Text | #1C1917 | rgb(28,25,23) | Body and headings |
 | Muted Text | #6F675F | rgb(111,103,95) | Item descriptions, timestamps, secondary labels |
-| Border | #E0D8CB | rgb(224,216,203) | Dividers, card outlines, input borders |
+| Border | #918269 | rgb(145,130,105) | Dividers, card outlines, input borders |
 
 **Kitchen surface (dark)**
 
@@ -75,7 +75,7 @@ Two neutral sets. The guest surface is light and warm; the kitchen surface is da
 | Raised | #292420 | rgb(41,36,32) | Ticket headers, hovered rows, column headers |
 | Text | #F6F1E8 | rgb(246,241,232) | Ticket item lines, headings |
 | Muted Text | #B8AFA5 | rgb(184,175,165) | Table number, elapsed labels, secondary notes |
-| Border | #3D3631 | rgb(61,54,49) | Ticket outlines, column dividers |
+| Border | #7A6C62 | rgb(122,108,98) | Ticket outlines, column dividers |
 
 ### Semantic Colors
 
@@ -100,7 +100,7 @@ Timer thresholds reuse the status hues rather than adding new ones:
 
 ### Accessibility
 
-Every ratio below was computed with the WCAG 2.1 relative-luminance formula against the exact hex pairs listed. All starting values passed their required check; nothing in the palette was moved.
+Every ratio below was computed with the WCAG 2.1 relative-luminance formula against the exact hex pairs listed. Every text pair passed its required check on the first pass. Two values were moved: the guest and kitchen borders, which failed WCAG 1.4.11 for non-text contrast — see that block below.
 
 **Required pairs**
 
@@ -140,6 +140,25 @@ Every ratio below was computed with the WCAG 2.1 relative-luminance formula agai
 | Kitchen muted #B8AFA5 | Kitchen #151311 | 8.57:1 | Pass (AAA) |
 | Kitchen text #F6F1E8 | Raised #292420 | 13.65:1 | Pass (AAA) |
 | Kitchen muted #B8AFA5 | Raised #292420 | 7.10:1 | Pass (AAA) |
+
+**Non-text contrast (WCAG 1.4.11)**
+
+A border is the only thing that says where a card, an input or a ticket ends, so it is a meaningful non-text element and owes 3.0:1 against whatever it is drawn on. The original oat border #E0D8CB measured 1.26:1 on the oat background and 1.39:1 on the card surface; the original kitchen border #3D3631 measured 1.56:1 on the kitchen background and 1.47:1 on the ticket surface. All four fail. Both values were moved along their own hue — the oat border stays a warm oat taupe, the kitchen border stays the same warm grey — until they clear the bar on every surface they are drawn on, including the sunken fill and the raised ticket header.
+
+| Element | Surface | Measured | Required |
+|---------|---------|----------|----------|
+| Border #918269 | Oat #F6F1E8 | 3.33:1 | 3.0 |
+| Border #918269 | Surface #FFFDF9 | 3.69:1 | 3.0 |
+| Border #918269 | Sunken #EDE6DA | 3.02:1 | 3.0 |
+| Kitchen border #7A6C62 | Kitchen #151311 | 3.66:1 | 3.0 |
+| Kitchen border #7A6C62 | Surface #1C1917 | 3.46:1 | 3.0 |
+| Kitchen border #7A6C62 | Raised #292420 | 3.03:1 | 3.0 |
+| Focus ring, Ember #C23E18 | Oat #F6F1E8 | 4.67:1 | 3.0 |
+| Focus ring, Ember #C23E18 | Surface #FFFDF9 | 5.17:1 | 3.0 |
+| Focus ring, Ember Light #F0663D | Kitchen #151311 | 5.89:1 | 3.0 |
+| Focus ring, Ember Light #F0663D | Surface #1C1917 | 5.56:1 | 3.0 |
+
+Text inside an input well still uses Text #1C1917, which measures 4.66:1 against the border itself — the border is a boundary, never a text background. `packages/ui/src/tokens.test.ts` asserts the border and input pairs on both surfaces, so a lighter border cannot come back unnoticed.
 
 **Two usage rules follow from the measurements above.**
 
@@ -302,3 +321,4 @@ Sentence case everywhere. No terminal full stop on a button or a single-line lab
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2026-09-03 | Initial guidelines: ember, olive and ink palette with measured WCAG ratios; Bricolage Grotesque with IBM Plex Sans and IBM Plex Mono; wordmark-only logo policy; voice principles and vocabulary. |
+| 1.1 | 2026-09-03 | Guest border #E0D8CB → #918269 and kitchen border #3D3631 → #7A6C62, so both clear the WCAG 1.4.11 3:1 non-text bar on every surface they are drawn on. Added the non-text contrast block. |

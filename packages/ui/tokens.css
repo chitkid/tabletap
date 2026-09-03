@@ -36,12 +36,12 @@
   --primitive-color-oat-bg: #F6F1E8;
   --primitive-color-oat-surface: #FFFDF9;
   --primitive-color-oat-sunken: #EDE6DA;
-  --primitive-color-oat-line: #E0D8CB;
+  --primitive-color-oat-line: #918269;
   --primitive-color-oat-muted: #6F675F;
   --primitive-color-night-bg: #151311;
   --primitive-color-night-surface: #1C1917;
   --primitive-color-night-raised: #292420;
-  --primitive-color-night-line: #3D3631;
+  --primitive-color-night-line: #7A6C62;
   --primitive-color-night-fg: #F6F1E8;
   --primitive-color-night-muted: #B8AFA5;
   --primitive-color-status-placed: #3B6EA5;
@@ -107,8 +107,8 @@
   --accent: #6B7A3C;
   --accent-foreground: #FFFDF9;
   --destructive: #B3261E;
-  --border: #E0D8CB;
-  --input: #E0D8CB;
+  --border: #918269;
+  --input: #918269;
   --ring: #C23E18;
   --radius: 0.625rem;
   --radius-sm: 0.375rem;
@@ -177,8 +177,8 @@
   --accent: #9CAB63;
   --accent-foreground: #151311;
   --destructive: #F28B82;
-  --border: #3D3631;
-  --input: #3D3631;
+  --border: #7A6C62;
+  --input: #7A6C62;
   --ring: #F0663D;
   --status-placed: #8AB4E8;
   --status-paid: #6CC7B5;

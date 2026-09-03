@@ -29,15 +29,15 @@
   --color-timer-ok: var(--timer-ok);
   --color-timer-warn: var(--timer-warn);
   --color-timer-late: var(--timer-late);
-  --radius-sm: var(--radius-sm);
+  --radius-sm: var(--primitive-radius-sm);
   --radius-md: var(--radius);
-  --radius-lg: var(--radius-lg);
+  --radius-lg: var(--primitive-radius-lg);
   --radius-xl: calc(var(--radius-lg) * 1.5);
-  --font-display: var(--font-display);
+  --font-display: var(--primitive-font-display);
   --font-sans: var(--font-text);
-  --font-mono: var(--font-mono);
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
+  --font-mono: var(--primitive-font-mono);
+  --shadow-sm: var(--primitive-shadow-sm);
+  --shadow-md: var(--primitive-shadow-md);
 }
 
 /* Kitchen: dark tokens come from tokens.css; here only type size. */

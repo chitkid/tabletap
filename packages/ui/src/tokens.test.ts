@@ -57,6 +57,19 @@ describe('design tokens', () => {
     for (const t of ['ok', 'warn', 'late'])
       expect(contrastRatio(dark(`timer-${t}`), dark('background')), t).toBeGreaterThanOrEqual(3);
   });
+  it('borders and input outlines meet the WCAG 1.4.11 non-text bar on both surfaces', () => {
+    // A border is the only thing that says where a card or an input ends, so it is a
+    // meaningful non-text element and owes 3:1 against whatever it is drawn on.
+    for (const token of ['border', 'input']) {
+      for (const surface of ['background', 'card']) {
+        expect(contrastRatio(sem(token), sem(surface)), `${token} on ${surface}`).toBeGreaterThanOrEqual(3);
+        expect(
+          contrastRatio(dark(token), dark(surface)),
+          `dark ${token} on ${surface}`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
   it('kitchen body size is at least 20px', () => {
     expect(parseFloat(sem('kitchen-body-size'))).toBeGreaterThanOrEqual(1.25); // rem
   });
