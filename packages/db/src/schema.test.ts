@@ -64,4 +64,34 @@ describe('migrations', () => {
       ),
     ).rejects.toThrow();
   });
+  it('numbers orders with an identity column and indexes the hot columns', async () => {
+    const r = (await ctx.db.execute(sql`select id from restaurants limit 1`)) as unknown as {
+      rows: { id: string }[];
+    };
+    const t = (await ctx.db.execute(sql`select id from tables limit 1`)) as unknown as {
+      rows: { id: string }[];
+    };
+    const rid = r.rows[0]!.id,
+      tid = t.rows[0]!.id;
+    const a = (await ctx.db.execute(
+      sql`insert into orders (restaurant_id, table_id, status) values (${rid}, ${tid}, 'placed') returning number`,
+    )) as unknown as { rows: { number: number }[] };
+    const b = (await ctx.db.execute(
+      sql`insert into orders (restaurant_id, table_id, status) values (${rid}, ${tid}, 'placed') returning number`,
+    )) as unknown as { rows: { number: number }[] };
+    expect(b.rows[0]!.number).toBe(a.rows[0]!.number + 1);
+    const idx = (await ctx.db.execute(
+      sql`select indexname from pg_indexes where schemaname = 'public'`,
+    )) as unknown as { rows: { indexname: string }[] };
+    const names = idx.rows.map((x) => x.indexname);
+    for (const n of [
+      'orders_table_id_idx',
+      'orders_status_idx',
+      'orders_number_uidx',
+      'order_items_order_id_idx',
+      'guest_sessions_expires_at_idx',
+      'audit_log_action_idx',
+    ])
+      expect(names, n).toContain(n);
+  });
 });
