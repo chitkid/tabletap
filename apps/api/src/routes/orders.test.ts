@@ -47,6 +47,7 @@ describe('orders', () => {
       note: 'No basil',
     });
     expect(res.statusCode).toBe(201);
+    expect(res.json().order).not.toHaveProperty('guestSessionId');
     const { order } = OrderResponseSchema.parse(res.json());
     expect(order).toMatchObject({
       status: 'placed',

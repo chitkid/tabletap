@@ -54,13 +54,52 @@ async function hydrate(db: Db, orders: OrderRow[]): Promise<InternalOrderDto[]> 
       ),
     );
   const numberOf = new Map(tables.map((t) => [t.id, t.number]));
-  return orders.map((o) =>
-    toDto(
+  return orders.map((o) => {
+    const tableNumber = numberOf.get(o.tableId);
+    // orders.table_id is a restricted foreign key, so this cannot happen; a silent placeholder
+    // number would put a wrong table on a kitchen ticket, which is worse than a 500.
+    if (tableNumber === undefined) throw new Error('order references a missing table');
+    return toDto(
       o,
       items.filter((i) => i.orderId === o.id),
-      numberOf.get(o.tableId) ?? 0,
-    ),
-  );
+      tableNumber,
+    );
+  });
+}
+
+const UNIQUE_VIOLATION = '23505';
+
+/** Drizzle wraps driver errors, so the Postgres code sits on the error or on its cause. */
+function isUniqueViolation(error: unknown): boolean {
+  const codeOf = (candidate: unknown): unknown =>
+    typeof candidate === 'object' && candidate !== null && 'code' in candidate
+      ? (candidate as { code: unknown }).code
+      : undefined;
+  if (codeOf(error) === UNIQUE_VIOLATION) return true;
+  const cause =
+    typeof error === 'object' && error !== null && 'cause' in error
+      ? (error as { cause: unknown }).cause
+      : undefined;
+  return codeOf(cause) === UNIQUE_VIOLATION;
+}
+
+/**
+ * The order this idempotency key already placed, or null when the key is still free.
+ * A key that belongs to another guest session is never replayed: it is a collision, not a retry.
+ */
+async function findReplay(
+  db: Db,
+  idempotencyKey: string,
+  principal: GuestPrincipal,
+): Promise<InternalOrderDto | null> {
+  const [prior] = await db
+    .select()
+    .from(schema.orders)
+    .where(eq(schema.orders.idempotencyKey, idempotencyKey));
+  if (!prior) return null;
+  if (prior.guestSessionId !== principal.guestSessionId)
+    throw new AppError('CONFLICT', 409, 'This request was already used by another session.');
+  return (await hydrate(db, [prior]))[0]!;
 }
 
 export async function loadOrder(db: Db, orderId: string): Promise<InternalOrderDto | null> {
@@ -104,16 +143,8 @@ export async function createOrder(
   const now = input.now ?? new Date();
   const { principal, body } = input;
 
-  const [prior] = await db
-    .select()
-    .from(schema.orders)
-    .where(eq(schema.orders.idempotencyKey, input.idempotencyKey));
-  if (prior) {
-    if (prior.guestSessionId !== principal.guestSessionId)
-      throw new AppError('CONFLICT', 409, 'This request was already used by another session.');
-    const dto = (await hydrate(db, [prior]))[0]!;
-    return { order: dto, created: false };
-  }
+  const prior = await findReplay(db, input.idempotencyKey, principal);
+  if (prior) return { order: prior, created: false };
 
   const ids = body.items.map((i) => i.menuItemId);
   const rows = await db
@@ -155,37 +186,48 @@ export async function createOrder(
   });
   const subtotalCents = lines.reduce((sum, l) => sum + l.lineTotalCents, 0);
 
-  const order = await db.transaction(async (tx) => {
-    const [inserted] = await tx
-      .insert(schema.orders)
-      .values({
-        restaurantId: principal.restaurantId,
-        tableId: principal.tableId,
-        guestSessionId: principal.guestSessionId,
-        status: 'placed',
-        subtotalCents,
-        totalCents: subtotalCents,
-        note: body.note && body.note.length > 0 ? body.note : null,
-        idempotencyKey: input.idempotencyKey,
-        placedAt: now,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    if (!inserted) throw new Error('order insert returned nothing');
-    await tx
-      .insert(schema.orderItems)
-      .values(lines.map((l) => ({ ...l, orderId: inserted.id, createdAt: now, updatedAt: now })));
-    await recordAudit(tx, {
-      actorType: 'guest',
-      actorId: principal.guestSessionId,
-      action: 'order.placed',
-      entityType: 'order',
-      entityId: inserted.id,
-      payload: { number: inserted.number, totalCents: subtotalCents, itemCount: lines.length },
+  let order: OrderRow;
+  try {
+    order = await db.transaction(async (tx) => {
+      const [inserted] = await tx
+        .insert(schema.orders)
+        .values({
+          restaurantId: principal.restaurantId,
+          tableId: principal.tableId,
+          guestSessionId: principal.guestSessionId,
+          status: 'placed',
+          subtotalCents,
+          totalCents: subtotalCents,
+          note: body.note && body.note.length > 0 ? body.note : null,
+          idempotencyKey: input.idempotencyKey,
+          placedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      if (!inserted) throw new Error('order insert returned nothing');
+      await tx
+        .insert(schema.orderItems)
+        .values(lines.map((l) => ({ ...l, orderId: inserted.id, createdAt: now, updatedAt: now })));
+      await recordAudit(tx, {
+        actorType: 'guest',
+        actorId: principal.guestSessionId,
+        action: 'order.placed',
+        entityType: 'order',
+        entityId: inserted.id,
+        payload: { number: inserted.number, totalCents: subtotalCents, itemCount: lines.length },
+      });
+      return inserted;
     });
-    return inserted;
-  });
+  } catch (error) {
+    // A retry that arrives while the first request is still inserting passes the check above
+    // and then loses the unique key. It is the same request, so answer it with the same order
+    // rather than with a 500; a key held by another session is still a conflict.
+    if (!isUniqueViolation(error)) throw error;
+    const raced = await findReplay(db, input.idempotencyKey, principal);
+    if (!raced) throw error;
+    return { order: raced, created: false };
+  }
   const dto = (await hydrate(db, [order]))[0]!;
   return { order: dto, created: true };
 }
