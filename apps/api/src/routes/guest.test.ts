@@ -195,3 +195,24 @@ describe('POST /api/guest/claim from a browser that already holds a session', ()
     expect(audit.map((a) => a.entityId).sort()).toEqual([first.tableId, second.tableId].sort());
   });
 });
+
+// Own app: the describe above has already spent this ip's claim bucket.
+describe('POST /api/guest/claim with a body the schema rejects', () => {
+  let ctx: Awaited<ReturnType<typeof createTestApp>>;
+  beforeAll(async () => {
+    ctx = await createTestApp({ seed: false });
+  });
+  afterAll(async () => {
+    await ctx.close();
+  });
+
+  it('counts every attempt, even the ones validation answers first', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 21; i++)
+      statuses.push(
+        (await ctx.app.inject({ method: 'POST', url: '/api/guest/claim', payload: {} })).statusCode,
+      );
+    expect(statuses.slice(0, 20)).toEqual(Array(20).fill(400));
+    expect(statuses.at(-1)).toBe(429);
+  });
+});

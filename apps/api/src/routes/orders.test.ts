@@ -239,3 +239,25 @@ describe('orders', () => {
     ).toBe(201);
   });
 });
+
+// Own app so the per-ip bucket is not already spent by the orders above.
+describe('POST /api/orders without a session', () => {
+  let ctx: Awaited<ReturnType<typeof createTestApp>>;
+  beforeAll(async () => {
+    ctx = await createTestApp();
+  });
+  afterAll(async () => {
+    await ctx.close();
+  });
+
+  it('counts anonymous attempts against the ip instead of refusing them for free', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i++)
+      statuses.push(
+        (await ctx.app.inject({ method: 'POST', url: '/api/orders', payload: { items: [] } }))
+          .statusCode,
+      );
+    expect(statuses.slice(0, 10)).toEqual(Array(10).fill(401));
+    expect(statuses.at(-1)).toBe(429);
+  });
+});

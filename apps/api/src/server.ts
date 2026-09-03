@@ -72,9 +72,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(cookie, { secret: config.COOKIE_SECRET });
   await app.register(rateLimit, {
     global: false,
-    // Route limits key on the caller's guest session, which principalPlugin resolves in an
-    // app-level preHandler; the default onRequest hook would run before it exists.
-    hook: 'preHandler',
+    // Left on the default onRequest hook: a limiter that runs later is a limiter that never
+    // counts the requests a guard or a schema answers first, which is most of the abusive ones.
+    // Route limits that need the guest session read it from the signed cookie (routes/orders.ts).
     // @fastify/rate-limit throws this return value; it needs its own statusCode so
     // errorHandlerPlugin's generic 4xx/5xx mapping recognizes it as a 429, not a 500.
     errorResponseBuilder: (_req, context) => ({
