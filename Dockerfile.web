@@ -19,8 +19,12 @@ COPY . .
 RUN pnpm tokens && pnpm --filter @tabletap/web build
 
 FROM node:24-alpine AS runner
+# The rewrite target is baked into the build above; the server components read API_URL again at
+# request time, so the runtime must carry the same value or every server-side read falls back to
+# localhost:4000, which is nothing inside this container.
+ARG API_URL=http://api:4000
 WORKDIR /app
-ENV NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3000
+ENV NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3000 API_URL=$API_URL
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /app/apps/web/public ./apps/web/public
