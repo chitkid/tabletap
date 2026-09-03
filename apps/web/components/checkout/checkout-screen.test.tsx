@@ -121,6 +121,40 @@ describe('CheckoutScreen', () => {
     );
     expect(keys[0]).toBe(keys[1]);
   });
+  it('places the order in an insecure context, where crypto.randomUUID is undefined', async () => {
+    const real = globalThis.crypto;
+    vi.stubGlobal('crypto', {
+      getRandomValues: (array: Uint8Array) => real.getRandomValues(array),
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json(201, orderBody)),
+    );
+    render(<CheckoutScreen menu={menu} tableId="t1" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith(`/orders/${U(9)}`));
+    const headers = new Headers(vi.mocked(fetch).mock.calls[0]?.[1]?.headers);
+    expect(headers.get('idempotency-key')).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+  });
+  it('tells the truth when the key belongs to another session', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json(409, { error: { code: 'CONFLICT', message: 'x' } })),
+    );
+    render(<CheckoutScreen menu={menu} tableId="t1" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
+    expect(
+      await screen.findByText(
+        'This basket was already sent from another table. Go back to the menu and start again.',
+      ),
+    ).toBeInTheDocument();
+  });
+  it('keeps the status line in the layout while it is empty', () => {
+    render(<CheckoutScreen menu={menu} tableId="t1" />);
+    expect(screen.getByRole('status')).toHaveTextContent('');
+  });
   it('sends an ended session back to the start and explains other failures', async () => {
     vi.stubGlobal(
       'fetch',

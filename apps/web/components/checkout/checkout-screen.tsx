@@ -15,6 +15,7 @@ import {
   type CartLine,
 } from '../../lib/cart';
 import { formatCents } from '../../lib/money';
+import { randomUuid } from '../../lib/uuid';
 
 const NOTE_MAX_LENGTH = 280;
 const NOTE_COUNTER_ID = 'note-counter';
@@ -27,6 +28,7 @@ const MESSAGE: Record<string, string> = {
   ITEM_UNAVAILABLE: SOLD_OUT_SOME,
   VALIDATION_FAILED: 'Something in the basket is not right. Go back to the menu.',
   RATE_LIMITED: TOO_MANY,
+  CONFLICT: 'This basket was already sent from another table. Go back to the menu and start again.',
 };
 
 function messageFor(err: unknown): string {
@@ -92,7 +94,7 @@ export function CheckoutScreen({ menu, tableId }: { menu: MenuResponse; tableId:
     } catch {
       key = null;
     }
-    key ??= crypto.randomUUID();
+    key ??= randomUuid();
     try {
       sessionStorage.setItem(storageKey, key);
     } catch {
@@ -161,7 +163,7 @@ export function CheckoutScreen({ menu, tableId }: { menu: MenuResponse; tableId:
 
   // A sold-out line always has a way out of the dead end it creates: the line says what to do,
   // and the message beside the disabled button says it again for anyone who never saw the line.
-  const status = message ?? (blocked ? SOLD_OUT_SOME : null);
+  const status = message ?? (blocked ? SOLD_OUT_SOME : '');
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6">
@@ -215,11 +217,11 @@ export function CheckoutScreen({ menu, tableId }: { menu: MenuResponse; tableId:
         >
           {submitting ? 'Sending to the kitchen…' : 'Place order'}
         </Button>
-        {status !== null ? (
-          <p role="status" aria-live="polite">
-            {status}
-          </p>
-        ) : null}
+        {/* Always in the layout, empty when there is nothing to say: a paragraph that appears
+            only on failure moves the button under the thumb that just pressed it. */}
+        <p role="status" aria-live="polite" className="min-h-6">
+          {status}
+        </p>
       </div>
     </main>
   );
