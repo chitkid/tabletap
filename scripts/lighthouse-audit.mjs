@@ -48,6 +48,7 @@ const chrome = await launch({
   chromeFlags: ['--headless=new', '--no-sandbox'],
 });
 const results = [];
+const redirected = [];
 try {
   for (const page of PAGES) {
     const { lhr } = await lighthouse(`${BASE}${page.path}`, {
@@ -57,6 +58,11 @@ try {
       onlyCategories: ['performance', 'accessibility', 'best-practices'],
       extraHeaders: page.headers,
     });
+    // A redirect is scored as whatever it landed on: an expired guest session sends /menu to
+    // /session-ended, an almost empty page that would sail through every gate below.
+    const finalPath = new URL(lhr.finalDisplayedUrl).pathname;
+    if (finalPath !== page.path)
+      redirected.push(`audited ${lhr.finalDisplayedUrl} instead of ${page.path}`);
     const score = (c) => Math.round((lhr.categories[c]?.score ?? 0) * 100);
     results.push({
       slug: page.slug,
@@ -77,6 +83,11 @@ fs.writeFileSync(
   OUT,
   JSON.stringify({ base: BASE, at: new Date().toISOString(), results }, null, 2) + '\n',
 );
+// Reported after the results file is written, so a failed run still leaves its evidence.
+if (redirected.length > 0) {
+  for (const line of redirected) console.error(line);
+  process.exit(1);
+}
 const failing = results.filter((r) => r.accessibility < MIN_A11Y);
 if (failing.length > 0) {
   console.error(
