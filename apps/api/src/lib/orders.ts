@@ -1,14 +1,21 @@
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { schema, type Db } from '@tabletap/db';
-import type { GuestPrincipal, OrderCreateRequest, OrderDto, OrderStatus } from '@tabletap/shared';
+import {
+  ACTIVE_ORDER_STATUSES,
+  type GuestPrincipal,
+  type OrderCreateRequest,
+  type OrderDto,
+  type OrderStatus,
+} from '@tabletap/shared';
 import { recordAudit } from './audit';
 import { AppError } from './errors';
+import type { OrderEvents } from './order-events';
 
 type OrderRow = typeof schema.orders.$inferSelect;
 type ItemRow = typeof schema.orderItems.$inferSelect;
 
-/** The scoping column travels with the DTO inside the API; routes strip it before replying. */
-export type InternalOrderDto = OrderDto & { guestSessionId: string | null };
+/** The scoping columns travel with the DTO inside the API; routes strip them before replying. */
+export type InternalOrderDto = OrderDto & { guestSessionId: string | null; restaurantId: string };
 
 function toDto(order: OrderRow, items: ItemRow[], tableNumber: number): InternalOrderDto {
   return {
@@ -36,10 +43,11 @@ function toDto(order: OrderRow, items: ItemRow[], tableNumber: number): Internal
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
     guestSessionId: order.guestSessionId,
+    restaurantId: order.restaurantId,
   };
 }
 
-async function hydrate(db: Db, orders: OrderRow[]): Promise<InternalOrderDto[]> {
+export async function hydrate(db: Db, orders: OrderRow[]): Promise<InternalOrderDto[]> {
   if (orders.length === 0) return [];
   const ids = orders.map((o) => o.id);
   const items = await db
@@ -115,20 +123,111 @@ export async function loadOrder(db: Db, orderId: string): Promise<InternalOrderD
 
 export async function listOrders(
   db: Db,
-  filter: { guestSessionId: string } | { restaurantId: string },
+  filter: { guestSessionId: string } | { restaurantId: string; active?: boolean },
   limit = 100,
 ): Promise<InternalOrderDto[]> {
-  const where =
-    'guestSessionId' in filter
-      ? eq(schema.orders.guestSessionId, filter.guestSessionId)
-      : eq(schema.orders.restaurantId, filter.restaurantId);
+  if ('guestSessionId' in filter) {
+    const rows = await db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.guestSessionId, filter.guestSessionId))
+      .orderBy(desc(schema.orders.number))
+      .limit(limit);
+    return hydrate(db, rows);
+  }
+  if (filter.active) {
+    // The kitchen board: everything still on its way to a table, oldest ticket first.
+    const rows = await db
+      .select()
+      .from(schema.orders)
+      .where(
+        and(
+          eq(schema.orders.restaurantId, filter.restaurantId),
+          inArray(schema.orders.status, [...ACTIVE_ORDER_STATUSES]),
+        ),
+      )
+      .orderBy(asc(schema.orders.placedAt), asc(schema.orders.number))
+      .limit(200);
+    return hydrate(db, rows);
+  }
   const rows = await db
     .select()
     .from(schema.orders)
-    .where(where)
+    .where(eq(schema.orders.restaurantId, filter.restaurantId))
     .orderBy(desc(schema.orders.number))
     .limit(limit);
   return hydrate(db, rows);
+}
+
+export interface OrderLine {
+  menuItemId: string;
+  nameSnapshot: string;
+  unitPriceCents: number;
+  quantity: number;
+  lineTotalCents: number;
+}
+
+/**
+ * The transaction body shared by a guest placing an order and the demo rush generator: insert
+ * the order, its lines and the audit row. Everything above this (price lookups, availability
+ * checks, replay handling) is caller-specific and happens before the transaction opens.
+ */
+export async function insertPlacedOrder(
+  tx: Db,
+  input: {
+    restaurantId: string;
+    tableId: string;
+    guestSessionId: string | null;
+    lines: OrderLine[];
+    note: string | null;
+    idempotencyKey: string;
+    actor: { actorType: 'guest' | 'system'; actorId: string | null };
+    auditPayload?: Record<string, unknown>;
+    now: Date;
+  },
+): Promise<OrderRow> {
+  const subtotalCents = input.lines.reduce((sum, l) => sum + l.lineTotalCents, 0);
+  const [inserted] = await tx
+    .insert(schema.orders)
+    .values({
+      restaurantId: input.restaurantId,
+      tableId: input.tableId,
+      guestSessionId: input.guestSessionId,
+      status: 'placed',
+      subtotalCents,
+      totalCents: subtotalCents,
+      note: input.note,
+      idempotencyKey: input.idempotencyKey,
+      placedAt: input.now,
+      createdAt: input.now,
+      updatedAt: input.now,
+    })
+    .returning();
+  if (!inserted) throw new Error('order insert returned nothing');
+  await tx
+    .insert(schema.orderItems)
+    .values(
+      input.lines.map((l) => ({
+        ...l,
+        orderId: inserted.id,
+        createdAt: input.now,
+        updatedAt: input.now,
+      })),
+    );
+  await recordAudit(tx, {
+    actorType: input.actor.actorType,
+    actorId: input.actor.actorId,
+    action: 'order.placed',
+    entityType: 'order',
+    entityId: inserted.id,
+    payload: {
+      number: inserted.number,
+      totalCents: subtotalCents,
+      itemCount: input.lines.length,
+      ...(input.auditPayload ?? {}),
+    },
+  });
+  return inserted;
 }
 
 /**
@@ -144,6 +243,7 @@ export async function createOrder(
     idempotencyKey: string;
     now?: Date;
   },
+  events?: OrderEvents,
 ): Promise<{ order: InternalOrderDto; created: boolean }> {
   const now = input.now ?? new Date();
   const { principal, body } = input;
@@ -179,7 +279,7 @@ export async function createOrder(
   if (unavailable.length > 0)
     throw new AppError('ITEM_UNAVAILABLE', 409, 'Some items are sold out today.', { unavailable });
 
-  const lines = body.items.map((i) => {
+  const lines: OrderLine[] = body.items.map((i) => {
     const row = byId.get(i.menuItemId)!;
     return {
       menuItemId: row.id,
@@ -189,41 +289,21 @@ export async function createOrder(
       lineTotalCents: row.priceCents * i.quantity,
     };
   });
-  const subtotalCents = lines.reduce((sum, l) => sum + l.lineTotalCents, 0);
 
   let order: OrderRow;
   try {
-    order = await db.transaction(async (tx) => {
-      const [inserted] = await tx
-        .insert(schema.orders)
-        .values({
-          restaurantId: principal.restaurantId,
-          tableId: principal.tableId,
-          guestSessionId: principal.guestSessionId,
-          status: 'placed',
-          subtotalCents,
-          totalCents: subtotalCents,
-          note: body.note && body.note.length > 0 ? body.note : null,
-          idempotencyKey: input.idempotencyKey,
-          placedAt: now,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
-      if (!inserted) throw new Error('order insert returned nothing');
-      await tx
-        .insert(schema.orderItems)
-        .values(lines.map((l) => ({ ...l, orderId: inserted.id, createdAt: now, updatedAt: now })));
-      await recordAudit(tx, {
-        actorType: 'guest',
-        actorId: principal.guestSessionId,
-        action: 'order.placed',
-        entityType: 'order',
-        entityId: inserted.id,
-        payload: { number: inserted.number, totalCents: subtotalCents, itemCount: lines.length },
-      });
-      return inserted;
-    });
+    order = await db.transaction((tx) =>
+      insertPlacedOrder(tx, {
+        restaurantId: principal.restaurantId,
+        tableId: principal.tableId,
+        guestSessionId: principal.guestSessionId,
+        lines,
+        note: body.note && body.note.length > 0 ? body.note : null,
+        idempotencyKey: input.idempotencyKey,
+        actor: { actorType: 'guest', actorId: principal.guestSessionId },
+        now,
+      }),
+    );
   } catch (error) {
     // A retry that arrives while the first request is still inserting passes the check above
     // and then loses the unique key. It is the same request, so answer it with the same order
@@ -234,5 +314,6 @@ export async function createOrder(
     return { order: raced, created: false };
   }
   const dto = (await hydrate(db, [order]))[0]!;
+  events?.emit('order:created', dto);
   return { order: dto, created: true };
 }

@@ -17,6 +17,7 @@ export const TEST_CONFIG: Config = {
   WEB_ORIGIN: 'http://localhost:3000',
   COOKIE_SECRET: 'test-cookie-secret-0123456789abcdefghijk',
   TABLE_TOKEN_SECRET: 'test-table-token-secret-0123456789abcdef',
+  SOCKET_TOKEN_SECRET: 'test-socket-token-secret-0123456789abcdef',
   TABLE_TOKEN_TTL_DAYS: 365,
   GUEST_SESSION_TTL_HOURS: 4,
   LOG_LEVEL: 'silent',

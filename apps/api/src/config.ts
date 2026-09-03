@@ -9,6 +9,8 @@ const EnvSchema = z.object({
   WEB_ORIGIN: z.url(),
   COOKIE_SECRET: z.string().min(32),
   TABLE_TOKEN_SECRET: z.string().min(32),
+  /** Signs the 60-second socket handshake token (typ tt-socket). Distinct from the table token secret. */
+  SOCKET_TOKEN_SECRET: z.string().min(32),
   TABLE_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(365),
   GUEST_SESSION_TTL_HOURS: z.coerce.number().int().positive().default(4),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),

@@ -8,6 +8,7 @@ const valid = {
   WEB_ORIGIN: 'http://localhost:3000',
   COOKIE_SECRET: 'y'.repeat(32),
   TABLE_TOKEN_SECRET: 'z'.repeat(32),
+  SOCKET_TOKEN_SECRET: 'w'.repeat(32),
 };
 
 describe('loadConfig', () => {

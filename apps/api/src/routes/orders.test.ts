@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { schema } from '@tabletap/db';
 import {
+  ACTIVE_ORDER_STATUSES,
   IDEMPOTENCY_KEY_HEADER,
   MenuResponseSchema,
   OrderResponseSchema,
@@ -244,6 +245,57 @@ describe('orders', () => {
         })
       ).statusCode,
     ).toBe(201);
+  });
+
+  describe('orders: events and the active list', () => {
+    it('emits order:created with the internal DTO after a guest places an order', async () => {
+      const { cookie } = await claimTable(ctx.app, ctx.db, 5);
+      const seen: string[] = [];
+      ctx.app.orderEvents.once('order:created', (o) =>
+        seen.push(`${o.tableNumber}:${o.status}:${o.restaurantId.length}`),
+      );
+      const res = await post(cookie, {
+        items: [{ menuItemId: byName['Cold Brew']!.id, quantity: 1 }],
+      });
+      expect(res.statusCode).toBe(201);
+      expect(seen).toEqual(['5:placed:36']);
+    });
+    it('GET /api/orders?active=1 lists active orders for staff, oldest first', async () => {
+      const kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
+      const res = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/orders?active=1',
+        headers: { cookie: kitchen },
+      });
+      expect(res.statusCode).toBe(200);
+      const { orders } = OrdersResponseSchema.parse(res.json());
+      expect(orders.length).toBeGreaterThan(1);
+      for (const o of orders) expect(ACTIVE_ORDER_STATUSES).toContain(o.status);
+      const times = orders.map((o) => Date.parse(o.placedAt ?? o.createdAt));
+      expect([...times].sort((a, b) => a - b)).toEqual(times);
+    });
+    it('rejects a malformed active flag and ignores it for guests', async () => {
+      const kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
+      expect(
+        (
+          await ctx.app.inject({
+            method: 'GET',
+            url: '/api/orders?active=yes',
+            headers: { cookie: kitchen },
+          })
+        ).statusCode,
+      ).toBe(400);
+      const { cookie } = await claimTable(ctx.app, ctx.db, 5);
+      expect(
+        (
+          await ctx.app.inject({
+            method: 'GET',
+            url: '/api/orders?active=1',
+            headers: { cookie },
+          })
+        ).statusCode,
+      ).toBe(200);
+    });
   });
 });
 

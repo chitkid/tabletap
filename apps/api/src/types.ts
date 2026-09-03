@@ -2,12 +2,14 @@ import type { Db } from '@tabletap/db';
 import type { Principal } from '@tabletap/shared';
 import type { Config } from './config';
 import type { Auth } from './auth';
+import type { OrderEvents } from './lib/order-events';
 
 declare module 'fastify' {
   interface FastifyInstance {
     db: Db;
     config: Config;
     auth: Auth;
+    orderEvents: OrderEvents;
   }
   interface FastifyRequest {
     principal: Principal;

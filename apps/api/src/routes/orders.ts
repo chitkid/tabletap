@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
+  ActiveOrdersQuerySchema,
   IDEMPOTENCY_KEY_HEADER,
   IdempotencyKeySchema,
   OrderCreateRequestSchema,
@@ -76,7 +77,11 @@ export async function ordersRoutes(app: FastifyInstance) {
         request.headers[IDEMPOTENCY_KEY_HEADER],
       );
       const body = validate(OrderCreateRequestSchema, request.body);
-      const { order, created } = await createOrder(app.db, { principal, body, idempotencyKey });
+      const { order, created } = await createOrder(
+        app.db,
+        { principal, body, idempotencyKey },
+        app.orderEvents,
+      );
       return reply.status(created ? 201 : 200).send({ order: strip(order) });
     },
   );
@@ -102,6 +107,8 @@ export async function ordersRoutes(app: FastifyInstance) {
     '/orders',
     { preHandler: requireAuthenticated(), schema: { response: { 200: OrdersResponseSchema } } },
     async (request) => {
+      // No declared querystring schema, so `request.query` is `unknown`; validate it here.
+      const query = validate(ActiveOrdersQuerySchema, request.query);
       const p = request.principal;
       if (p.kind === 'guest')
         return {
@@ -110,7 +117,10 @@ export async function ordersRoutes(app: FastifyInstance) {
       if (p.kind === 'staff' && can(p.role, 'orders.read.all'))
         return {
           orders: (
-            await listOrders(app.db, { restaurantId: await restaurantIdFor(app.db, p) })
+            await listOrders(app.db, {
+              restaurantId: await restaurantIdFor(app.db, p),
+              active: query.active === '1',
+            })
           ).map(strip),
         };
       throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');

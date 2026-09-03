@@ -10,6 +10,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { randomUUID } from 'node:crypto';
 import type { Config } from './config';
+import { OrderEvents } from './lib/order-events';
 import { authPlugin } from './plugins/auth';
 import { demoResetPlugin } from './plugins/demo-reset';
 import { errorHandlerPlugin } from './plugins/error-handler';
@@ -63,6 +64,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   app.setSerializerCompiler(serializerCompiler);
   app.decorate('db', opts.db);
   app.decorate('config', config);
+  app.decorate('orderEvents', new OrderEvents());
   app.addHook('onSend', async (request, reply) => {
     reply.header('x-request-id', request.id);
   });
