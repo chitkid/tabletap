@@ -49,6 +49,7 @@ export async function findActiveGuestSession(db: Db, id: string, now: Date = new
     .select({
       id: schema.guestSessions.id,
       tableId: schema.guestSessions.tableId,
+      restaurantId: schema.tables.restaurantId,
       tableNumber: schema.tables.number,
       expiresAt: schema.guestSessions.expiresAt,
       lastSeenAt: schema.guestSessions.lastSeenAt,

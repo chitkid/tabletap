@@ -73,6 +73,7 @@ export async function resolvePrincipal(
       kind: 'guest',
       guestSessionId: guest.id,
       tableId: guest.tableId,
+      restaurantId: guest.restaurantId,
       tableNumber: guest.tableNumber,
       expiresAt: expiresAt.toISOString(),
     },

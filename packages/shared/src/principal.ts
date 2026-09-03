@@ -12,6 +12,7 @@ export const GuestPrincipalSchema = z.object({
   kind: z.literal('guest'),
   guestSessionId: z.uuid(),
   tableId: z.uuid(),
+  restaurantId: z.uuid(),
   tableNumber: z.number().int().positive(),
   expiresAt: z.iso.datetime(),
 });

@@ -61,6 +61,7 @@ describe('POST /api/guest/claim', () => {
     expect(MeResponseSchema.parse(me.json()).principal).toMatchObject({
       kind: 'guest',
       tableNumber: 5,
+      restaurantId,
     });
   });
   it('rejects a bad signature with 401 TOKEN_INVALID', async () => {

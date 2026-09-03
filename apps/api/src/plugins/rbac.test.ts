@@ -22,7 +22,14 @@ describe('rbac guards', () => {
   it('roleOf maps principals', () => {
     expect(roleOf({ kind: 'anonymous' })).toBeNull();
     expect(
-      roleOf({ kind: 'guest', guestSessionId: 'g', tableId: 't', tableNumber: 1, expiresAt: 'x' }),
+      roleOf({
+        kind: 'guest',
+        guestSessionId: 'g',
+        tableId: 't',
+        tableNumber: 1,
+        expiresAt: 'x',
+        restaurantId: 'r',
+      }),
     ).toBe('guest');
     expect(roleOf({ kind: 'staff', userId: 'u', email: 'e', name: 'n', role: 'kitchen' })).toBe(
       'kitchen',
