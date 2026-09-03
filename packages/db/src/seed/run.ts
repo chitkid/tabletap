@@ -6,6 +6,8 @@ import type { Db } from '../client';
 import * as schema from '../schema/index';
 import { DEMO_MENU, DEMO_RESTAURANT, DEMO_RESTAURANT_SLUG, DEMO_STAFF, DEMO_TABLES } from './data';
 
+export { DEMO_STAFF, DEMO_RESTAURANT_SLUG } from './data';
+
 export interface SeedOptions {
   mode: 'if-empty' | 'reset';
   demoPassword: string;

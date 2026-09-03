@@ -14,6 +14,7 @@ import { authPlugin } from './plugins/auth';
 import { errorHandlerPlugin } from './plugins/error-handler';
 import { principalPlugin } from './plugins/principal';
 import { routeGuardPlugin } from './plugins/route-guard';
+import { demoRoutes } from './routes/demo';
 import { guestRoutes } from './routes/guest';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
@@ -90,5 +91,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(tablesRoutes, { prefix: '/api' });
   await app.register(menuRoutes, { prefix: '/api' });
   await app.register(ordersRoutes, { prefix: '/api' });
+  await app.register(demoRoutes, { prefix: '/api' });
   return app;
 }

@@ -1,0 +1,56 @@
+import { and, eq } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { DemoLinksResponseSchema } from '@tabletap/shared';
+import { signTableToken } from '@tabletap/shared/server';
+import { schema } from '@tabletap/db';
+import { DEMO_RESTAURANT_SLUG, DEMO_STAFF } from '@tabletap/db/seed';
+import { AppError } from '../lib/errors';
+
+export const DEMO_TABLE_NUMBER = 7;
+
+/** Public in demo mode only: everything it returns is already public demo data (README). */
+export async function demoRoutes(app: FastifyInstance) {
+  app.withTypeProvider<ZodTypeProvider>().get(
+    '/demo/links',
+    {
+      config: { public: true, principal: false, rateLimit: { max: 30, timeWindow: '1 minute' } },
+      schema: { response: { 200: DemoLinksResponseSchema } },
+    },
+    async () => {
+      const { config } = app;
+      if (!config.demoMode) throw new AppError('NOT_FOUND', 404, 'Not found.');
+      const [restaurant] = await app.db
+        .select({ id: schema.restaurants.id })
+        .from(schema.restaurants)
+        .where(eq(schema.restaurants.slug, DEMO_RESTAURANT_SLUG));
+      const [table] = restaurant
+        ? await app.db
+            .select({ id: schema.tables.id, number: schema.tables.number })
+            .from(schema.tables)
+            .where(
+              and(
+                eq(schema.tables.restaurantId, restaurant.id),
+                eq(schema.tables.number, DEMO_TABLE_NUMBER),
+              ),
+            )
+        : [];
+      if (!restaurant || !table) throw new AppError('NOT_FOUND', 404, 'Demo data is not seeded.');
+      const token = await signTableToken(
+        { tableId: table.id, restaurantId: restaurant.id, tableNumber: table.number },
+        { secret: config.TABLE_TOKEN_SECRET, ttlSeconds: config.TABLE_TOKEN_TTL_DAYS * 86_400 },
+      );
+      return {
+        guest: { tableNumber: table.number, url: `${config.WEB_ORIGIN}/t/${token}` },
+        staff: DEMO_STAFF.map((s) => ({
+          role: s.role,
+          email: s.email,
+          name: s.name,
+          password: config.DEMO_PASSWORD,
+        })),
+        resetsEveryMinutes:
+          config.DEMO_RESET_INTERVAL_MINUTES > 0 ? config.DEMO_RESET_INTERVAL_MINUTES : null,
+      };
+    },
+  );
+}
