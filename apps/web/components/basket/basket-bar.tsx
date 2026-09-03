@@ -1,21 +1,28 @@
 'use client';
 import { Button } from '@tabletap/ui';
+import type { RefObject } from 'react';
 import { formatCents } from '../../lib/money';
 
 /**
  * The bar is the basket's only running total, so it is a live region: a guest who taps Add three
  * rows down the menu hears the new count without moving focus.
+ *
+ * `openerRef` is how the sheet finds its way back here when it closes. The button is not a
+ * `SheetTrigger` — the sheet is a sibling, not a child — so Radix has no trigger to restore focus
+ * to and would drop it on `<body>`.
  */
 export function BasketBar({
   count,
   totalCents,
   currency,
   onOpen,
+  openerRef,
 }: {
   count: number;
   totalCents: number;
   currency: string;
   onOpen: () => void;
+  openerRef?: RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <section
@@ -28,7 +35,7 @@ export function BasketBar({
         <span className="font-semibold">
           {`${count} ${count === 1 ? 'item' : 'items'} · ${formatCents(totalCents, currency)}`}
         </span>
-        <Button type="button" onClick={onOpen}>
+        <Button type="button" ref={openerRef} onClick={onOpen}>
           View basket
         </Button>
       </div>

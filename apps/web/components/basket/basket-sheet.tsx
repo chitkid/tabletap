@@ -10,6 +10,7 @@ import {
   SheetTitle,
 } from '@tabletap/ui';
 import Link from 'next/link';
+import type { RefObject } from 'react';
 import type { CartLine } from '../../lib/cart';
 import { formatCents } from '../../lib/money';
 import { QuantityStepper } from '../menu/quantity-stepper';
@@ -23,6 +24,7 @@ export function BasketSheet({
   currency,
   onSetQuantity,
   onRemove,
+  returnFocusTo,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,6 +32,7 @@ export function BasketSheet({
   currency: string;
   onSetQuantity: (menuItemId: string, quantity: number) => void;
   onRemove: (menuItemId: string) => void;
+  returnFocusTo?: RefObject<HTMLElement | null>;
 }) {
   const orderable = lines.filter((line) => line.available);
   const subtotalCents = orderable.reduce((sum, line) => sum + line.lineTotalCents, 0);
@@ -41,6 +44,15 @@ export function BasketSheet({
         showCloseButton={false}
         aria-describedby={DESCRIPTION_ID}
         className="mx-auto max-w-2xl"
+        // Radix restores focus to its own `SheetTrigger`, and this sheet has none: it is opened
+        // from the bar it is a sibling of. Without this, Esc, the overlay and Keep browsing all
+        // leave focus on <body>, which drops a keyboard guest back at the top of the menu.
+        onCloseAutoFocus={(event) => {
+          const opener = returnFocusTo?.current;
+          if (!opener) return;
+          event.preventDefault();
+          opener.focus();
+        }}
       >
         <SheetHeader>
           <SheetTitle>Your basket</SheetTitle>

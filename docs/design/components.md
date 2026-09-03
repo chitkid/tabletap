@@ -84,18 +84,22 @@ concern; nothing of either ships now.
 Guest menu item. Radius `--dish-card-radius`, padding `--dish-card-padding`, internal gap
 `--dish-card-gap`, image box `--dish-card-image-ratio`, resting elevation `--dish-card-shadow`.
 
-| State         | background    | foreground           | border     | elevation     | motion            |
-| ------------- | ------------- | -------------------- | ---------- | ------------- | ----------------- |
-| default       | `--card`      | `--card-foreground`  | `--border` | `--shadow-sm` | none              |
-| hover         | `--card`      | `--card-foreground`  | `--border` | `--shadow-md` | `--duration-fast` |
-| active        | `--secondary` | `--card-foreground`  | `--border` | `--shadow-sm` | `--duration-fast` |
-| focus-visible | `--card`      | `--card-foreground`  | `--ring`   | `--shadow-sm` | `--duration-fast` |
-| disabled      | `--muted`     | `--muted-foreground` | `--border` | none          | none              |
-| loading       | `--muted`     | none                 | `--border` | none          | none              |
+| State         | background    | foreground          | border     | elevation     | motion            |
+| ------------- | ------------- | ------------------- | ---------- | ------------- | ----------------- |
+| default       | `--card`      | `--card-foreground` | `--border` | `--shadow-sm` | none              |
+| hover         | `--card`      | `--card-foreground` | `--border` | `--shadow-md` | `--duration-fast` |
+| active        | `--secondary` | `--card-foreground` | `--border` | `--shadow-sm` | `--duration-fast` |
+| focus-visible | `--card`      | `--card-foreground` | `--ring`   | `--shadow-sm` | `--duration-fast` |
+| disabled      | `--muted`     | `--foreground`      | `--border` | `--shadow-sm` | none              |
+| loading       | `--muted`     | none                | `--border` | none          | none              |
 
-`disabled` is the sold-out card: the price and description drop to `--muted-foreground`, the card keeps
-its "Sold out" label, and the add control is removed rather than greyed. `loading` is the skeleton
-placeholder — `--muted` blocks in the image and text boxes, no text, no shimmer in M1.
+`disabled` is the sold-out card, as shipped in `apps/web/components/menu/dish-card.tsx`: the fill goes
+to `--muted`, the card keeps its "Sold out today" label, and the add control is removed rather than
+greyed. Its secondary lines — description, allergens — keep `--foreground` rather than dropping to
+`--muted-foreground`, because `--muted-foreground` on `--muted` is 4.48:1 and fails AA (contrast note
+2); the smaller type carries the hierarchy instead. It keeps `--shadow-sm`, because a sold-out dish is
+still a card on the page. `loading` is the skeleton placeholder — `--muted` blocks in the image and
+text boxes, no text, no shimmer in M1.
 Elevation carries the hover, not a transform: a card that lifts by translating shifts the grid.
 
 ## order-card

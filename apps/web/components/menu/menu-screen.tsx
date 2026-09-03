@@ -1,6 +1,6 @@
 'use client';
 import type { MenuResponse } from '@tabletap/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { cartLines, cartTotalCents, countItems, useCart } from '../../lib/cart';
 import { BasketBar } from '../basket/basket-bar';
 import { BasketSheet } from '../basket/basket-sheet';
@@ -18,6 +18,9 @@ export function MenuScreen({
 }) {
   const { cart, add, setQuantity, remove } = useCart(tableId);
   const [open, setOpen] = useState(false);
+  // The bar opens the sheet and the sheet gives focus back to it; the ref is the only thing the
+  // two need to share, so they stay siblings rather than a trigger wrapped around a panel.
+  const openerRef = useRef<HTMLButtonElement>(null);
   const count = countItems(cart);
   const currency = menu.restaurant.currency;
 
@@ -57,6 +60,7 @@ export function MenuScreen({
           totalCents={cartTotalCents(cart, menu)}
           currency={currency}
           onOpen={() => setOpen(true)}
+          openerRef={openerRef}
         />
       ) : null}
       <BasketSheet
@@ -66,6 +70,7 @@ export function MenuScreen({
         currency={currency}
         onSetQuantity={setQuantity}
         onRemove={remove}
+        returnFocusTo={openerRef}
       />
     </main>
   );

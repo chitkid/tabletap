@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { MenuResponse } from '@tabletap/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -67,5 +67,20 @@ describe('MenuScreen', () => {
     expect(screen.getByRole('region', { name: 'Basket' })).toHaveTextContent('3 items · $28.00');
     await userEvent.click(screen.getByRole('button', { name: 'View basket' }));
     expect(screen.getByRole('dialog', { name: 'Your basket' })).toBeInTheDocument();
+  });
+
+  it('returns focus to the basket bar however the sheet is closed', async () => {
+    render(<MenuScreen menu={menu} tableId="t1" tableNumber={7} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Add House Lemonade' }));
+    const viewBasket = screen.getByRole('button', { name: 'View basket' });
+
+    await userEvent.click(viewBasket);
+    expect(screen.getByRole('dialog', { name: 'Your basket' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(document.activeElement).toBe(viewBasket));
+
+    await userEvent.click(viewBasket);
+    await userEvent.click(screen.getByRole('button', { name: 'Keep browsing' }));
+    await waitFor(() => expect(document.activeElement).toBe(viewBasket));
   });
 });
