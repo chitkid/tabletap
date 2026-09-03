@@ -63,15 +63,20 @@ export interface PlateProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   /** Defaults to `name`; pass a stable id to keep a plate identical after a rename. */
   seed?: string;
   size?: number;
+  /**
+   * For a plate that sits beside text already carrying the name: hidden from the accessibility
+   * tree instead of read out a second time. Labelled by default, because a plate on its own is
+   * the only thing standing in for the dish.
+   */
+  decorative?: boolean;
 }
 
-export function Plate({ name, kind, seed, size, className, ...rest }: PlateProps) {
+export function Plate({ name, kind, seed, size, decorative, className, ...rest }: PlateProps) {
   const plan = planPlate(seed ?? name, kind);
   return (
     <svg
       viewBox="0 0 128 128"
-      role="img"
-      aria-label={name}
+      {...(decorative === true ? { 'aria-hidden': true } : { role: 'img', 'aria-label': name })}
       width={size}
       height={size}
       className={cn('shrink-0', className)}

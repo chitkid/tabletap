@@ -18,7 +18,7 @@ const item = {
 describe('DishCard', () => {
   it('shows price, allergens and an Add button that becomes a stepper', async () => {
     const onAdd = vi.fn();
-    const { rerender } = render(
+    const { container, rerender } = render(
       <DishCard
         item={{ ...item, allergens: [...item.allergens] }}
         category="Flatbreads"
@@ -30,7 +30,9 @@ describe('DishCard', () => {
     );
     expect(screen.getByText('$12.00')).toBeInTheDocument();
     expect(screen.getByText('Contains gluten, dairy')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Margherita Flatbread' })).toBeInTheDocument();
+    // The plate repeats the heading beside it, so it is decoration, not an image worth naming.
+    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByRole('img')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Add Margherita Flatbread' }));
     expect(onAdd).toHaveBeenCalled();
     rerender(

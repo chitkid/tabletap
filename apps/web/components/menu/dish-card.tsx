@@ -37,7 +37,14 @@ export function DishCard({
         // eslint-disable-next-line @next/next/no-img-element -- M5 uploads arbitrary hosts; sizes are fixed by the card
         <img src={item.imageUrl} alt="" className="size-24 shrink-0 rounded-md object-cover" />
       ) : (
-        <Plate name={item.name} kind={kindFromCategory(category)} size={96} className="size-24" />
+        // The heading right beside it says the name, so the plate is decoration.
+        <Plate
+          name={item.name}
+          kind={kindFromCategory(category)}
+          decorative
+          size={96}
+          className="size-24"
+        />
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h3 className="font-display text-lg leading-tight font-semibold">{item.name}</h3>

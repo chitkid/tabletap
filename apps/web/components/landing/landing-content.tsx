@@ -79,7 +79,13 @@ export function LandingContent({
         </div>
         <div aria-hidden className="hidden shrink-0 items-center gap-2 sm:flex">
           {PLATES.map((plate) => (
-            <Plate key={plate.kind} name={plate.name} kind={plate.kind} className="size-12" />
+            <Plate
+              key={plate.kind}
+              name={plate.name}
+              kind={plate.kind}
+              decorative
+              className="size-12"
+            />
           ))}
         </div>
       </header>

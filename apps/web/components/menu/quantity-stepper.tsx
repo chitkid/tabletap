@@ -28,9 +28,9 @@ export function QuantityStepper({
       >
         <span aria-hidden="true">−</span>
       </Button>
-      <span className="min-w-6 text-center font-semibold" aria-live="polite" aria-atomic="true">
-        {value}
-      </span>
+      {/* Not a live region: the basket bar announces the new totals after every tap, and a
+          count that also announced itself would say the same change twice. */}
+      <span className="min-w-6 text-center font-semibold">{value}</span>
       <Button
         type="button"
         variant="secondary"

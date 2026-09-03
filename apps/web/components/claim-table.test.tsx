@@ -71,5 +71,7 @@ describe('ClaimTable', () => {
     );
     render(<ClaimTable token="abc" />);
     expect(await screen.findByText('This table is not available right now.')).toBeInTheDocument();
+    // Try again cannot help a table that is gone: there has to be a way off this screen.
+    expect(screen.getByRole('link', { name: 'Back to the start' })).toHaveAttribute('href', '/');
   });
 });

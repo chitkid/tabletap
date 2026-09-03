@@ -1,6 +1,7 @@
 'use client';
 import { ClaimResponseSchema } from '@tabletap/shared';
 import { Button } from '@tabletap/ui';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, clientFetch } from '../lib/api';
@@ -83,6 +84,11 @@ export function ClaimTable({ token }: { token: string }) {
           >
             Try again
           </Button>
+          {/* Try again cannot mend an expired code or a table that is gone, and this screen is
+              the whole app for a guest who arrived by scanning: give it an exit. */}
+          <Link href="/" className="underline underline-offset-4">
+            Back to the start
+          </Link>
         </div>
       )}
     </main>
