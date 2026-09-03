@@ -25,6 +25,9 @@ const fontVariables = {
 } as CSSProperties;
 
 export const metadata: Metadata = {
+  // Guests arrive from a QR code, so every share card and canonical URL has to resolve against
+  // the deployed origin rather than whatever host happened to render the page.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: 'TableTap',
   description: 'Order from your table. Kitchen sees it in real time.',
 };
