@@ -65,6 +65,32 @@ describe('GET /api/demo/links', () => {
     expect(statuses.filter((s) => s !== 200)).toEqual([429]);
     expect(statuses.at(-1)).toBe(429);
   });
+  it('tells the landing which payment provider is live', async () => {
+    const res = await ctx.app.inject({ method: 'GET', url: '/api/demo/links' });
+    expect(DemoLinksResponseSchema.parse(res.json()).payments).toEqual({
+      provider: 'demo',
+      testCard: null,
+    });
+  });
+  // The hardcoded demo-mode block already satisfies the assertion above, so it cannot prove the
+  // route reads config.paymentProvider rather than a constant. This is the RED case: it only
+  // passes once the route actually branches on config.
+  it('tells the landing when Stripe is the live provider', async () => {
+    const stripeCtx = await createTestApp({
+      config: {
+        ...TEST_CONFIG,
+        paymentProvider: 'stripe',
+        STRIPE_SECRET_KEY: 'sk_test_x',
+        STRIPE_WEBHOOK_SECRET: 'whsec_x',
+      },
+    });
+    const res = await stripeCtx.app.inject({ method: 'GET', url: '/api/demo/links' });
+    expect(DemoLinksResponseSchema.parse(res.json()).payments).toEqual({
+      provider: 'stripe',
+      testCard: '4242 4242 4242 4242',
+    });
+    await stripeCtx.close();
+  });
 });
 
 describe('POST /api/demo/rush', () => {

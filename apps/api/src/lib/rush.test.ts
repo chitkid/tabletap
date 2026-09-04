@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import { schema } from '@tabletap/db';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestApp } from '../test/helpers';
@@ -23,7 +24,7 @@ describe('rush', () => {
       events: ctx.app.orderEvents,
       random: () => 0.2,
     });
-    expect(dto.status).toBe('placed');
+    expect(dto.status).toBe('paid');
     expect(dto.items.length).toBeGreaterThan(0);
     expect(dto.note).toBe(RUSH_NOTES[Math.floor(0.2 * RUSH_NOTES.length)]);
     expect(seen).toEqual([dto.id]);
@@ -36,6 +37,29 @@ describe('rush', () => {
           (r.payload as { source?: string }).source === 'rush',
       ),
     ).toBe(true);
+  });
+  it('places a rush order that the kitchen may start: paid, with a demo payment beside it', async () => {
+    const dto = await placeRushOrder({
+      db: ctx.db,
+      events: ctx.app.orderEvents,
+      random: () => 0.2,
+    });
+    expect(dto.status).toBe('paid');
+    expect(dto.paidAt).not.toBeNull();
+    const [payment] = await ctx.db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.orderId, dto.id));
+    expect(payment).toMatchObject({
+      provider: 'demo',
+      status: 'succeeded',
+      amountCents: dto.totalCents,
+    });
+    const audit = await ctx.db
+      .select()
+      .from(schema.auditLog)
+      .where(eq(schema.auditLog.entityId, dto.id));
+    expect(audit.map((a) => a.action)).toContain('payment.succeeded');
   });
   it('spreads `count` orders over `durationMs`, runs once at a time, and stops on demand', async () => {
     const rush = createRush({

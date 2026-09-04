@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { schema, type Db } from '@tabletap/db';
 import { DEMO_RESTAURANT_SLUG } from '@tabletap/db/seed';
+import { recordAudit } from './audit';
 import type { OrderEvents } from './order-events';
 import { hydrate, insertPlacedOrder, type InternalOrderDto, type OrderLine } from './orders';
 
@@ -75,8 +76,8 @@ export async function placeRushOrder(input: {
     };
   });
   const note = random() < 0.34 ? pick(RUSH_NOTES, random) : null;
-  const row = await input.db.transaction((tx) =>
-    insertPlacedOrder(tx, {
+  const row = await input.db.transaction(async (tx) => {
+    const order = await insertPlacedOrder(tx, {
       restaurantId: restaurant.id,
       tableId: pick(tables, random).id,
       guestSessionId: null,
@@ -86,8 +87,42 @@ export async function placeRushOrder(input: {
       actor: { actorType: 'system', actorId: null },
       auditPayload: { source: 'rush' },
       now,
-    }),
-  );
+    });
+    // A rush exists to fill the board, and the board holds paid tickets: the money is as
+    // fictional as the order, and the audit row says `demo` so no reader mistakes it (ADR 0011).
+    const [payment] = await tx
+      .insert(schema.payments)
+      .values({
+        orderId: order.id,
+        provider: 'demo',
+        amountCents: order.totalCents,
+        currency: 'USD',
+        status: 'succeeded',
+        providerSessionId: `demo:rush:${order.id}`,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    const [paid] = await tx
+      .update(schema.orders)
+      .set({ status: 'paid', paidAt: now, updatedAt: now })
+      .where(eq(schema.orders.id, order.id))
+      .returning();
+    await recordAudit(tx, {
+      actorType: 'system',
+      actorId: null,
+      action: 'payment.succeeded',
+      entityType: 'order',
+      entityId: order.id,
+      payload: {
+        provider: 'demo',
+        source: 'rush',
+        paymentId: payment?.id ?? null,
+        amountCents: order.totalCents,
+      },
+    });
+    return paid ?? order;
+  });
   const dto = (await hydrate(input.db, [row]))[0]!;
   input.events.emit('order:created', dto);
   return dto;

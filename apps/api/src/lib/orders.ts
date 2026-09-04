@@ -14,8 +14,16 @@ import type { OrderEvents } from './order-events';
 type OrderRow = typeof schema.orders.$inferSelect;
 type ItemRow = typeof schema.orderItems.$inferSelect;
 
-/** The scoping columns travel with the DTO inside the API; routes strip them before replying. */
-export type InternalOrderDto = OrderDto & { guestSessionId: string | null; restaurantId: string };
+/**
+ * The scoping columns travel with the DTO inside the API; routes strip them before replying.
+ * `paidAt` is internal-only for the same reason: the public contract does not carry it yet, so
+ * `strip` (routes/orders.ts) re-parsing through `OrderDtoSchema` drops it along with the rest.
+ */
+export type InternalOrderDto = OrderDto & {
+  guestSessionId: string | null;
+  restaurantId: string;
+  paidAt: string | null;
+};
 
 function toDto(order: OrderRow, items: ItemRow[], tableNumber: number): InternalOrderDto {
   return {
@@ -36,6 +44,7 @@ function toDto(order: OrderRow, items: ItemRow[], tableNumber: number): Internal
     totalCents: order.totalCents,
     note: order.note,
     placedAt: order.placedAt ? order.placedAt.toISOString() : null,
+    paidAt: order.paidAt ? order.paidAt.toISOString() : null,
     cookingAt: order.cookingAt ? order.cookingAt.toISOString() : null,
     readyAt: order.readyAt ? order.readyAt.toISOString() : null,
     servedAt: order.servedAt ? order.servedAt.toISOString() : null,

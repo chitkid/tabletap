@@ -54,9 +54,11 @@ export async function demoRoutes(app: FastifyInstance) {
         })),
         resetsEveryMinutes:
           config.DEMO_RESET_INTERVAL_MINUTES > 0 ? config.DEMO_RESET_INTERVAL_MINUTES : null,
-        // No provider selection exists yet (M4 Task 3): every deployment on this branch is the
-        // demo one, so there is never a card to type.
-        payments: { provider: 'demo' as const, testCard: null },
+        payments: {
+          provider: config.paymentProvider,
+          // Stripe's universally documented test card; in demo mode there is nothing to type.
+          testCard: config.paymentProvider === 'stripe' ? '4242 4242 4242 4242' : null,
+        },
       };
     },
   );
