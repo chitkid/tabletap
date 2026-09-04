@@ -15,6 +15,8 @@ export interface FakeSocket {
   disconnect: Mock;
   emit: Mock;
   io: { on(event: string, fn: Handler): FakeSocket };
+  /** Tracks `connect` and `disconnect` the way the real client does; components read it. */
+  connected: boolean;
   lastAck: undefined | ((s: Snapshot) => void);
   fire(event: string, ...args: unknown[]): void;
 }
@@ -37,8 +39,11 @@ export function fakeSocket(): FakeSocket {
       if (event === 'subscribe') socket.lastAck = ack;
     }),
     io: { on: on(managerHandlers) },
+    connected: false,
     lastAck: undefined,
     fire(event: string, ...args: unknown[]) {
+      if (event === 'connect') socket.connected = true;
+      if (event === 'disconnect') socket.connected = false;
       for (const fn of handlers.get(event) ?? []) (fn as (...a: unknown[]) => void)(...args);
     },
   };

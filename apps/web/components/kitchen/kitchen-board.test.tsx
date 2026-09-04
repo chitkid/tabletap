@@ -298,9 +298,32 @@ describe('KitchenBoard', () => {
     // Waiting for the heartbeat to time out would leave a dead board looking live for seconds.
     act(() => void window.dispatchEvent(new Event('offline')));
     expect(screen.getByRole('status')).toHaveTextContent('Reconnecting… the board will catch up.');
+    // A short blip leaves the socket believing it is still connected - and it is right, since
+    // nothing ever closed it. There is nothing to reconnect, so the board just stops apologising.
+    socket.connect.mockClear();
+    act(() => void window.dispatchEvent(new Event('online')));
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(socket.connect).not.toHaveBeenCalled();
+  });
+  it('reconnects when the connection really did drop while the browser was offline', () => {
+    const socket = fakeSocket();
+    render(
+      <KitchenBoard
+        initialOrders={[]}
+        staffName="Theo"
+        serverNow={SERVER_NOW}
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={vi.fn()}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    act(() => void window.dispatchEvent(new Event('offline')));
+    act(() => socket.fire('disconnect'));
     socket.connect.mockClear();
     act(() => void window.dispatchEvent(new Event('online')));
     expect(socket.connect).toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Reconnecting… the board will catch up.');
   });
   it('ignores a move that resolves after a demo reset', async () => {
     const user = userEvent.setup();

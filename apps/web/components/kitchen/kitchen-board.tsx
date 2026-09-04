@@ -160,7 +160,15 @@ export function KitchenBoard({
     const lost = () => setConnection('offline');
     const back = () => {
       const socket = socketRef.current;
-      if (socket && !socket.connected) socket.connect();
+      if (!socket) return;
+      // A short blip never closes an established socket, so there is nothing to reconnect: the
+      // board only has to stop apologising, and ask for a snapshot in case it missed anything.
+      if (socket.connected) {
+        setConnection('online');
+        resync();
+        return;
+      }
+      socket.connect();
     };
     window.addEventListener('offline', lost);
     window.addEventListener('online', back);
@@ -168,7 +176,7 @@ export function KitchenBoard({
       window.removeEventListener('offline', lost);
       window.removeEventListener('online', back);
     };
-  }, []);
+  }, [resync]);
 
   // A remembered "Sound on" is a label the board has to honour. The AudioContext still needs a
   // gesture, so take the first one anywhere on the page rather than waiting for this toggle to
