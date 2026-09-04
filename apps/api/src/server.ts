@@ -11,6 +11,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import type { Config } from './config';
 import { OrderEvents } from './lib/order-events';
+import { createPaymentProvider } from './payments';
 import { authPlugin } from './plugins/auth';
 import { demoResetPlugin } from './plugins/demo-reset';
 import { demoRushPlugin } from './plugins/demo-rush';
@@ -68,6 +69,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   app.decorate('db', opts.db);
   app.decorate('config', config);
   app.decorate('orderEvents', new OrderEvents());
+  app.decorate('payments', createPaymentProvider(config));
   app.addHook('onSend', async (request, reply) => {
     reply.header('x-request-id', request.id);
   });

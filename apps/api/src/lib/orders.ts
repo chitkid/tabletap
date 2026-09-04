@@ -83,7 +83,7 @@ export async function hydrate(db: Db, orders: OrderRow[]): Promise<InternalOrder
 const UNIQUE_VIOLATION = '23505';
 
 /** Drizzle wraps driver errors, so the Postgres code sits on the error or on its cause. */
-function isUniqueViolation(error: unknown): boolean {
+export function isUniqueViolation(error: unknown): boolean {
   const codeOf = (candidate: unknown): unknown =>
     typeof candidate === 'object' && candidate !== null && 'code' in candidate
       ? (candidate as { code: unknown }).code

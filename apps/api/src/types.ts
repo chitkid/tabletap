@@ -4,6 +4,7 @@ import type { Config } from './config';
 import type { Auth } from './auth';
 import type { OrderEvents } from './lib/order-events';
 import type { Rush } from './lib/rush';
+import type { PaymentProvider } from './payments/types';
 import type { RealtimeServer } from './realtime/server';
 
 declare module 'fastify' {
@@ -14,6 +15,7 @@ declare module 'fastify' {
     orderEvents: OrderEvents;
     io: RealtimeServer;
     rush: Rush;
+    payments: PaymentProvider;
   }
   interface FastifyRequest {
     principal: Principal;
