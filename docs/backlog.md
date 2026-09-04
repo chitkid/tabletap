@@ -170,6 +170,8 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 - `startPayment` inserts a fresh pending `payments` row per attempt and nothing ever reaps them; the demo completion route picks the newest by `created_at` with no tie-break. It also stamps the session-id write with a new `Date()` instead of the `now` it was given.
 - `SessionInput.number` is read by neither adapter.
 - The rush transaction in `apps/api/src/lib/rush.ts` falls back with `payment?.id ?? null` and `paid ?? order`, where every sibling insert throws on a missing `returning` row.
+- `recordOverpaid` in `apps/api/src/lib/payments.ts` scopes its update to the payment id and the order id but, unlike `fail`, carries no `status = 'pending'` clause. A late success naming an attempt that is already `failed` — declined, or closed by a mismatch — would walk that row forward to `succeeded`. Hard to reach with either provider; the asymmetry with `fail` is what makes it worth closing.
+- The late-success branch has no `ForeignPayment` equivalent. If such an event names a payment belonging to another order, the scoped update in `recordOverpaid` correctly touches nothing, but a `payment.overpaid` audit row is still written under this order, carrying the foreign payment id and amount — an audit row asserting a closure that did not happen. The settling path handles the same situation as `payment.mismatch` and rolls back.
 
 **The guest surface**
 
@@ -181,6 +183,8 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 **Board and contract**
 
 - `GET /api/orders?active=1` still counts `placed` orders. The board holds them in state and never draws them, now that the New column is `paid` alone — dead weight on every snapshot and every reconnect, and the reason `e2e/kitchen-live.spec.ts` compares the board against the drawable subset rather than against the whole list. Either narrow what `active=1` means for the kitchen, or give the board the filter explicitly.
+- `apps/web/components/kitchen/kitchen-board.tsx` keeps a synchronous `stateRef` that only the socket-event handler writes eagerly; the snapshot ack, the demo reset and the optimistic move instead rely on the post-render effect that mirrors `state` into it. A socket event landing in the same batch as one of those, before that effect runs, compares against a stale board, so it can chime and mark a ticket the snapshot already drew, or stay silent for one that just arrived. Two socket events in the same tick are safe, since the handler updates `stateRef` itself before dispatching.
+- `applyEvent` in `apps/web/lib/board-store.ts` replaces on an equal `updatedAt`, so an event arriving with the same stamp as a ticket the board holds further along can move it back into the New column — which the entry guard in `kitchen-board.tsx` now reads as an arrival and answers with a chime and a fresh mark. The boundary is already on the list above as untested; this is what it now costs.
 
 **Tests**
 
@@ -191,6 +195,7 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 - `/pay/<id>` is outside the Lighthouse audit. It needs a guest cookie _and_ an order still waiting for payment, which `scripts/lighthouse-audit.mjs` does not set up, so the one screen M4 added is the one screen the accessibility gate does not see.
 - One test name in `apps/web/components/order/pay-button.test.tsx` claims more than the assertion under it checks.
 - `apps/web/components/login-form.test.tsx` > "submits email and password" times out at Vitest's 5 s default under load: it passed twelve runs in a row on its own and failed once while fifteen Turbo tasks were running in parallel. Untouched since M1 and nothing to do with payments; it is `userEvent` typing two fields character by character with no headroom. Give that one test an explicit timeout, or type into the fields directly.
+- A stale comment at `apps/api/src/lib/payments.test.ts:34` explains the `entityId` scope on `auditCount` by saying more than one test writes `payment.late` rows. After the final fix wave only one test does; it is `payment.overpaid` that two tests write now.
 
 ## Resolved in the final M4 fix wave
 
