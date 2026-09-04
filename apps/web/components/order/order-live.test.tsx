@@ -73,6 +73,43 @@ describe('OrderLive', () => {
     expect(screen.queryByText(/cleared by the hourly demo reset/)).toBeNull();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Order #42');
   });
+  it('waits with the guest for the payment to be confirmed, then stops saying so', () => {
+    const socket = fakeSocket();
+    render(
+      <OrderLive
+        initial={order}
+        currency="USD"
+        paidStatus="received"
+        socketFactory={() => socket as unknown as AppSocket}
+      />,
+    );
+    // Scoped by text, not by role: the receipt already carries live regions of its own (the
+    // elapsed clock, the Pay button's own line), and this asserts the notice is one of them.
+    expect(screen.getByText('Payment received. Confirming…')).toHaveAttribute('role', 'status');
+    act(() => socket.fire('connect'));
+    act(() =>
+      socket.fire('order:updated', {
+        order: { ...order, status: 'paid', updatedAt: '2026-09-03T10:01:00Z' },
+      }),
+    );
+    expect(screen.queryByText('Payment received. Confirming…')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      'Order #42 sent to the kitchen.',
+    );
+  });
+  it('reports a declined payment plainly and leaves the order payable', () => {
+    const socket = fakeSocket();
+    render(
+      <OrderLive
+        initial={order}
+        currency="USD"
+        paidStatus="declined"
+        socketFactory={() => socket as unknown as AppSocket}
+      />,
+    );
+    expect(screen.getByText('Payment declined. Try again.')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: /^Pay/ })).toBeInTheDocument();
+  });
   it('says so when a resync no longer contains the order', () => {
     const socket = fakeSocket();
     render(

@@ -8,10 +8,13 @@ import { OrderScreen, headlineFor } from './order-screen';
 export function OrderLive({
   initial,
   currency,
+  paidStatus,
   socketFactory = createSocket,
 }: {
   initial: OrderDto;
   currency: string;
+  /** What the trip back from the terminal claims happened. Never evidence on its own. */
+  paidStatus?: 'received' | 'declined';
   socketFactory?: () => AppSocket;
 }) {
   const [order, setOrder] = useState(initial);
@@ -39,6 +42,12 @@ export function OrderLive({
       socket.disconnect();
     };
   }, [initial.id, socketFactory]);
+  const notice =
+    paidStatus === 'declined'
+      ? 'Payment declined. Try again.'
+      : paidStatus === 'received' && order.status === 'placed'
+        ? 'Payment received. Confirming…'
+        : null;
   return (
     <>
       {!cleared && order.status === 'ready' ? (
@@ -58,7 +67,24 @@ export function OrderLive({
           This order was cleared by the hourly demo reset.
         </p>
       ) : (
-        <OrderScreen order={order} currency={currency} />
+        <>
+          {/* The redirect back from a payment page is a claim, not a receipt: only the socket
+              delivering a paid order settles it, and the moment it does this notice has nothing
+              left to say and goes. A decline needs no such waiting — nothing is in flight — so
+              it is a plain line that stays put above the Pay button offering another attempt. */}
+          {notice !== null ? (
+            <p
+              role="status"
+              aria-live="polite"
+              className={`mx-auto w-full max-w-2xl px-4 pt-6 ${
+                paidStatus === 'declined' ? 'text-destructive' : 'text-muted-foreground'
+              }`}
+            >
+              {notice}
+            </p>
+          ) : null}
+          <OrderScreen order={order} currency={currency} />
+        </>
       )}
     </>
   );

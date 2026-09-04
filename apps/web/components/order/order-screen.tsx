@@ -3,10 +3,13 @@ import { StatusBadge } from '@tabletap/ui';
 import Link from 'next/link';
 import { formatCents } from '../../lib/money';
 import { ElapsedSince } from './elapsed-since';
+import { PayButton } from './pay-button';
 
 /** The one-line status a guest reads first, in the brand voice, for every stage of the order. */
 export function headlineFor(order: OrderDto): string {
   switch (order.status) {
+    case 'paid':
+      return `Order #${order.number} sent to the kitchen.`;
     case 'cooking':
       return `Order #${order.number} is being made.`;
     case 'ready':
@@ -15,11 +18,12 @@ export function headlineFor(order: OrderDto): string {
       return `Order #${order.number} was served. Enjoy.`;
     case 'cancelled':
       return `Order #${order.number} was cancelled.`;
-    // 'draft', 'placed' and 'paid' all read as freshly sent: a guest never sees 'draft' (the
-    // order does not exist for them until it is placed), and 'paid' is the M3 interim status
-    // that sits alongside 'placed' before the kitchen picks it up (ADR 0009).
+    // 'draft' and 'placed' both read as owing money. A guest never sees 'draft' (the order does
+    // not exist for them until it is placed), and since M4 the kitchen only receives an order
+    // once it is paid — so the difference a guest must see in the first line is between an
+    // order that is waiting for money and one that is already with the kitchen.
     default:
-      return `Order #${order.number} sent to the kitchen.`;
+      return `Order #${order.number} is waiting for payment.`;
   }
 }
 
@@ -39,6 +43,12 @@ export function OrderScreen({ order, currency }: { order: OrderDto; currency: st
         </div>
         <ElapsedSince iso={order.placedAt ?? order.createdAt} />
       </header>
+
+      {/* Directly under the headline that says money is owed, and above the lines it is owed
+          for: the answer to "waiting for payment" should not be below the fold. */}
+      {order.status === 'placed' ? (
+        <PayButton orderId={order.id} totalCents={order.totalCents} currency={currency} />
+      ) : null}
 
       <section
         aria-labelledby="order-lines-heading"

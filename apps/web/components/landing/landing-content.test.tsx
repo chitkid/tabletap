@@ -55,4 +55,24 @@ describe('LandingContent', () => {
     render(<LandingContent links={null} qrSvg={null} />);
     expect(screen.queryByRole('button', { name: 'Simulate rush' })).toBeNull();
   });
+  it('says payment takes no card when the demo provider is live', () => {
+    render(<LandingContent links={links} qrSvg="<svg />" />);
+    expect(screen.getByText('Payments run in demo mode: no card, no money.')).toBeInTheDocument();
+  });
+  it('hands over the test card when Stripe is configured', () => {
+    render(
+      <LandingContent
+        links={{
+          ...links,
+          payments: { provider: 'stripe' as const, testCard: '4242 4242 4242 4242' },
+        }}
+        qrSvg="<svg />"
+      />,
+    );
+    expect(
+      screen.getByText(
+        'Payments run in Stripe test mode. Card 4242 4242 4242 4242, any future date, any CVC.',
+      ),
+    ).toBeInTheDocument();
+  });
 });

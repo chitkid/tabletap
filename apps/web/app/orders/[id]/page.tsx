@@ -7,8 +7,15 @@ import { guestCookie } from '../../../lib/guest-cookie';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your order · Little Furnace' };
 
-export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function OrderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ paid?: string }>;
+}) {
   const { id } = await params;
+  const { paid } = await searchParams;
   const cookie = await guestCookie();
   if (!cookie) redirect('/session-ended');
   let order: OrderDto;
@@ -22,7 +29,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       notFound();
     throw err;
   }
+  // `paid` says which way the guest came back from the payment page, and nothing more: the
+  // status on screen is still the order's own. Any other value is treated as no claim at all.
+  const paidStatus = paid === '1' ? 'received' : paid === '0' ? 'declined' : undefined;
   // The order DTO carries no currency and M2 has one restaurant, priced in USD. M5 adds the
   // currency to the DTO; until then the guest surface must not invent one per page.
-  return <OrderLive initial={order} currency="USD" />;
+  return <OrderLive initial={order} currency="USD" paidStatus={paidStatus} />;
 }

@@ -56,6 +56,13 @@ const STACK = [
   'Docker Compose',
 ];
 
+/** What paying actually costs in this deployment, said before anyone presses Pay. */
+function paymentNotice(links: DemoLinksResponse): string {
+  const { provider, testCard } = links.payments;
+  if (provider === 'demo') return 'Payments run in demo mode: no card, no money.';
+  return `Payments run in Stripe test mode. Card ${testCard ?? '4242 4242 4242 4242'}, any future date, any CVC.`;
+}
+
 function resetNotice(links: DemoLinksResponse): string {
   return links.resetsEveryMinutes === null
     ? 'Demo data is not reset automatically.'
@@ -150,6 +157,7 @@ export function LandingContent({
               </Card>
             ))}
           </div>
+          {links ? <p className="text-sm text-muted-foreground">{paymentNotice(links)}</p> : null}
           {links ? <p className="text-sm text-muted-foreground">{resetNotice(links)}</p> : null}
           {links ? (
             <div className="flex flex-wrap items-center gap-3">

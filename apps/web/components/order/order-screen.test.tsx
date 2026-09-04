@@ -32,7 +32,7 @@ describe('OrderScreen', () => {
   it('confirms in the brand voice with the number, lines, note and status', () => {
     render(<OrderScreen order={order} currency="USD" />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'Order #42 sent to the kitchen.',
+      'Order #42 is waiting for payment.',
     );
     expect(screen.getByText('Table 7')).toBeInTheDocument();
     expect(screen.getByText('Placed')).toBeInTheDocument();
@@ -42,7 +42,8 @@ describe('OrderScreen', () => {
     expect(screen.getByRole('link', { name: 'Back to menu' })).toHaveAttribute('href', '/menu');
   });
   it.each([
-    ['placed', 'Order #42 sent to the kitchen.'],
+    ['placed', 'Order #42 is waiting for payment.'],
+    ['paid', 'Order #42 sent to the kitchen.'],
     ['cooking', 'Order #42 is being made.'],
     ['ready', 'Order #42 is ready.'],
     ['served', 'Order #42 was served. Enjoy.'],
@@ -50,5 +51,13 @@ describe('OrderScreen', () => {
   ] as const)('headline for %s', (status, text) => {
     render(<OrderScreen order={{ ...order, status }} currency="USD" />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(text);
+  });
+  it('offers to pay while the order is waiting for payment', () => {
+    render(<OrderScreen order={{ ...order, totalCents: 2800 }} currency="USD" />);
+    expect(screen.getByRole('button', { name: 'Pay $28.00' })).toBeInTheDocument();
+  });
+  it('does not offer to pay once the money has arrived', () => {
+    render(<OrderScreen order={{ ...order, status: 'paid', totalCents: 2800 }} currency="USD" />);
+    expect(screen.queryByRole('button', { name: /^Pay/ })).toBeNull();
   });
 });
