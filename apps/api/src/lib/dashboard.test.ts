@@ -92,6 +92,31 @@ describe('loadDashboard', () => {
     expect(dashboard.today.averageReadyMs).toBe(90_000);
   });
 
+  // These two pin the average to `ready_at`, not `paid_at`: swap the predicate in dashboard.ts
+  // for a paid_at one and both must fail, because paid_at alone would put the first order
+  // outside today and the second order inside it - the opposite of what each asserts.
+  it('counts an order paid yesterday toward today, because it reached ready today', async () => {
+    const { restaurantId, tableId } = await newRestaurant();
+    await insertOrder(ctx.db, restaurantId, tableId, {
+      status: 'ready',
+      paidAt: new Date('2026-09-04T23:00:00.000Z'), // yesterday
+      readyAt: new Date('2026-09-05T00:30:00.000Z'), // today, 90 minutes later
+    });
+    const dashboard = await loadDashboard(ctx.db, restaurantId, NOW);
+    expect(dashboard.today.averageReadyMs).toBe(90 * 60_000);
+  });
+
+  it('excludes an order paid today that does not reach ready until tomorrow', async () => {
+    const { restaurantId, tableId } = await newRestaurant();
+    await insertOrder(ctx.db, restaurantId, tableId, {
+      status: 'ready',
+      paidAt: new Date('2026-09-05T23:00:00.000Z'), // today
+      readyAt: new Date('2026-09-06T00:30:00.000Z'), // tomorrow, 90 minutes later
+    });
+    const dashboard = await loadDashboard(ctx.db, restaurantId, NOW);
+    expect(dashboard.today.averageReadyMs).toBeNull();
+  });
+
   it('counts only paid and cooking orders as open tickets, regardless of when they were paid', async () => {
     const { restaurantId, tableId } = await newRestaurant();
     await insertOrder(ctx.db, restaurantId, tableId, { status: 'paid' });
