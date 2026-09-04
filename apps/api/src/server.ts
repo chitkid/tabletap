@@ -28,6 +28,7 @@ import { ordersRoutes } from './routes/orders';
 import { demoPaymentRoutes, paymentWebhookRoutes } from './routes/payments';
 import { socketTokenRoutes } from './routes/socket-token';
 import { tablesRoutes } from './routes/tables';
+import { createObjectStorage } from './storage';
 import './types';
 
 export interface BuildAppOptions {
@@ -71,6 +72,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   app.decorate('config', config);
   app.decorate('orderEvents', new OrderEvents());
   app.decorate('payments', createPaymentProvider(config));
+  app.decorate('storage', config.storageConfigured ? createObjectStorage(config) : null);
   app.addHook('onSend', async (request, reply) => {
     reply.header('x-request-id', request.id);
   });

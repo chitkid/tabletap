@@ -15,6 +15,45 @@ services:
       timeout: 3s
       retries: 10
 
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-tabletap}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-tabletap-secret}
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'mc ready local']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One shot: creates the bucket and opens the menu/ prefix - and only that prefix - to anonymous
+  # readers, because a menu photograph is served straight to a guest's browser with no session.
+  minio-init:
+    image: minio/mc
+    restart: 'no'
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-tabletap}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-tabletap}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-tabletap-secret}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        set -e;
+        mc alias set local http://minio:9000 "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY";
+        mc mb --ignore-existing "local/$$S3_BUCKET";
+        mc anonymous set download "local/$$S3_BUCKET/menu/";
+        mc anonymous get "local/$$S3_BUCKET/menu/"
+    depends_on:
+      minio:
+        condition: service_healthy
+
   api:
     build:
       context: .
@@ -26,11 +65,24 @@ services:
       NODE_ENV: production
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       DEMO_MODE: ${DEMO_MODE:-true}
+      # Inside the network MinIO is "minio"; the browser reaches the same bucket on localhost, which
+      # is what S3_PUBLIC_URL is for.
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-tabletap}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-tabletap}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-tabletap-secret}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:9000/${S3_BUCKET:-tabletap}}
+      S3_FORCE_PATH_STYLE: 'true'
     ports:
       - '4000:4000'
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   web:
     build:
@@ -49,3 +101,4 @@ services:
 
 volumes:
   pgdata:
+  minio-data:

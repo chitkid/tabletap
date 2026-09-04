@@ -28,6 +28,14 @@ export const TEST_CONFIG: Config = {
   DEMO_PASSWORD: 'tabletap-demo',
   demoMode: true,
   paymentProvider: 'demo',
+  // Obvious fakes: the S3 client is lazy, so a test builds the storage without opening a socket.
+  S3_ENDPOINT: 'http://s3.test:9000',
+  S3_REGION: 'us-east-1',
+  S3_BUCKET: 'tabletap-test',
+  S3_ACCESS_KEY_ID: 'test-access-key-id',
+  S3_SECRET_ACCESS_KEY: 'test-secret-access-key',
+  S3_FORCE_PATH_STYLE: 'true',
+  storageConfigured: true,
 };
 export const TEST_DEMO_PASSWORD = 'tabletap-demo';
 

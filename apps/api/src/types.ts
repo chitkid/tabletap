@@ -6,6 +6,7 @@ import type { OrderEvents } from './lib/order-events';
 import type { Rush } from './lib/rush';
 import type { PaymentProvider } from './payments/types';
 import type { RealtimeServer } from './realtime/server';
+import type { ObjectStorage } from './storage/types';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -16,6 +17,8 @@ declare module 'fastify' {
     io: RealtimeServer;
     rush: Rush;
     payments: PaymentProvider;
+    /** null when the environment names no bucket: the deployment simply serves no photographs. */
+    storage: ObjectStorage | null;
   }
   interface FastifyRequest {
     principal: Principal;

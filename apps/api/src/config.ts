@@ -10,6 +10,9 @@ const optionalNonEmpty = z.preprocess(
   (value) => (value === '' ? undefined : value),
   z.string().min(1).optional(),
 );
+/** The same blank-is-unset rule for a variable that falls back to a default instead. */
+const blankAsUnset = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema);
 
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -44,11 +47,25 @@ const EnvSchema = z.object({
   /** Both must be set for Stripe to be the provider; with either missing the demo one is used. */
   STRIPE_SECRET_KEY: optionalNonEmpty,
   STRIPE_WEBHOOK_SECRET: optionalNonEmpty,
+  /**
+   * S3-compatible object storage for menu photographs: MinIO locally, AWS S3 or Cloudflare R2 in
+   * production. All optional - without the four required ones the API simply serves no uploads.
+   */
+  S3_ENDPOINT: optionalNonEmpty,
+  S3_REGION: blankAsUnset(z.string().min(1).default('us-east-1')),
+  S3_BUCKET: optionalNonEmpty,
+  S3_ACCESS_KEY_ID: optionalNonEmpty,
+  S3_SECRET_ACCESS_KEY: optionalNonEmpty,
+  /** Browser-facing base URL of the bucket. Unset, the endpoint and the bucket stand in for it. */
+  S3_PUBLIC_URL: optionalNonEmpty,
+  /** MinIO and R2 want path-style addressing; AWS S3 wants the bucket in the hostname. */
+  S3_FORCE_PATH_STYLE: blankAsUnset(z.enum(['true', 'false']).default('true')),
 });
 export type Config = z.infer<typeof EnvSchema> & {
   cookieSecure: boolean;
   demoMode: boolean;
   paymentProvider: PaymentProviderName;
+  storageConfigured: boolean;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -62,5 +79,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     COOKIE_SECURE === undefined ? NODE_ENV === 'production' : COOKIE_SECURE === 'true';
   const paymentProvider: PaymentProviderName =
     parsed.data.STRIPE_SECRET_KEY && parsed.data.STRIPE_WEBHOOK_SECRET ? 'stripe' : 'demo';
-  return { ...parsed.data, cookieSecure, demoMode: DEMO_MODE === 'true', paymentProvider };
+  const storageConfigured = Boolean(
+    parsed.data.S3_ENDPOINT &&
+    parsed.data.S3_BUCKET &&
+    parsed.data.S3_ACCESS_KEY_ID &&
+    parsed.data.S3_SECRET_ACCESS_KEY,
+  );
+  return {
+    ...parsed.data,
+    cookieSecure,
+    demoMode: DEMO_MODE === 'true',
+    paymentProvider,
+    storageConfigured,
+  };
 }

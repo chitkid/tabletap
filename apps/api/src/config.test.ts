@@ -91,4 +91,50 @@ describe('loadConfig', () => {
       ).toBe('stripe');
     });
   });
+
+  describe('object storage', () => {
+    const storage = {
+      S3_ENDPOINT: 'http://localhost:9000',
+      S3_BUCKET: 'tabletap',
+      S3_ACCESS_KEY_ID: 'tabletap',
+      S3_SECRET_ACCESS_KEY: 'tabletap-secret',
+    };
+    it('defaults the region and path-style addressing', () => {
+      const c = loadConfig(valid);
+      expect(c.S3_REGION).toBe('us-east-1');
+      expect(c.S3_FORCE_PATH_STYLE).toBe('true');
+      expect(c.S3_PUBLIC_URL).toBeUndefined();
+    });
+    it('leaves storage unconfigured when nothing is set', () => {
+      expect(loadConfig(valid).storageConfigured).toBe(false);
+    });
+    it('leaves storage unconfigured when the variables are blank, as a .env hands them over', () => {
+      const blank = {
+        ...valid,
+        S3_ENDPOINT: '',
+        S3_REGION: '',
+        S3_BUCKET: '',
+        S3_ACCESS_KEY_ID: '',
+        S3_SECRET_ACCESS_KEY: '',
+        S3_PUBLIC_URL: '',
+        S3_FORCE_PATH_STYLE: '',
+      };
+      const c = loadConfig(blank);
+      expect(c.storageConfigured).toBe(false);
+      expect(c.S3_REGION).toBe('us-east-1');
+      expect(c.S3_FORCE_PATH_STYLE).toBe('true');
+      expect(c.S3_PUBLIC_URL).toBeUndefined();
+    });
+    it('needs the endpoint, the bucket and both credentials before it counts as configured', () => {
+      expect(loadConfig({ ...valid, ...storage }).storageConfigured).toBe(true);
+      for (const missing of Object.keys(storage)) {
+        expect(loadConfig({ ...valid, ...storage, [missing]: '' }).storageConfigured).toBe(false);
+      }
+    });
+    it('rejects an S3_FORCE_PATH_STYLE that is neither true nor false', () => {
+      expect(() => loadConfig({ ...valid, S3_FORCE_PATH_STYLE: 'yes' })).toThrow(
+        /S3_FORCE_PATH_STYLE/,
+      );
+    });
+  });
 });
