@@ -105,7 +105,7 @@ Noticed while building and reviewing the M3 branch. Nothing here blocks the mile
 
 - The live regions mount with their text already in them, so a screen reader may not announce the first one. Render the region empty and fill it.
 - `OrderLive` keeps applying `setOrder` after the order was cleared by a reset (`apps/web/components/order/order-live.tsx`); harmless, since the cleared notice replaces the screen, but it is state nobody reads. The same component has no `serverTime` guard on its snapshot: when a snapshot does not contain the order it shows "This order was cleared by the hourly demo reset." unconditionally, where the kitchen board keeps a local copy newer than the snapshot's `serverTime` (`mergeSnapshot`) before saying the same thing. Unreachable today, because the guest snapshot is `listOrders(db, { guestSessionId })` with no status filter, so the only way an order is missing is that the demo reset deleted it — add the guard if the guest snapshot ever becomes status-filtered.
-- `kitchen-board.tsx` is 313 lines after the fix wave and holds the socket lifecycle, the resync-and-retry logic, the server-clock offset, the optimistic moves and the layout. Splitting the lifecycle into a hook would make both halves testable on their own; it is the largest single thing on this list now.
+- `kitchen-board.tsx` is 338 lines after the fix waves and holds the socket lifecycle, the resync-and-retry logic, the server-clock offset, the optimistic moves and the layout. Splitting the lifecycle into a hook would make both halves testable on their own; it is the largest single thing on this list now.
 - `globals.css`'s `body:has` rule for the kitchen surface reaches for the night-background primitive rather than the semantic `--background`, and it cannot do otherwise: `--background` is redefined on `[data-surface='kitchen']`, which is a descendant of `<body>`, and custom properties inherit downward only. The two values are the same colour and the primitive is the only one in scope at `body` level, so this is not fixable as written. Closing it properly means a surface attribute the document element carries — a decision about how surfaces are declared, not a CSS tweak.
 - A redundant flex wrapper sits around `RushButton` on the landing page.
 - `handOverFocus` in `apps/web/components/kitchen/ticket-card.tsx` sends focus to the first bump button in the column after a cancel, not to the ticket next to the cancelled one.
@@ -156,7 +156,7 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 
 **Configuration and provider selection**
 
-- A half-set Stripe pair silently resolves to `demo`: with only one of `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` present the API boots, takes no money, and says nothing. A startup warning line would fix it; deferred at the time to avoid a concurrent edit to `apps/api/src/server.ts`. There is also no config test for the derivation itself.
+- A half-set Stripe pair silently resolves to `demo`: with only one of `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` present the API boots, takes no money, and says nothing. A startup warning line would fix it. The derivation itself is covered by the `paymentProvider` block in `apps/api/src/config.test.ts`; what is missing is the deployment noticing.
 - `optionalNonEmpty` in `apps/api/src/config.ts` turns `''` into "absent" but still accepts a whitespace-only key, which selects `stripe` and then fails at the first API call rather than at boot.
 - The `demo` provider with `DEMO_MODE=false` is a dead end: the Pay button opens an attempt and points at `/pay/<id>`, but the completion route is not registered, so nothing can settle it. It is a misconfiguration rather than a mode, and it should fail at boot rather than at the terminal ([ADR 0011](adr/0011-demo-payment-provider.md)).
 - `createDemoProvider().readEvent` throws `PaymentSignatureError`, so a callback posted to the webhook while the demo provider is live answers 400 `SIGNATURE_INVALID`. Right outcome, misleading reason: there is no signature to check because there is no webhook.
@@ -164,7 +164,7 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 **Settlement and the audit trail**
 
 - A crash between the `processed_events` insert and the settlement leaves the event recorded as seen and the order unpaid: the provider's retry is answered `replayed` and nothing ever pays it. Safe in the direction that matters, but it needs a reconciliation pass to close.
-- `payment.mismatch` covers two different failures — an amount that does not match the order, and an event naming a payment that belongs to another order — and `payment.late` covers both a late success and a late decline. The event type is recoverable from `processed_events` in each case, but the audit row alone does not say which happened.
+- `payment.mismatch` covers two different failures — an amount that does not match the order, and an event naming a payment that belongs to another order. The event type is recoverable from `processed_events` in either case, but the audit row alone does not say which happened. (`payment.late` no longer shares this problem: a late success is `payment.overpaid`.)
 - Currency is never compared. `settlePayment` checks `amountCents` against the order's total and ignores `SettleInput.currency`; one currency is what makes that safe.
 - Stripe's `amount_total` is nullable, and the adapter settles a null as `0`, relying on the mismatch check to refuse it. Correct, but "no amount" reaches the comparison as a real figure.
 - `startPayment` inserts a fresh pending `payments` row per attempt and nothing ever reaps them; the demo completion route picks the newest by `created_at` with no tie-break. It also stamps the session-id write with a new `Date()` instead of the `now` it was given.
@@ -175,7 +175,6 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 
 - `PAYMENT_REQUIRED` is overloaded, and the demo terminal reads it as one thing. A 409 from `POST /api/payments/demo/complete` means "this attempt is over", and the terminal answers correctly by opening a fresh attempt; but an order that was cancelled while the terminal was open produces the same code from `POST /api/orders/:id/payment` on that second call, and the guest is told "Couldn't reach the terminal. Try again." when the truth is that there is nothing left to pay. A distinct code, or the order status in the details, would let the terminal say which.
 - A declined attempt is closed for good at the API: the payment row is `failed` and nothing can settle it again. The terminal recovers by opening a fresh attempt on the 409, so a guest never sees this, but the API on its own offers no way to retry an attempt — worth knowing before a second client is written against it.
-- The declined notice is not suppressed once the order is paid. `?paid=0` renders "Payment declined. Try again." from the URL alone, so a guest who declines, pays on a second attempt and comes back to the first URL reads a decline above a paid order. The paid notice is guarded on the order's status; this one is not.
 - `searchParams` on `/orders/[id]` is typed `{ paid?: string }`, while Next hands over `string | string[] | undefined` for a repeated query parameter. `?paid=1&paid=1` would arrive as an array and fall through to "no claim at all", which is harmless but is not what the type says.
 - The landing's Stripe test card falls back to a hardcoded `4242 4242 4242 4242` when `testCard` is null, and no test covers the fallback.
 
@@ -185,13 +184,22 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 
 **Tests**
 
-- No route-level test of the webhook's 200 path, and the parser-encapsulation test cannot actually fail from a leak — the demo-route tests are what protect that property today.
-- Untested: `POST /api/payments/demo/complete` against a cancelled order, and the paid-then-cancelled settlement path, which answers 200 (paid-then-cooking and placed-then-cancelled are both covered).
+- The parser-encapsulation test cannot actually fail from a leak — the demo-route tests are what protect that property today.
+- Untested: `POST /api/payments/demo/complete` against an order that was paid and then cancelled, which answers 200 (paid-then-cooking and placed-then-cancelled are both covered).
 - Two audit-count assertions in the payments tests depend on test order — the same shape as the M3 entry for `apps/api/src/lib/transitions.test.ts`.
 - `apps/web/components/kitchen/kitchen-board.test.tsx` builds its 409 payload with `from: 'placed'`, while the shared fixture defaults to `paid` and a real refusal would say `from: 'paid'`. Nothing reads the field; it is stale test data beside a live assertion.
 - `/pay/<id>` is outside the Lighthouse audit. It needs a guest cookie _and_ an order still waiting for payment, which `scripts/lighthouse-audit.mjs` does not set up, so the one screen M4 added is the one screen the accessibility gate does not see.
 - One test name in `apps/web/components/order/pay-button.test.tsx` claims more than the assertion under it checks.
 - `apps/web/components/login-form.test.tsx` > "submits email and password" times out at Vitest's 5 s default under load: it passed twelve runs in a row on its own and failed once while fifteen Turbo tasks were running in parallel. Untouched since M1 and nothing to do with payments; it is `userEvent` typing two fields character by character with no headroom. Give that one test an explicit timeout, or type into the fields directly.
+
+## Resolved in the final M4 fix wave
+
+Found in the whole-branch review of M4 and fixed on the branch before merge. Listed so a reader of the entries above does not go looking for them.
+
+- The chime announced a ticket the board does not draw and was silent for the one it does. `order:created` carries an order a guest has just placed, which is unpaid, and the New column is `paid` alone; the ticket lands on the settlement, which arrives as `order:updated`. Both events now go through one handler that marks and announces an order when it _enters_ the first column.
+- A genuine success for an order that is no longer `placed` left its `payments` row `pending` for ever, with the charge findable only through the provider's event id. It now closes that attempt as `succeeded` and writes `payment.overpaid` carrying the payment id, the amount and the order's real status. The refund itself is still out of scope — it is the entry above about refunds.
+- The concurrent double delivery of one event, which the spec names and the insert-first ordering exists for, had no test; nor did the webhook's 200 path. Both are in `apps/api/src/lib/payments.test.ts` and `apps/api/src/routes/payments.test.ts` now.
+- `README.md` gave the demo-completion body as `{ outcome }`, where the route requires `{ orderId, outcome }`, and its test counts were a gate behind.
 
 ## Found on the first Compose run
 

@@ -46,7 +46,7 @@ The demo data is wiped and re-seeded every `DEMO_RESET_INTERVAL_MINUTES` (defaul
 
 **Bumping.** One control at the bottom edge of every ticket: **Start** on a New ticket, **Ready** on a Cooking one, **Served** on a Ready one, each naming its number in the accessible label ("Start #42"). New tickets also carry **Cancel** behind a confirm. The move is optimistic — the ticket shifts column immediately and the request follows. If another screen got there first the API answers 409 and the board says so: "Couldn't move #42. It is Cooking now.", then resyncs.
 
-**Sound.** A **Sound** toggle plays a two-note chime when a new ticket arrives. It is synthesized with the Web Audio API rather than shipped as an asset, and it is off until pressed, because browsers only allow audio after a gesture. The choice is remembered in `localStorage`.
+**Sound.** A **Sound** toggle plays a two-note chime when a ticket enters the New column — the moment the payment settles, not the moment the guest places the order, since an unpaid ticket is not work the kitchen can start. It is synthesized with the Web Audio API rather than shipped as an asset, and it is off until pressed, because browsers only allow audio after a gesture. The choice is remembered in `localStorage`.
 
 **Simulate rush.** In demo mode a **Simulate rush** button sits in the board header and on the landing page. It asks `POST /api/demo/rush` to place twelve orders over sixty seconds through the same insert path a guest uses, from random tables with one to four dishes each, so a rush ticket is indistinguishable from a real one. A second rush while one is running is refused, and the button goes quiet for the length of the run. The hourly demo reset stops a running rush before it reseeds and then broadcasts `demo:reset`, which tells every open board and every guest order page to clear and subscribe again.
 
@@ -85,7 +85,7 @@ That route is registered only when the resolved provider is `demo` **and** `DEMO
 stripe listen --forward-to localhost:4000/api/payments/webhook
 ```
 
-It prints a `whsec_…` secret; that is `STRIPE_WEBHOOK_SECRET` for this session. The webhook takes its body as raw bytes inside its own Fastify scope — the signature covers what was sent, not what a parser rebuilt — and answers 200 for anything it accepts, including a replayed event and an amount that does not match the order, because any other status only makes Stripe retry something that will never change. Neither is silent: a replay is already recorded in `processed_events` from the delivery that did the work, and a mismatch writes a `payment.mismatch` audit row carrying both figures.
+It prints a `whsec_…` secret; that is `STRIPE_WEBHOOK_SECRET` for this session. The webhook takes its body as raw bytes inside its own Fastify scope — the signature covers what was sent, not what a parser rebuilt — and answers 200 for anything it accepts, including a replayed event and an amount that does not match the order, because any other status only makes Stripe retry something that will never change. Neither is silent: a replay is already recorded in `processed_events` from the delivery that did the work, and a mismatch writes a `payment.mismatch` audit row carrying both figures. A success for an order that is already paid — a guest who completed checkout twice — is answered the same way: the order is left alone, the attempt the event names is closed, and a `payment.overpaid` row records the amount and the payment id, so the second charge can be found without asking Stripe what an event id meant.
 
 **Endpoints.**
 
@@ -93,7 +93,7 @@ It prints a `whsec_…` secret; that is `STRIPE_WEBHOOK_SECRET` for this session
 | ---------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `POST /api/orders/:id/payment`     | the guest who owns a `placed` order | Opens an attempt and answers `{ url }` — Stripe's absolute checkout URL, or `/pay/<id>`. 10/min per guest cookie. |
 | `POST /api/payments/webhook`       | the provider                        | Signature first, then `settlePayment`. 400 `SIGNATURE_INVALID` if it does not verify.                             |
-| `POST /api/payments/demo/complete` | the guest, demo mode only           | `{ outcome: 'paid' \| 'declined' }`. Same settlement, synthetic event.                                            |
+| `POST /api/payments/demo/complete` | the guest, demo mode only           | `{ orderId, outcome: 'paid' \| 'declined' }`. Same settlement, synthetic event.                                   |
 
 **Simulate rush** places orders that are already paid, with a `demo` payment row and a `payment.succeeded` audit line marked `source: 'rush'` — otherwise the narrowed New column would stay empty.
 
@@ -154,7 +154,7 @@ pnpm db:seed -- --if-empty           # prints the twelve guest URLs it signs
 pnpm dev                             # web on :3000, api on :4000
 ```
 
-`pnpm test` needs none of that — the suite runs on PGlite in memory: 361 tests across the five packages (shared 44, db 16, ui 31, api 155, web 115).
+`pnpm test` needs none of that — the suite runs on PGlite in memory: 371 tests across the five packages (shared 44, db 16, ui 31, api 158, web 122).
 
 ## Scripts
 
