@@ -227,7 +227,74 @@ describe('payments', () => {
     );
     const late = event({ orderId: order.id, paymentId, amountCents: order.totalCents });
     expect(await settlePayment(ctx.db, ctx.app.orderEvents, late)).toBe('late');
-    expect(await auditCount('payment.late', order.id)).toBe(1);
+    const [after] = await ctx.db.select().from(schema.orders).where(eq(schema.orders.id, order.id));
+    expect(after).toMatchObject({ status: 'paid' });
+    expect(await auditCount('payment.overpaid', order.id)).toBe(1);
+  });
+
+  it('closes the attempt and records the figures when a success arrives for a paid order', async () => {
+    const { order, guestSessionId } = await placeOrder(2);
+    // Two attempts open at once, and the guest completed both: with Stripe that is two charges.
+    await startPayment(ctx.db, provider, { orderId: order.id, guestSessionId });
+    const first = await paymentIdOf(order.id);
+    await startPayment(ctx.db, provider, { orderId: order.id, guestSessionId });
+    const rows = await ctx.db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.orderId, order.id));
+    const second = rows.find((r) => r.id !== first)!.id;
+    expect(
+      await settlePayment(
+        ctx.db,
+        ctx.app.orderEvents,
+        event({ orderId: order.id, paymentId: second, amountCents: order.totalCents }),
+      ),
+    ).toBe('paid');
+
+    // The first attempt is still pending and its success is genuine: money moved for it too.
+    const now = new Date('2026-09-04T13:00:00Z');
+    expect(
+      await settlePayment(
+        ctx.db,
+        ctx.app.orderEvents,
+        event({
+          orderId: order.id,
+          paymentId: first,
+          amountCents: order.totalCents,
+          providerPaymentIntentId: 'pi_late',
+        }),
+        now,
+      ),
+    ).toBe('late');
+    // The order is untouched: it was paid once, by the attempt that settled it.
+    const [after] = await ctx.db.select().from(schema.orders).where(eq(schema.orders.id, order.id));
+    expect(after).toMatchObject({ status: 'paid' });
+    const settledRows = await ctx.db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.orderId, order.id));
+    // The ledger says what happened to the money, rather than pending for ever.
+    expect(settledRows.find((r) => r.id === first)).toMatchObject({
+      status: 'succeeded',
+      amountCents: order.totalCents,
+      providerPaymentIntentId: 'pi_late',
+    });
+    expect(settledRows.find((r) => r.id === second)).toMatchObject({ status: 'succeeded' });
+    const [audit] = await ctx.db
+      .select()
+      .from(schema.auditLog)
+      .where(
+        and(eq(schema.auditLog.action, 'payment.overpaid'), eq(schema.auditLog.entityId, order.id)),
+      );
+    // Enough to find the charge without asking the provider what its event id meant.
+    expect(audit!.payload).toMatchObject({
+      paymentId: first,
+      amountCents: order.totalCents,
+      status: 'paid',
+    });
+    // A refund is out of scope; a decline of a paid order would be a lie.
+    expect(await auditCount('payment.declined', order.id)).toBe(0);
+    expect(await auditCount('payment.late', order.id)).toBe(0);
   });
 
   it('calls a failure that arrives after the order is paid late, not a decline', async () => {

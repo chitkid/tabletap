@@ -115,15 +115,39 @@ export async function settlePayment(
     });
   };
 
-  /** Written wherever a late event is noticed: before the update, or by the update that lost. */
-  const recordLate = async (writer: Db, status: string): Promise<void> => {
+  /**
+   * A success for an order that is no longer waiting. The order keeps the status it has - it was
+   * paid once, by the attempt that settled it - but the attempt this event names is over, and
+   * money moved for it: with Stripe a guest can complete two Checkout sessions and be charged
+   * twice. Leaving the row pending would say the opposite, and would leave the charge findable
+   * only through the provider's event id. Refunding it is out of scope; recording it is not.
+   *
+   * Written wherever the lateness is noticed: before the update, or by the update that lost.
+   */
+  const recordOverpaid = async (writer: Db, status: string): Promise<void> => {
+    await writer
+      .update(schema.payments)
+      .set({
+        status: 'succeeded',
+        updatedAt: now,
+        providerPaymentIntentId: input.providerPaymentIntentId,
+      })
+      // Named by id and by order, as the settling path is: an event carrying a payment id from
+      // somewhere else must not close another order's attempt.
+      .where(and(eq(schema.payments.id, input.paymentId), eq(schema.payments.orderId, order.id)));
     await recordAudit(writer, {
       actorType: 'system',
       actorId: null,
-      action: 'payment.late',
+      action: 'payment.overpaid',
       entityType: 'order',
       entityId: order.id,
-      payload: { provider: input.provider, eventId: input.eventId, status },
+      payload: {
+        provider: input.provider,
+        eventId: input.eventId,
+        status,
+        paymentId: input.paymentId,
+        amountCents: input.amountCents,
+      },
     });
   };
 
@@ -144,7 +168,9 @@ export async function settlePayment(
     return 'mismatch';
   }
   if (order.status !== 'placed') {
-    await recordLate(db, order.status);
+    await db.transaction(async (tx) => {
+      await recordOverpaid(tx, order.status);
+    });
     return 'late';
   }
 
@@ -164,12 +190,12 @@ export async function settlePayment(
         .returning({ id: schema.orders.id });
       if (!row) {
         // Something moved the order between the check above and this update, so the event is
-        // late after all. A late event leaves a trace wherever it is noticed, not only above.
+        // late after all. A late success is closed here on the same terms as above.
         const [current] = await tx
           .select({ status: schema.orders.status })
           .from(schema.orders)
           .where(eq(schema.orders.id, order.id));
-        await recordLate(tx, current?.status ?? order.status);
+        await recordOverpaid(tx, current?.status ?? order.status);
         return 'late';
       }
       // A provider does not have to repeat the session id it was given; keep the stored one
