@@ -7,7 +7,12 @@ import {
   type MenuItemDto,
   type MenuItemWrite,
 } from '@tabletap/shared';
-import type { ObjectStorage } from '../storage/types';
+import type {
+  ObjectStorage,
+  PhotoContentType,
+  PresignedUpload,
+  UploadRejection,
+} from '../storage/types';
 import { recordAudit } from './audit';
 import { AppError } from './errors';
 
@@ -285,6 +290,79 @@ export async function updateItem(
     });
     return updated;
   });
+  return toItemDto(row);
+}
+
+/**
+ * A signed `PUT` for one dish's photograph. The ownership lookup comes first on purpose: the URL
+ * this answers is a write into the bucket, and it is never minted for a dish this restaurant does
+ * not own. The key is the port's to build - `photoKey` is the only thing that decides where the
+ * object lands, and the browser's filename never reaches it.
+ */
+export async function presignItemPhoto(
+  db: Db,
+  restaurantId: string,
+  id: string,
+  contentType: PhotoContentType,
+  storage: ObjectStorage,
+): Promise<PresignedUpload> {
+  await loadItem(db, restaurantId, id);
+  return storage.presignPut(storage.photoKey(id, contentType), contentType);
+}
+
+/**
+ * `checkUpload` deletes whatever it refuses, so a refusal is final for that key: each sentence
+ * names what went wrong and asks for another attempt, which the browser starts from a fresh
+ * `photo-url`. Re-confirming the same key would only find the object gone.
+ */
+const UPLOAD_REFUSALS: Record<UploadRejection, string> = {
+  missing: 'The upload did not arrive. Try again.',
+  'too-large': 'That photograph is larger than 5 MB. Try again with a smaller one.',
+  'unsupported-type': 'That file is not a JPEG, PNG or WebP. Try again with one of those.',
+};
+
+/**
+ * Confirms an upload and writes it onto the dish. Two checks stand between a caller and an
+ * arbitrary object, in this order: the item has to belong to this restaurant (404 otherwise, the
+ * same rule as everywhere else here), and the key has to sit under that item's own prefix. Since
+ * the prefix is built from the id that just passed the ownership check, no key belonging to
+ * another restaurant's dish - or to anything else in the bucket - can reach storage at all.
+ */
+export async function setItemPhoto(
+  db: Db,
+  restaurantId: string,
+  id: string,
+  key: string,
+  actorId: string,
+  storage: ObjectStorage,
+): Promise<MenuItemDto> {
+  const before = await loadItem(db, restaurantId, id);
+  if (!key.startsWith(`menu/${id}/`))
+    throw new AppError('VALIDATION_FAILED', 400, 'That upload does not belong to this dish.');
+  const check = await storage.checkUpload(key);
+  if (!check.ok) throw new AppError('CONFLICT', 409, UPLOAD_REFUSALS[check.reason]);
+  const imageUrl = storage.publicUrl(key);
+  const row = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(schema.menuItems)
+      .set({ imageUrl, updatedAt: new Date() })
+      .where(eq(schema.menuItems.id, id))
+      .returning();
+    if (!updated) throw new AppError('NOT_FOUND', 404, 'Item not found.');
+    await recordAudit(tx, {
+      actorType: 'user',
+      actorId,
+      action: 'menu.item.photo',
+      entityType: 'menu_item',
+      entityId: id,
+      payload: { key, changed: changedFields(before, { imageUrl }) },
+    });
+    return updated;
+  });
+  // Only now, with the new photograph committed, is the old object safe to drop: a delete before
+  // this point would leave the dish pointing at nothing if the confirmation went on to fail.
+  const previousKey = before.imageUrl === null ? null : storageKeyFromImageUrl(before.imageUrl);
+  if (previousKey !== null && previousKey !== key) await storage.remove(previousKey);
   return toItemDto(row);
 }
 

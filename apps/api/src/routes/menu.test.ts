@@ -1,8 +1,16 @@
+import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { schema } from '@tabletap/db';
-import { MenuCategoryDtoSchema, MenuItemDtoSchema, MenuResponseSchema } from '@tabletap/shared';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { claimTable, createTestApp, signInAs } from '../test/helpers';
+import {
+  ErrorEnvelopeSchema,
+  MenuCategoryDtoSchema,
+  MenuItemDtoSchema,
+  MenuResponseSchema,
+  PhotoUploadResponseSchema,
+} from '@tabletap/shared';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { ObjectStorage, UploadCheck, UploadRejection } from '../storage/types';
+import { TEST_CONFIG, claimTable, createTestApp, signInAs } from '../test/helpers';
 
 describe('GET /api/menu', () => {
   let ctx: Awaited<ReturnType<typeof createTestApp>>;
@@ -225,5 +233,356 @@ describe('admin menu routes', () => {
       .from(schema.menuItems)
       .where(eq(schema.menuItems.id, created.id));
     expect(gone).toHaveLength(0);
+  });
+});
+
+describe('menu photographs', () => {
+  let ctx: Awaited<ReturnType<typeof createTestApp>>;
+  let admin: string;
+  let waiter: string;
+  let kitchen: string;
+  let itemId: string;
+  let configuredStorage: ObjectStorage | null;
+
+  const PUBLIC_BASE = 'http://cdn.test/tabletap-test';
+  const OK_UPLOAD: UploadCheck = { ok: true, object: { size: 2048, contentType: 'image/jpeg' } };
+
+  /**
+   * Confirming an upload needs a bucket to ask about it; these tests are about the route's own
+   * decisions, so the port is faked and each test picks the verdict. `presignPut` still answers the
+   * shape `PhotoUploadResponseSchema` demands, so a route that returned the wrong thing would fail
+   * on serialization rather than quietly pass.
+   */
+  function fakeStorage(check: UploadCheck = OK_UPLOAD) {
+    return {
+      photoKey: vi.fn((id: string) => `menu/${id}/${randomUUID()}.jpg`),
+      presignPut: vi.fn(async (key: string) => ({
+        url: `http://browser.test:9000/tabletap-test/${key}?X-Amz-Signature=fake`,
+        key,
+        expiresInSeconds: 60,
+      })),
+      head: vi.fn(async () => null),
+      checkUpload: vi.fn(async () => check),
+      exists: vi.fn(async () => check.ok),
+      publicUrl: vi.fn((key: string) => `${PUBLIC_BASE}/${key}`),
+      remove: vi.fn(async () => {}),
+    } satisfies ObjectStorage;
+  }
+
+  async function imageUrlOf(id: string): Promise<string | null> {
+    const [row] = await ctx.db.select().from(schema.menuItems).where(eq(schema.menuItems.id, id));
+    return row?.imageUrl ?? null;
+  }
+
+  async function setImageUrl(id: string, imageUrl: string | null): Promise<void> {
+    await ctx.db.update(schema.menuItems).set({ imageUrl }).where(eq(schema.menuItems.id, id));
+  }
+
+  /** A dish belonging to somebody else's restaurant; the cascade takes it away again afterwards. */
+  async function withForeignItem(fn: (foreignItemId: string) => Promise<void>): Promise<void> {
+    const [restaurant] = await ctx.db
+      .insert(schema.restaurants)
+      .values({ name: 'Other House', slug: `other-house-${randomUUID()}` })
+      .returning();
+    try {
+      const [category] = await ctx.db
+        .insert(schema.menuCategories)
+        .values({ restaurantId: restaurant!.id, name: 'Their Bowls' })
+        .returning();
+      const [item] = await ctx.db
+        .insert(schema.menuItems)
+        .values({ categoryId: category!.id, name: 'Their Dish', priceCents: 900 })
+        .returning();
+      await fn(item!.id);
+    } finally {
+      await ctx.db.delete(schema.restaurants).where(eq(schema.restaurants.id, restaurant!.id));
+    }
+  }
+
+  beforeAll(async () => {
+    ctx = await createTestApp();
+    admin = await signInAs(ctx.app, 'admin@littlefurnace.demo');
+    waiter = await signInAs(ctx.app, 'waiter@littlefurnace.demo');
+    kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
+    const [item] = await ctx.db
+      .select()
+      .from(schema.menuItems)
+      .where(eq(schema.menuItems.name, 'Ember Salmon Bowl'));
+    itemId = item!.id;
+    configuredStorage = ctx.app.storage;
+  });
+  afterEach(() => {
+    ctx.app.storage = configuredStorage;
+  });
+  afterAll(async () => {
+    await ctx.close();
+  });
+
+  it('signs an upload for a server-chosen key under this dish, good for a minute', async () => {
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: `/api/menu/items/${itemId}/photo-url`,
+      headers: { cookie: admin },
+      payload: { contentType: 'image/jpeg' },
+    });
+    expect(res.statusCode).toBe(200);
+    const upload = PhotoUploadResponseSchema.parse(res.json());
+    expect(upload.key).toMatch(
+      new RegExp(
+        `^menu/${itemId}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.jpg$`,
+      ),
+    );
+    expect(upload.expiresInSeconds).toBe(60);
+    // Signed against the endpoint the browser can reach, and carrying a signature, not a secret.
+    expect(upload.url.startsWith(`http://browser.test:9000/tabletap-test/${upload.key}?`)).toBe(
+      true,
+    );
+    expect(upload.url).toContain('X-Amz-Signature=');
+    expect(upload.url).toContain('X-Amz-Expires=60');
+    expect(upload.url).not.toContain(TEST_CONFIG.S3_SECRET_ACCESS_KEY);
+    // Nothing is written until the confirmation step says the object arrived.
+    expect(await imageUrlOf(itemId)).toBeNull();
+  });
+
+  it('refuses a content type the menu will not serve, and one that is not a type at all', async () => {
+    for (const contentType of ['image/gif', 'text/html', 'image/jpeg; charset=utf-8', 42]) {
+      const res = await ctx.app.inject({
+        method: 'POST',
+        url: `/api/menu/items/${itemId}/photo-url`,
+        headers: { cookie: admin },
+        payload: { contentType },
+      });
+      expect(res.statusCode, String(contentType)).toBe(400);
+      expect(res.json().error.code).toBe('VALIDATION_FAILED');
+    }
+    const empty = await ctx.app.inject({
+      method: 'POST',
+      url: `/api/menu/items/${itemId}/photo-url`,
+      headers: { cookie: admin },
+      payload: {},
+    });
+    expect(empty.statusCode).toBe(400);
+  });
+
+  it('refuses both photo routes for anonymous, waiter and kitchen, before reading a body', async () => {
+    const cases = [
+      { url: `/api/menu/items/${itemId}/photo-url`, payload: { contentType: 'image/jpeg' } },
+      { url: `/api/menu/items/${itemId}/photo`, payload: { key: `menu/${itemId}/x.jpg` } },
+    ];
+    for (const c of cases) {
+      const anon = await ctx.app.inject({ method: 'POST', url: c.url, payload: c.payload });
+      expect(anon.statusCode, `${c.url} anonymous`).toBe(401);
+      for (const [role, cookie] of [
+        ['waiter', waiter],
+        ['kitchen', kitchen],
+      ] as const) {
+        const res = await ctx.app.inject({
+          method: 'POST',
+          url: c.url,
+          headers: { cookie },
+          payload: c.payload,
+        });
+        expect(res.statusCode, `${c.url} ${role}`).toBe(403);
+        // The guard answers before the payload is looked at: a nonsense body is still a 403.
+        const nonsense = await ctx.app.inject({
+          method: 'POST',
+          url: c.url,
+          headers: { cookie },
+          payload: { contentType: 42, key: '' },
+        });
+        expect(nonsense.statusCode, `${c.url} ${role} malformed`).toBe(403);
+      }
+    }
+  });
+
+  it('answers 404 for a dish in another restaurant without signing or probing anything', async () => {
+    const storage = fakeStorage();
+    ctx.app.storage = storage;
+    await withForeignItem(async (foreignItemId) => {
+      const sign = await ctx.app.inject({
+        method: 'POST',
+        url: `/api/menu/items/${foreignItemId}/photo-url`,
+        headers: { cookie: admin },
+        payload: { contentType: 'image/jpeg' },
+      });
+      expect(sign.statusCode).toBe(404);
+      expect(sign.json().error.code).toBe('NOT_FOUND');
+      const confirm = await ctx.app.inject({
+        method: 'POST',
+        url: `/api/menu/items/${foreignItemId}/photo`,
+        headers: { cookie: admin },
+        payload: { key: `menu/${foreignItemId}/${randomUUID()}.jpg` },
+      });
+      expect(confirm.statusCode).toBe(404);
+      expect(confirm.json().error.code).toBe('NOT_FOUND');
+      expect(storage.presignPut).not.toHaveBeenCalled();
+      expect(storage.checkUpload).not.toHaveBeenCalled();
+      expect(await imageUrlOf(foreignItemId)).toBeNull();
+      // Not a blanket 404: this restaurant's own dish still signs while the other one exists.
+      const ours = await ctx.app.inject({
+        method: 'POST',
+        url: `/api/menu/items/${itemId}/photo-url`,
+        headers: { cookie: admin },
+        payload: { contentType: 'image/jpeg' },
+      });
+      expect(ours.statusCode).toBe(200);
+      expect(storage.presignPut).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('refuses a key outside this dish own prefix before it touches storage', async () => {
+    const storage = fakeStorage();
+    ctx.app.storage = storage;
+    const someoneElse = randomUUID();
+    const keys = [
+      `menu/${someoneElse}/${randomUUID()}.jpg`,
+      `menu/${itemId}-decoy/${randomUUID()}.jpg`,
+      `menu/${randomUUID()}.jpg`,
+      `../menu/${itemId}/${randomUUID()}.jpg`,
+      'private/backups/dump.sql',
+    ];
+    for (const key of keys) {
+      const res = await ctx.app.inject({
+        method: 'POST',
+        url: `/api/menu/items/${itemId}/photo`,
+        headers: { cookie: admin },
+        payload: { key },
+      });
+      expect(res.statusCode, key).toBe(400);
+      expect(res.json().error.code, key).toBe('VALIDATION_FAILED');
+    }
+    expect(storage.checkUpload).not.toHaveBeenCalled();
+    expect(storage.publicUrl).not.toHaveBeenCalled();
+    expect(storage.remove).not.toHaveBeenCalled();
+    expect(await imageUrlOf(itemId)).toBeNull();
+  });
+
+  it('gives each way an upload can be refused its own 409, and leaves the dish alone', async () => {
+    const previousKey = `menu/${itemId}/${randomUUID()}.jpg`;
+    await setImageUrl(itemId, `${PUBLIC_BASE}/${previousKey}`);
+    const cases: Array<[UploadRejection, string]> = [
+      ['missing', 'The upload did not arrive. Try again.'],
+      ['too-large', 'That photograph is larger than 5 MB. Try again with a smaller one.'],
+      ['unsupported-type', 'That file is not a JPEG, PNG or WebP. Try again with one of those.'],
+    ];
+    for (const [reason, message] of cases) {
+      const storage = fakeStorage({ ok: false, reason });
+      ctx.app.storage = storage;
+      const res = await ctx.app.inject({
+        method: 'POST',
+        url: `/api/menu/items/${itemId}/photo`,
+        headers: { cookie: admin },
+        payload: { key: `menu/${itemId}/${randomUUID()}.jpg` },
+      });
+      expect(res.statusCode, reason).toBe(409);
+      const body = ErrorEnvelopeSchema.parse(res.json());
+      expect(body.error.code, reason).toBe('CONFLICT');
+      expect(body.error.message, reason).toBe(message);
+      // `checkUpload` already deleted whatever it refused, so this key is spent: the route must
+      // not remove anything of its own, and must not touch the photograph the dish still has.
+      expect(storage.remove, reason).not.toHaveBeenCalled();
+      expect(await imageUrlOf(itemId)).toBe(`${PUBLIC_BASE}/${previousKey}`);
+    }
+    await setImageUrl(itemId, null);
+  });
+
+  it('writes the public URL on a confirmed upload, audits it, and the guest menu serves it', async () => {
+    const storage = fakeStorage();
+    ctx.app.storage = storage;
+    const key = `menu/${itemId}/${randomUUID()}.jpg`;
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: `/api/menu/items/${itemId}/photo`,
+      headers: { cookie: admin },
+      payload: { key },
+    });
+    expect(res.statusCode).toBe(200);
+    const item = MenuItemDtoSchema.parse(res.json().item);
+    expect(item.id).toBe(itemId);
+    expect(item.imageUrl).toBe(`${PUBLIC_BASE}/${key}`);
+    expect(storage.checkUpload).toHaveBeenCalledWith(key);
+    expect(storage.remove).not.toHaveBeenCalled(); // there was no previous object
+    expect(await imageUrlOf(itemId)).toBe(`${PUBLIC_BASE}/${key}`);
+
+    const audits = (
+      await ctx.db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'menu.item.photo'))
+    ).filter((r) => r.entityId === itemId);
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({ actorType: 'user', entityType: 'menu_item' });
+    expect(typeof audits[0]!.actorId).toBe('string');
+    expect(audits[0]!.payload).toMatchObject({
+      key,
+      changed: { imageUrl: { from: null, to: `${PUBLIC_BASE}/${key}` } },
+    });
+
+    const { cookie } = await claimTable(ctx.app, ctx.db, 6);
+    const menu = MenuResponseSchema.parse(
+      (await ctx.app.inject({ method: 'GET', url: '/api/menu', headers: { cookie } })).json(),
+    );
+    const onTheMenu = menu.categories.flatMap((c) => c.items).find((i) => i.id === itemId);
+    expect(onTheMenu?.imageUrl).toBe(`${PUBLIC_BASE}/${key}`);
+    await setImageUrl(itemId, null);
+  });
+
+  it('removes the object a replaced photograph pointed at, only once the new one is confirmed', async () => {
+    const previousKey = `menu/${itemId}/${randomUUID()}.jpg`;
+    await setImageUrl(itemId, `${PUBLIC_BASE}/${previousKey}`);
+
+    // A refused replacement keeps the old photograph, object and all.
+    const refusing = fakeStorage({ ok: false, reason: 'missing' });
+    ctx.app.storage = refusing;
+    const refused = await ctx.app.inject({
+      method: 'POST',
+      url: `/api/menu/items/${itemId}/photo`,
+      headers: { cookie: admin },
+      payload: { key: `menu/${itemId}/${randomUUID()}.jpg` },
+    });
+    expect(refused.statusCode).toBe(409);
+    expect(refusing.remove).not.toHaveBeenCalled();
+    expect(await imageUrlOf(itemId)).toBe(`${PUBLIC_BASE}/${previousKey}`);
+
+    const storage = fakeStorage();
+    ctx.app.storage = storage;
+    const key = `menu/${itemId}/${randomUUID()}.jpg`;
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: `/api/menu/items/${itemId}/photo`,
+      headers: { cookie: admin },
+      payload: { key },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(storage.remove).toHaveBeenCalledTimes(1);
+    expect(storage.remove).toHaveBeenCalledWith(previousKey);
+    // The old object goes only after the new one has been confirmed, never before.
+    expect(storage.checkUpload.mock.invocationCallOrder[0]!).toBeLessThan(
+      storage.remove.mock.invocationCallOrder[0]!,
+    );
+    expect(await imageUrlOf(itemId)).toBe(`${PUBLIC_BASE}/${key}`);
+    await setImageUrl(itemId, null);
+  });
+
+  it('says photographs are not configured when the deployment names no bucket', async () => {
+    ctx.app.storage = null;
+    const message = 'Photographs are not configured for this deployment.';
+    const sign = await ctx.app.inject({
+      method: 'POST',
+      url: `/api/menu/items/${itemId}/photo-url`,
+      headers: { cookie: admin },
+      payload: { contentType: 'image/jpeg' },
+    });
+    expect(sign.statusCode).toBe(503);
+    expect(ErrorEnvelopeSchema.parse(sign.json()).error.message).toBe(message);
+    const confirm = await ctx.app.inject({
+      method: 'POST',
+      url: `/api/menu/items/${itemId}/photo`,
+      headers: { cookie: admin },
+      payload: { key: `menu/${itemId}/${randomUUID()}.jpg` },
+    });
+    expect(confirm.statusCode).toBe(503);
+    expect(ErrorEnvelopeSchema.parse(confirm.json()).error.message).toBe(message);
+    expect(await imageUrlOf(itemId)).toBeNull();
   });
 });
