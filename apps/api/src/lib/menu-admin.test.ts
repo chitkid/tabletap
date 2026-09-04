@@ -140,6 +140,72 @@ describe('menu-admin', () => {
     expect(stillThere).toBeDefined();
   });
 
+  it('refuses a category delete from the guarded statement itself, so nothing it holds is destroyed', async () => {
+    // A category and an item created together, then deleted immediately: the old two-statement
+    // check-then-delete would already catch this in the non-race case too, so the real proof is
+    // that the delete's own WHERE refused it - no audit row for a deletion that never happened.
+    const category = await createCategory(ctx.db, restaurantId, { name: 'Race Category' }, ACTOR);
+    const item = await createItem(
+      ctx.db,
+      restaurantId,
+      { categoryId: category.id, name: 'Race Item', priceCents: 100 },
+      ACTOR,
+    );
+    await expect(deleteCategory(ctx.db, restaurantId, category.id, ACTOR)).rejects.toMatchObject({
+      code: 'IN_USE',
+      statusCode: 409,
+    });
+    const [categoryRow] = await ctx.db
+      .select()
+      .from(schema.menuCategories)
+      .where(eq(schema.menuCategories.id, category.id));
+    expect(categoryRow).toBeDefined();
+    const [itemRow] = await ctx.db
+      .select()
+      .from(schema.menuItems)
+      .where(eq(schema.menuItems.id, item.id));
+    expect(itemRow).toBeDefined();
+    const deletionAudits = (
+      await ctx.db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'menu.category.deleted'))
+    ).filter((r) => r.entityId === category.id);
+    expect(deletionAudits).toHaveLength(0);
+  });
+
+  it('refuses an item delete from the guarded statement itself, so the order referencing it is untouched', async () => {
+    const bowls = await categoryByName('Bowls');
+    const item = await createItem(
+      ctx.db,
+      restaurantId,
+      { categoryId: bowls.id, name: 'Race Bowl', priceCents: 900 },
+      ACTOR,
+    );
+    await orderFor(item.id);
+    await expect(deleteItem(ctx.db, restaurantId, item.id, ACTOR, null)).rejects.toMatchObject({
+      code: 'IN_USE',
+      statusCode: 409,
+    });
+    const [itemRow] = await ctx.db
+      .select()
+      .from(schema.menuItems)
+      .where(eq(schema.menuItems.id, item.id));
+    expect(itemRow).toBeDefined();
+    const orderItemRows = await ctx.db
+      .select()
+      .from(schema.orderItems)
+      .where(eq(schema.orderItems.menuItemId, item.id));
+    expect(orderItemRows.length).toBeGreaterThan(0);
+    const deletionAudits = (
+      await ctx.db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'menu.item.deleted'))
+    ).filter((r) => r.entityId === item.id);
+    expect(deletionAudits).toHaveLength(0);
+  });
+
   it('deletes an item with no orders and removes its photo object', async () => {
     const sparklingWater = await itemByName('Sparkling Water');
     const key = `menu/${sparklingWater.id}/deadbeef-dead-beef-dead-beefdeadbeef.jpg`;
@@ -211,6 +277,60 @@ describe('menu-admin', () => {
     expect(updatedItem.priceCents).toBe(originalPrice); // untouched
     expect(updatedItem.name).toBe('Margherita Flatbread'); // untouched
     await updateItem(ctx.db, restaurantId, margherita.id, { isAvailable: true }, ACTOR);
+  });
+
+  it('a price change leaves an audit row both the old and new price can be read from', async () => {
+    const bowls = await categoryByName('Bowls');
+    const item = await createItem(
+      ctx.db,
+      restaurantId,
+      { categoryId: bowls.id, name: 'Price Test Item', priceCents: 800 },
+      ACTOR,
+    );
+    await updateItem(ctx.db, restaurantId, item.id, { priceCents: 950 }, ACTOR);
+    const updateAudits = (
+      await ctx.db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'menu.item.updated'))
+    ).filter((r) => r.entityId === item.id);
+    expect(updateAudits).toHaveLength(1);
+    expect(updateAudits[0]!.payload).toMatchObject({
+      changed: { priceCents: { from: 800, to: 950 } },
+    });
+  });
+
+  it("records the item's price when it is created, not just its name and category", async () => {
+    const bowls = await categoryByName('Bowls');
+    const item = await createItem(
+      ctx.db,
+      restaurantId,
+      { categoryId: bowls.id, name: 'Priced On Create', priceCents: 725 },
+      ACTOR,
+    );
+    const createAudits = (
+      await ctx.db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'menu.item.created'))
+    ).filter((r) => r.entityId === item.id);
+    expect(createAudits).toHaveLength(1);
+    expect(createAudits[0]!.payload).toMatchObject({ priceCents: 725 });
+  });
+
+  it('a category rename leaves an audit row both the old and new name can be read from', async () => {
+    const category = await createCategory(ctx.db, restaurantId, { name: 'Old Name' }, ACTOR);
+    await updateCategory(ctx.db, restaurantId, category.id, { name: 'New Name' }, ACTOR);
+    const updateAudits = (
+      await ctx.db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'menu.category.updated'))
+    ).filter((r) => r.entityId === category.id);
+    expect(updateAudits).toHaveLength(1);
+    expect(updateAudits[0]!.payload).toMatchObject({
+      changed: { name: { from: 'Old Name', to: 'New Name' } },
+    });
   });
 
   it('audits every mutation with the actor who made it', async () => {

@@ -1,4 +1,4 @@
-import { asc, count, eq, max } from 'drizzle-orm';
+import { and, asc, eq, max, notExists } from 'drizzle-orm';
 import { schema, type Db } from '@tabletap/db';
 import {
   AllergenSchema,
@@ -96,6 +96,20 @@ function storageKeyFromImageUrl(imageUrl: string): string | null {
   return match ? match[1]! : null;
 }
 
+/**
+ * `{ field: { from, to } }` for every key the caller actually sent - the way `lib/transitions.ts`
+ * records `{ from, to }` on every status change, so the audit row alone can settle a dispute
+ * without a second query against a row that has since changed again (or been deleted).
+ */
+function changedFields(
+  before: Record<string, unknown>,
+  body: Record<string, unknown>,
+): Record<string, { from: unknown; to: unknown }> {
+  const changed: Record<string, { from: unknown; to: unknown }> = {};
+  for (const key of Object.keys(body)) changed[key] = { from: before[key], to: body[key] };
+  return changed;
+}
+
 export async function createCategory(
   db: Db,
   restaurantId: string,
@@ -131,7 +145,7 @@ export async function updateCategory(
   body: Partial<MenuCategoryWrite>,
   actorId: string,
 ): Promise<MenuCategoryDto> {
-  await loadCategory(db, restaurantId, id);
+  const before = await loadCategory(db, restaurantId, id);
   const row = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(schema.menuCategories)
@@ -145,7 +159,7 @@ export async function updateCategory(
       action: 'menu.category.updated',
       entityType: 'menu_category',
       entityId: id,
-      payload: body,
+      payload: { changed: changedFields(before, body) },
     });
     return updated;
   });
@@ -153,6 +167,12 @@ export async function updateCategory(
   return toCategoryDto(row, items);
 }
 
+/**
+ * The item-count check and the delete used to be two statements: an item inserted between them
+ * (menu_items.category_id is `onDelete: 'cascade'`) would be silently destroyed along with the
+ * category it raced - no 409, no audit row. Now the check is part of the DELETE's own WHERE, so
+ * Postgres evaluates both against the same snapshot and there is no window between them.
+ */
 export async function deleteCategory(
   db: Db,
   restaurantId: string,
@@ -160,16 +180,22 @@ export async function deleteCategory(
   actorId: string,
 ): Promise<void> {
   const category = await loadCategory(db, restaurantId, id);
-  const [holding] = await db
-    .select({ n: count() })
-    .from(schema.menuItems)
-    .where(eq(schema.menuItems.categoryId, id));
-  if ((holding?.n ?? 0) > 0)
-    throw new AppError('IN_USE', 409, 'This category holds items. Empty it first.', {
-      itemCount: holding?.n ?? 0,
-    });
-  await db.transaction(async (tx) => {
-    await tx.delete(schema.menuCategories).where(eq(schema.menuCategories.id, id));
+  const deleted = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .delete(schema.menuCategories)
+      .where(
+        and(
+          eq(schema.menuCategories.id, id),
+          notExists(
+            tx
+              .select({ id: schema.menuItems.id })
+              .from(schema.menuItems)
+              .where(eq(schema.menuItems.categoryId, id)),
+          ),
+        ),
+      )
+      .returning();
+    if (!row) return false;
     await recordAudit(tx, {
       actorType: 'user',
       actorId,
@@ -178,7 +204,17 @@ export async function deleteCategory(
       entityId: id,
       payload: { name: category.name },
     });
+    return true;
   });
+  if (deleted) return;
+  // The guarded delete refused. Distinguish "it now holds items" (409) from the rarer "it was
+  // already removed by a concurrent call" (404) rather than assuming the former.
+  const [stillThere] = await db
+    .select({ id: schema.menuCategories.id })
+    .from(schema.menuCategories)
+    .where(eq(schema.menuCategories.id, id));
+  if (!stillThere) throw new AppError('NOT_FOUND', 404, 'Category not found.');
+  throw new AppError('IN_USE', 409, 'This category holds items. Empty it first.');
 }
 
 export async function createItem(
@@ -211,7 +247,11 @@ export async function createItem(
       action: 'menu.item.created',
       entityType: 'menu_item',
       entityId: inserted.id,
-      payload: { name: inserted.name, categoryId: inserted.categoryId },
+      payload: {
+        name: inserted.name,
+        categoryId: inserted.categoryId,
+        priceCents: inserted.priceCents,
+      },
     });
     return inserted;
   });
@@ -225,7 +265,7 @@ export async function updateItem(
   body: Partial<MenuItemWrite>,
   actorId: string,
 ): Promise<MenuItemDto> {
-  await loadItem(db, restaurantId, id);
+  const before = await loadItem(db, restaurantId, id);
   // A re-categorize target still has to belong to this restaurant.
   if (body.categoryId !== undefined) await loadCategory(db, restaurantId, body.categoryId);
   const row = await db.transaction(async (tx) => {
@@ -241,7 +281,7 @@ export async function updateItem(
       action: 'menu.item.updated',
       entityType: 'menu_item',
       entityId: id,
-      payload: body,
+      payload: { changed: changedFields(before, body) },
     });
     return updated;
   });
@@ -249,9 +289,10 @@ export async function updateItem(
 }
 
 /**
- * `order_items.menu_item_id` is a restricted foreign key, so a plain DELETE would already refuse
- * an item that was ever ordered - this check exists to answer that with 409 `IN_USE` and a message
- * naming the alternative, instead of letting the constraint surface as an unhandled 500.
+ * `order_items.menu_item_id` is a restricted foreign key, so an order placed between a separate
+ * check and delete used to turn into an unhandled 500 - not lost data, since `restrict` refuses
+ * the statement, but not a clean 409 either. The check now lives in the DELETE's own WHERE, so it
+ * and the delete run against the same snapshot and always answer 409 `IN_USE` on that race.
  */
 export async function deleteItem(
   db: Db,
@@ -261,16 +302,22 @@ export async function deleteItem(
   storage: ObjectStorage | null,
 ): Promise<void> {
   const item = await loadItem(db, restaurantId, id);
-  const [ordered] = await db
-    .select({ n: count() })
-    .from(schema.orderItems)
-    .where(eq(schema.orderItems.menuItemId, id));
-  if ((ordered?.n ?? 0) > 0)
-    throw new AppError('IN_USE', 409, 'This item appears on an order. Mark it sold out instead.', {
-      orderCount: ordered?.n ?? 0,
-    });
-  await db.transaction(async (tx) => {
-    await tx.delete(schema.menuItems).where(eq(schema.menuItems.id, id));
+  const deleted = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .delete(schema.menuItems)
+      .where(
+        and(
+          eq(schema.menuItems.id, id),
+          notExists(
+            tx
+              .select({ id: schema.orderItems.id })
+              .from(schema.orderItems)
+              .where(eq(schema.orderItems.menuItemId, id)),
+          ),
+        ),
+      )
+      .returning();
+    if (!row) return false;
     await recordAudit(tx, {
       actorType: 'user',
       actorId,
@@ -279,7 +326,16 @@ export async function deleteItem(
       entityId: id,
       payload: { name: item.name },
     });
+    return true;
   });
+  if (!deleted) {
+    const [stillThere] = await db
+      .select({ id: schema.menuItems.id })
+      .from(schema.menuItems)
+      .where(eq(schema.menuItems.id, id));
+    if (!stillThere) throw new AppError('NOT_FOUND', 404, 'Item not found.');
+    throw new AppError('IN_USE', 409, 'This item appears on an order. Mark it sold out instead.');
+  }
   if (item.imageUrl && storage) {
     const key = storageKeyFromImageUrl(item.imageUrl);
     if (key) await storage.remove(key);
