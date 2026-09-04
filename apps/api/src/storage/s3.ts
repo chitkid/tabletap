@@ -1,10 +1,13 @@
 import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import {
+  PHOTO_CONTENT_TYPES,
+  PHOTO_MAX_BYTES,
   PRESIGN_TTL_SECONDS,
   type ObjectStorage,
   type PhotoContentType,
   type StoredObject,
+  type UploadCheck,
 } from './types';
 
 /** The slice of the SDK this adapter uses, so a test can hand it a fake and stay offline. */
@@ -90,6 +93,21 @@ export function createS3Storage(opts: {
     },
     async exists(key) {
       return (await this.head(key)) !== null;
+    },
+    async checkUpload(key): Promise<UploadCheck> {
+      const object = await this.head(key);
+      if (object === null) return { ok: false, reason: 'missing' };
+      // The order matters only for the message: either way the object goes. A refusal that left it
+      // behind would leave an unreferenced, world-readable file of any size in the bucket.
+      const reason =
+        object.size > PHOTO_MAX_BYTES
+          ? 'too-large'
+          : !PHOTO_CONTENT_TYPES.some((type) => type === object.contentType)
+            ? 'unsupported-type'
+            : null;
+      if (reason === null) return { ok: true, object };
+      await this.remove(key);
+      return { ok: false, reason };
     },
     publicUrl(key) {
       return `${base}/${key}`;

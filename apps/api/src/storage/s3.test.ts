@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TEST_CONFIG } from '../test/helpers';
 import { createObjectStorage } from './index';
 import { createS3Storage, type HeadObjectMetadata, type PutPresigner } from './s3';
-import { PRESIGN_TTL_SECONDS } from './types';
+import { PHOTO_MAX_BYTES, PRESIGN_TTL_SECONDS } from './types';
 
 const BUCKET = 'tabletap';
 const PUBLIC = 'http://localhost:9000/tabletap';
@@ -173,6 +173,95 @@ describe('publicUrl', () => {
   it('refuses to build a storage that the environment has not configured', () => {
     expect(() => createObjectStorage({ ...TEST_CONFIG, storageConfigured: false })).toThrow(
       /not configured/i,
+    );
+  });
+});
+
+describe('checkUpload', () => {
+  const KEY = `menu/${ITEM}/22222222-2222-4222-8222-222222222222.jpg`;
+  /** HeadObject first, then the DeleteObject that a rejection makes. */
+  const headThenDelete = (head: HeadObjectMetadata) =>
+    sendFn().mockResolvedValueOnce(head).mockResolvedValueOnce({});
+
+  it('accepts a photograph inside the ceiling and leaves it alone', async () => {
+    const send = headThenDelete({ ContentLength: 1024, ContentType: 'image/jpeg' });
+    const { storage } = storageWith({ send });
+    await expect(storage.checkUpload(KEY)).resolves.toEqual({
+      ok: true,
+      object: { size: 1024, contentType: 'image/jpeg' },
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+  it('accepts an object of exactly PHOTO_MAX_BYTES', async () => {
+    const send = headThenDelete({ ContentLength: PHOTO_MAX_BYTES, ContentType: 'image/webp' });
+    const { storage } = storageWith({ send });
+    await expect(storage.checkUpload(KEY)).resolves.toMatchObject({ ok: true });
+  });
+  it('deletes an object over the ceiling and says so', async () => {
+    const send = headThenDelete({ ContentLength: PHOTO_MAX_BYTES + 1, ContentType: 'image/jpeg' });
+    const { storage } = storageWith({ send });
+    await expect(storage.checkUpload(KEY)).resolves.toEqual({ ok: false, reason: 'too-large' });
+    const deletion = send.mock.calls[1]?.[0];
+    expect(deletion).toBeInstanceOf(DeleteObjectCommand);
+    expect(deletion?.input).toEqual({ Bucket: BUCKET, Key: KEY });
+  });
+  it('deletes an object whose stored type is not one we serve', async () => {
+    const send = headThenDelete({ ContentLength: 512, ContentType: 'text/html' });
+    const { storage } = storageWith({ send });
+    await expect(storage.checkUpload(KEY)).resolves.toEqual({
+      ok: false,
+      reason: 'unsupported-type',
+    });
+    expect(send.mock.calls[1]?.[0]).toBeInstanceOf(DeleteObjectCommand);
+  });
+  it('deletes an object that arrived with no type at all', async () => {
+    const send = headThenDelete({ ContentLength: 512 });
+    const { storage } = storageWith({ send });
+    await expect(storage.checkUpload(KEY)).resolves.toEqual({
+      ok: false,
+      reason: 'unsupported-type',
+    });
+    expect(send.mock.calls[1]?.[0]).toBeInstanceOf(DeleteObjectCommand);
+  });
+  it('reports a key the browser never uploaded to, with nothing to delete', async () => {
+    const send = sendFn().mockRejectedValue(notFound());
+    const { storage } = storageWith({ send });
+    await expect(storage.checkUpload(KEY)).resolves.toEqual({ ok: false, reason: 'missing' });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * These read the URL the real presigner produces rather than the arguments it was handed, so an
+ * SDK upgrade that renames or re-defaults an option cannot keep the suite green while quietly
+ * dropping the guarantee. `getSignedUrl` with static credentials is local SigV4: no socket.
+ */
+describe('the signed URL itself', () => {
+  const sign = async (config = TEST_CONFIG) => {
+    const storage = createObjectStorage(config);
+    const { url } = await storage.presignPut(storage.photoKey(ITEM, 'image/jpeg'), 'image/jpeg');
+    return new URL(url);
+  };
+
+  it('binds the content type, lives 60 seconds and carries no checksum of an empty body', async () => {
+    const params = (await sign()).searchParams;
+    expect(params.get('X-Amz-SignedHeaders')?.split(';')).toContain('content-type');
+    expect(params.get('X-Amz-Expires')).toBe(String(PRESIGN_TTL_SECONDS));
+    expect([...params.keys()].filter((k) => k.toLowerCase().startsWith('x-amz-checksum-'))).toEqual(
+      [],
+    );
+    expect(params.get('X-Amz-Signature')).toBeTruthy();
+  });
+  it('signs for the browser-facing endpoint, not the one only the API can reach', async () => {
+    expect((await sign()).host).toBe('browser.test:9000');
+  });
+  it('signs for the API endpoint when no browser-facing one is named', async () => {
+    const url = await sign({ ...TEST_CONFIG, S3_PRESIGN_ENDPOINT: undefined });
+    expect(url.host).toBe('s3.test:9000');
+  });
+  it('keeps reads on the public base whichever endpoint signed the upload', () => {
+    expect(createObjectStorage(TEST_CONFIG).publicUrl('menu/a/b.jpg')).toBe(
+      `${TEST_CONFIG.S3_ENDPOINT}/${TEST_CONFIG.S3_BUCKET}/menu/a/b.jpg`,
     );
   });
 });

@@ -56,6 +56,13 @@ const EnvSchema = z.object({
   S3_BUCKET: optionalNonEmpty,
   S3_ACCESS_KEY_ID: optionalNonEmpty,
   S3_SECRET_ACCESS_KEY: optionalNonEmpty,
+  /**
+   * The origin an upload is *signed* for. SigV4 covers the Host header, so a URL signed against an
+   * endpoint only the API can reach (`http://minio:9000` under Compose) is unusable in a browser.
+   * Unset, the endpoint signs its own uploads, which is right whenever the two are the same host.
+   * Deliberately not derived from S3_PUBLIC_URL: that may be a CDN that accepts no writes.
+   */
+  S3_PRESIGN_ENDPOINT: optionalNonEmpty,
   /** Browser-facing base URL of the bucket. Unset, the endpoint and the bucket stand in for it. */
   S3_PUBLIC_URL: optionalNonEmpty,
   /** MinIO and R2 want path-style addressing; AWS S3 wants the bucket in the hostname. */

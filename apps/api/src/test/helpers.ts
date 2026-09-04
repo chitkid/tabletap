@@ -30,6 +30,8 @@ export const TEST_CONFIG: Config = {
   paymentProvider: 'demo',
   // Obvious fakes: the S3 client is lazy, so a test builds the storage without opening a socket.
   S3_ENDPOINT: 'http://s3.test:9000',
+  // Deliberately a different host from the endpoint: the split is what the signing tests exercise.
+  S3_PRESIGN_ENDPOINT: 'http://browser.test:9000',
   S3_REGION: 'us-east-1',
   S3_BUCKET: 'tabletap-test',
   S3_ACCESS_KEY_ID: 'test-access-key-id',

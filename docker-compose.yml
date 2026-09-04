@@ -65,9 +65,12 @@ services:
       NODE_ENV: production
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       DEMO_MODE: ${DEMO_MODE:-true}
-      # Inside the network MinIO is "minio"; the browser reaches the same bucket on localhost, which
-      # is what S3_PUBLIC_URL is for.
+      # Three views of one MinIO. S3_ENDPOINT is how the API itself dials it, on the compose
+      # network. S3_PRESIGN_ENDPOINT is the origin an upload URL is *signed* for: SigV4 covers the
+      # Host header, so a URL signed for minio:9000 is refused when a browser on the host uses it.
+      # S3_PUBLIC_URL is where a guest's browser reads the finished photograph from.
       S3_ENDPOINT: http://minio:9000
+      S3_PRESIGN_ENDPOINT: ${S3_PRESIGN_ENDPOINT:-http://localhost:9000}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-tabletap}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-tabletap}

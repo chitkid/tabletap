@@ -131,6 +131,16 @@ describe('loadConfig', () => {
         expect(loadConfig({ ...valid, ...storage, [missing]: '' }).storageConfigured).toBe(false);
       }
     });
+    it('leaves the presign endpoint unset unless it is named, blank included', () => {
+      expect(loadConfig(valid).S3_PRESIGN_ENDPOINT).toBeUndefined();
+      expect(loadConfig({ ...valid, S3_PRESIGN_ENDPOINT: '' }).S3_PRESIGN_ENDPOINT).toBeUndefined();
+      expect(
+        loadConfig({ ...valid, S3_PRESIGN_ENDPOINT: 'http://localhost:9000' }).S3_PRESIGN_ENDPOINT,
+      ).toBe('http://localhost:9000');
+    });
+    it('does not need the presign endpoint to count storage as configured', () => {
+      expect(loadConfig({ ...valid, ...storage }).storageConfigured).toBe(true);
+    });
     it('rejects an S3_FORCE_PATH_STYLE that is neither true nor false', () => {
       expect(() => loadConfig({ ...valid, S3_FORCE_PATH_STYLE: 'yes' })).toThrow(
         /S3_FORCE_PATH_STYLE/,
