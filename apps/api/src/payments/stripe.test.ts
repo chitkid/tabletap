@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { describe, expect, it, vi } from 'vitest';
 import { createStripeProvider } from './stripe';
+import { PaymentSignatureError } from './types';
 
 const SECRET = 'whsec_test_secret';
 const WEB = 'http://localhost:3000';
@@ -94,21 +95,25 @@ describe('stripe provider', () => {
     const { provider } = providerWith();
     const body = completed();
     const header = signed(body);
-    expect(() => provider.readEvent(Buffer.from(body.replace('2800', '1')), header)).toThrow();
+    expect(() => provider.readEvent(Buffer.from(body.replace('2800', '1')), header)).toThrow(
+      PaymentSignatureError,
+    );
     expect(() =>
       provider.readEvent(Buffer.from(body), signed(body, { secret: 'whsec_other' })),
-    ).toThrow();
+    ).toThrow(PaymentSignatureError);
     expect(() =>
       provider.readEvent(
         Buffer.from(body),
         signed(body, { timestamp: Math.floor(Date.now() / 1000) - 3600 }),
       ),
-    ).toThrow();
-    expect(() => provider.readEvent(Buffer.from(body), undefined)).toThrow();
+    ).toThrow(PaymentSignatureError);
+    expect(() => provider.readEvent(Buffer.from(body), undefined)).toThrow(PaymentSignatureError);
   });
   it('refuses an event whose metadata does not name the order and the payment', () => {
     const { provider } = providerWith();
     const body = completed({ metadata: {} });
-    expect(() => provider.readEvent(Buffer.from(body), signed(body))).toThrow();
+    expect(() => provider.readEvent(Buffer.from(body), signed(body))).toThrow(
+      PaymentSignatureError,
+    );
   });
 });

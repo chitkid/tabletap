@@ -1,6 +1,16 @@
 import { z } from 'zod';
 import type { PaymentProviderName } from '@tabletap/shared';
 
+/**
+ * An empty string means "not set" here, not "set to an empty string": a deployment platform
+ * and a `.env` file both hand over `KEY=` as `''` rather than omitting the variable, and plain
+ * `.optional()` only short-circuits on `undefined`.
+ */
+const optionalNonEmpty = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.string().min(1).optional(),
+);
+
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
@@ -32,8 +42,8 @@ const EnvSchema = z.object({
   /** Password for the three seeded staff accounts. */
   DEMO_PASSWORD: z.string().min(8).default('tabletap-demo'),
   /** Both must be set for Stripe to be the provider; with either missing the demo one is used. */
-  STRIPE_SECRET_KEY: z.string().min(1).optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  STRIPE_SECRET_KEY: optionalNonEmpty,
+  STRIPE_WEBHOOK_SECRET: optionalNonEmpty,
 });
 export type Config = z.infer<typeof EnvSchema> & {
   cookieSecure: boolean;

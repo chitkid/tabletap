@@ -65,4 +65,30 @@ describe('loadConfig', () => {
     ).toMatchObject({ demoMode: true, DEMO_RESET_INTERVAL_MINUTES: 0 });
     expect(() => loadConfig({ ...valid, DEMO_MODE: 'yes' })).toThrow(/DEMO_MODE/);
   });
+
+  describe('paymentProvider', () => {
+    it('derives demo when both Stripe keys are unset', () => {
+      expect(loadConfig(valid).paymentProvider).toBe('demo');
+    });
+    it('derives demo when both Stripe keys are blank, as a deployment platform or .env hands them over', () => {
+      expect(
+        loadConfig({ ...valid, STRIPE_SECRET_KEY: '', STRIPE_WEBHOOK_SECRET: '' }).paymentProvider,
+      ).toBe('demo');
+    });
+    it('derives demo when only one Stripe key is set', () => {
+      expect(loadConfig({ ...valid, STRIPE_SECRET_KEY: 'sk_test_1' }).paymentProvider).toBe('demo');
+      expect(loadConfig({ ...valid, STRIPE_WEBHOOK_SECRET: 'whsec_test_1' }).paymentProvider).toBe(
+        'demo',
+      );
+    });
+    it('derives stripe when both Stripe keys are set', () => {
+      expect(
+        loadConfig({
+          ...valid,
+          STRIPE_SECRET_KEY: 'sk_test_1',
+          STRIPE_WEBHOOK_SECRET: 'whsec_test_1',
+        }).paymentProvider,
+      ).toBe('stripe');
+    });
+  });
 });
