@@ -38,7 +38,6 @@ Noticed in the whole-branch review before merge. Everything here was judged out 
 
 Not defects. Directions later milestones should take, decided while reviewing M1. The three M2 items on this list — `restaurantId` on `GuestPrincipal`, `requireAction` over explicit role lists, and no Server Actions for API calls — all landed in M2.
 
-- Register the Stripe webhook in its own encapsulated scope with a buffer content-type parser and `config.public`, so raw-body parsing cannot leak into the JSON routes (M4).
 - Audit staff sign-in and sign-out. The audit log exists and the guest claim already writes to it; the staff side is the obvious gap.
 
 ## Deferred from M2 review
@@ -54,7 +53,7 @@ Noticed while building and reviewing the M2 branch. Ordered roughly by how much 
 - The seed's option object — `demoPassword`, `tableTokenSecret`, `tableTokenTtlDays`, `webOrigin` — is assembled by hand in three places (`packages/db/src/cli/seed.ts`, `apps/api/src/plugins/demo-reset.ts`, the seed tests). One helper that builds it from a config would stop the fourth caller getting it wrong.
 - `apps/web/lib/api.test.ts` puts an import between statements to keep a `vi.mock` above it. It works and it is the common workaround, but a short comment saying why would save the next reader the detour.
 - The landing's "Built with" list renders each tool as a `Badge`. Badges usually mean status; this is a list of nouns. A plain list styled the same way would say the same thing without borrowing the semantics.
-- `OrderDto` carries no currency, so `/orders/[id]` passes `currency="USD"` as a literal. One restaurant, priced in USD, makes that true today. M5 should put the currency on the DTO.
+- `OrderDto` carries no currency, so `/orders/[id]` passes `currency="USD"` as a literal. One restaurant, priced in USD, makes that true today. M5 should put the currency on the DTO. M4 widened this — see the M4 list below.
 
 ## Resolved in the M2 fix wave
 
@@ -83,7 +82,7 @@ Noticed while building and reviewing the M3 branch. Nothing here blocks the mile
 
 - A guest cancel endpoint. `orders.cancel.own` exists in the RBAC matrix and nothing routes to it; the kitchen can cancel, the guest cannot. Needs a window rule (before `cooking`, presumably) more than it needs code.
 - A Redis adapter for multi-instance Socket.io (M6, with deployment). The in-memory adapter means two API instances never see each other's rooms. Same shape as the rate limiter's in-memory store, already on this list.
-- Deployment order, for whoever writes the M6 pipeline: **API before web.** `OrderDtoSchema` now requires `updatedAt` and the four per-status timestamps, so an M3 web against an M2 API fails to parse every order response — the menu still works and nothing after it does. The reverse order is safe: an M2 web ignores fields it does not know about.
+- Deployment order, for whoever writes the M6 pipeline: **API before web.** `OrderDtoSchema` requires `updatedAt` and the per-status timestamps — `paidAt` among them since M4 — so a newer web against an older API fails to parse every order response: the menu still works and nothing after it does. The reverse order is safe, since an older web ignores fields it does not know about.
 - A waiter surface (M5). `TRANSITION_RIGHTS.waiter` grants `served` and `cancelled`, and there is no screen from which to use them.
 - Served and cancelled history on the board. Tickets leave when they leave; there is no way to look at the last hour, and no undo for a mis-bump.
 - The `kitchen` room is global while the snapshot it answers is restaurant-scoped (`apps/api/src/realtime/server.ts`). Correct for one tenant, wrong the day there are two — and multi-restaurant tenancy is a stated non-goal, so this is a marker rather than a task.
@@ -137,6 +136,52 @@ Found in the whole-branch review of M3 and fixed on the branch before merge. Lis
 - Confirming a cancel hands focus to the next ticket's bump button, or to the column heading when there is none.
 - "Couldn't start a rush." clears on the same cool-down as every other message.
 - The plan's claim that `guestSessionId` "never leaves the API" was contradicted by the socket token's subject. The wording is narrowed everywhere (spec §6, the plan's Global Constraints, ADR 0008, README): the id never appears in an order payload and never reaches another client, and the token hands the guest's own session id back to the browser that already holds it in its cookie.
+
+## Resolved in M4
+
+Carried on the lists above until payments closed them.
+
+- Registering the Stripe webhook in its own encapsulated scope with a buffer content-type parser and `config.public`, so raw-body parsing cannot leak into the JSON routes (recommendation carried past M2). `paymentWebhookRoutes` in `apps/api/src/routes/payments.ts` is registered with `app.register` rather than `fastify-plugin`, and its `addContentTypeParser` applies to that scope only. See [ADR 0010](adr/0010-payments-one-port.md).
+- The interim `placed → cooking` edge ([ADR 0009](adr/0009-interim-state-machine.md)), removed in full by commit `d25508a`: `ORDER_TRANSITIONS.placed` is `['paid', 'cancelled']`, the board's New column holds `paid` alone, and `paid` has one writer. ADR 0009 is superseded by [ADR 0010](adr/0010-payments-one-port.md).
+
+## Deferred from M4 review
+
+Noticed while building and reviewing the payments branch. Nothing here blocks the milestone.
+
+**Scope deliberately left for later milestones**
+
+- Refunds, and cancelling a paid order with the money back. `settlePayment` only moves an order forward; cancelling a paid order today writes the cancellation and moves no money, and the audit trail says so. Out of M4 by the design spec's own scope line, and the first thing a real deployment would need.
+- A sweeper for orders that are never paid. A `placed` order with an abandoned attempt stays in the guest's list forever and counts as active in `GET /api/orders?active=1`. This needs a timeout rule — how long an order may sit unpaid, and whether the guest is told — more than it needs code.
+- Multi-currency on `OrderDto`. `startPayment` hardcodes `'USD'` for the payments row and the provider session, and both `/orders/[id]` and `/pay/[id]` pass `currency="USD"` as a literal. One restaurant priced in USD is what makes that true; M5 owns putting the currency on the DTO, and M4 added two more consumers of the literal.
+
+**Configuration and provider selection**
+
+- A half-set Stripe pair silently resolves to `demo`: with only one of `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` present the API boots, takes no money, and says nothing. A startup warning line would fix it; deferred at the time to avoid a concurrent edit to `apps/api/src/server.ts`. There is also no config test for the derivation itself.
+- `optionalNonEmpty` in `apps/api/src/config.ts` turns `''` into "absent" but still accepts a whitespace-only key, which selects `stripe` and then fails at the first API call rather than at boot.
+- The `demo` provider with `DEMO_MODE=false` is a dead end: the Pay button opens an attempt and points at `/pay/<id>`, but the completion route is not registered, so nothing can settle it. It is a misconfiguration rather than a mode, and it should fail at boot rather than at the terminal ([ADR 0011](adr/0011-demo-payment-provider.md)).
+- `createDemoProvider().readEvent` throws `PaymentSignatureError`, so a callback posted to the webhook while the demo provider is live answers 400 `SIGNATURE_INVALID`. Right outcome, misleading reason: there is no signature to check because there is no webhook.
+
+**Settlement and the audit trail**
+
+- A crash between the `processed_events` insert and the settlement leaves the event recorded as seen and the order unpaid: the provider's retry is answered `replayed` and nothing ever pays it. Safe in the direction that matters, but it needs a reconciliation pass to close.
+- `payment.mismatch` covers two different failures — an amount that does not match the order, and an event naming a payment that belongs to another order — and `payment.late` covers both a late success and a late decline. The event type is recoverable from `processed_events` in each case, but the audit row alone does not say which happened.
+- Currency is never compared. `settlePayment` checks `amountCents` against the order's total and ignores `SettleInput.currency`; one currency is what makes that safe.
+- Stripe's `amount_total` is nullable, and the adapter settles a null as `0`, relying on the mismatch check to refuse it. Correct, but "no amount" reaches the comparison as a real figure.
+- `startPayment` inserts a fresh pending `payments` row per attempt and nothing ever reaps them; the demo completion route picks the newest by `created_at` with no tie-break. It also stamps the session-id write with a new `Date()` instead of the `now` it was given.
+- `SessionInput.number` is read by neither adapter.
+- The rush transaction in `apps/api/src/lib/rush.ts` falls back with `payment?.id ?? null` and `paid ?? order`, where every sibling insert throws on a missing `returning` row.
+
+**Board and contract**
+
+- `GET /api/orders?active=1` still counts `placed` orders. The board holds them in state and never draws them, now that the New column is `paid` alone — dead weight on every snapshot and every reconnect, and the reason `e2e/kitchen-live.spec.ts` compares the board against the drawable subset rather than against the whole list. Either narrow what `active=1` means for the kitchen, or give the board the filter explicitly.
+
+**Tests**
+
+- No route-level test of the webhook's 200 path, and the parser-encapsulation test cannot actually fail from a leak — the demo-route tests are what protect that property today.
+- Untested: `POST /api/payments/demo/complete` against a cancelled order, and the paid-then-cancelled settlement path, which answers 200 (paid-then-cooking and placed-then-cancelled are both covered).
+- Two audit-count assertions in the payments tests depend on test order — the same shape as the M3 entry for `apps/api/src/lib/transitions.test.ts`.
+- `apps/web/components/kitchen/kitchen-board.test.tsx` builds its 409 payload with `from: 'placed'`, while the shared fixture defaults to `paid` and a real refusal would say `from: 'paid'`. Nothing reads the field; it is stale test data beside a live assertion.
+- `/pay/<id>` is outside the Lighthouse audit. It needs a guest cookie _and_ an order still waiting for payment, which `scripts/lighthouse-audit.mjs` does not set up, so the one screen M4 added is the one screen the accessibility gate does not see.
 
 ## Found on the first Compose run
 

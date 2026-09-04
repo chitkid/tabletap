@@ -1,7 +1,9 @@
 # ADR 0009: An interim order state machine until payments exist
 
 Date: 2026-09-04
-Status: accepted
+Status: superseded by [ADR 0010](0010-payments-one-port.md) (M4, 2026-09-04)
+
+The loan was repaid on the date it was taken out. Commit `d25508a` — "feat(shared,web): close the interim placed to cooking edge and add the payment contracts" — removed `'cooking'` from `ORDER_TRANSITIONS.placed`, updated the tests and fixtures that asserted the edge, and narrowed the kitchen board's New column to `paid` alone. An order now reaches the kitchen only through `settlePayment`, which [ADR 0010](0010-payments-one-port.md) makes the single writer of `paid`. Everything below is the reasoning for the interim edge while it existed, kept as written.
 
 ## Context
 

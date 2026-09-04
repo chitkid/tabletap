@@ -1,6 +1,6 @@
 # M4 Payments — Design Spec
 
-Date: 2026-09-04. Status: approved by the owner on 2026-09-04; implementation plan pending.
+Date: 2026-09-04. Status: implemented on `feat/m4-payments` (2026-09-04); the deviations decided while building are recorded in §9 below. Verified locally against Docker Compose: e2e 6/6 with a payment-to-kitchen latency of 30-53 ms against the 500 ms budget across six runs, the offline banner in 7-9 ms, Lighthouse accessibility 100 on the landing, the menu and the kitchen board.
 Project: TableTap — QR table ordering with a real-time kitchen display (portfolio full-stack project).
 Milestone: M4 of six. Builds on M1 Foundation, M2 Guest flow + Demo landing and M3 Kitchen display (all merged into `main`). The master brief remains the permanent context; this spec covers M4 only.
 
@@ -95,3 +95,14 @@ Unit and integration: `settlePayment` (success; replay; amount mismatch; an orde
 ## 8. Documents
 
 ADR 0010 "Payments through one port, settled once" (the provider port, the single settlement path, idempotency, why the redirect is not evidence). ADR 0011 "The demo payment provider" (why it exists, what it does not pretend to be, and the exact conditions under which its routes are registered). ADR 0009 becomes superseded. README gains a payments section with the environment variables and the local Stripe recipe; the backlog gains refunds, the unpaid-order sweeper and multi-currency.
+
+## 9. Deviations from this spec, decided while building
+
+Recorded here so a reader of the sections above is not left wondering.
+
+- **`OrderDto` gains `paidAt`** (§4.2 lists no contract change to the order). The payment time was computed inside the API and stripped on the way out, so nothing outside the server could tell when an order settled. The guest surface and the e2e latency budget both measure the wait for the kitchen from the payment rather than from `placedAt`, and that needs the server's own stamp. It is required and nullable beside the other stage timestamps.
+- **A second demo completion answers 200, not 409** (§4.3 implies a refusal). Pressing Pay twice, or returning to a tab left open while the kitchen got on with it, is not a mistake, and `PAYMENT_REQUIRED` would assert the opposite of the truth. The route answers `{ ok: true }` whenever the order is already paid, keyed on `paidAt` so a paid order that has since moved to `cooking` answers truthfully too. A genuinely closed attempt — a decline, then the back button — still answers 409, and the terminal responds by opening a fresh attempt.
+- **`startPayment` always inserts a new attempt** (§4.3 says "creates or reuses a pending `payments` row"). Reuse would have to decide what a stale pending row means, and a new row per attempt keeps the audit trail literal. The cost is orphan pending rows, which is on the backlog.
+- **`settlePayment` returns five outcomes, not three.** `paid`, `declined`, `replayed`, `mismatch`, `late` and `unknown-order`. `late` and the foreign-payment rollback were both added during review: a provider can expire a second attempt for an order that a first attempt already paid, and an event can name a payment belonging to a different order. Neither pays anything, both are audited, both answer 200.
+- **The decline branch only closes an attempt that is still pending.** Without the guard, a failure event arriving after a success for the same attempt walked a settled payment back to `failed`.
+- **The e2e coverage is split across the two specs** (§7 puts both in one place). The paid path and the declined path are in `e2e/guest-order.spec.ts`; the assertion that the board never held the unpaid ticket is in `e2e/kitchen-live.spec.ts`, where there is a board to assert it against.
