@@ -171,6 +171,14 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 - `SessionInput.number` is read by neither adapter.
 - The rush transaction in `apps/api/src/lib/rush.ts` falls back with `payment?.id ?? null` and `paid ?? order`, where every sibling insert throws on a missing `returning` row.
 
+**The guest surface**
+
+- `PAYMENT_REQUIRED` is overloaded, and the demo terminal reads it as one thing. A 409 from `POST /api/payments/demo/complete` means "this attempt is over", and the terminal answers correctly by opening a fresh attempt; but an order that was cancelled while the terminal was open produces the same code from `POST /api/orders/:id/payment` on that second call, and the guest is told "Couldn't reach the terminal. Try again." when the truth is that there is nothing left to pay. A distinct code, or the order status in the details, would let the terminal say which.
+- A declined attempt is closed for good at the API: the payment row is `failed` and nothing can settle it again. The terminal recovers by opening a fresh attempt on the 409, so a guest never sees this, but the API on its own offers no way to retry an attempt — worth knowing before a second client is written against it.
+- The declined notice is not suppressed once the order is paid. `?paid=0` renders "Payment declined. Try again." from the URL alone, so a guest who declines, pays on a second attempt and comes back to the first URL reads a decline above a paid order. The paid notice is guarded on the order's status; this one is not.
+- `searchParams` on `/orders/[id]` is typed `{ paid?: string }`, while Next hands over `string | string[] | undefined` for a repeated query parameter. `?paid=1&paid=1` would arrive as an array and fall through to "no claim at all", which is harmless but is not what the type says.
+- The landing's Stripe test card falls back to a hardcoded `4242 4242 4242 4242` when `testCard` is null, and no test covers the fallback.
+
 **Board and contract**
 
 - `GET /api/orders?active=1` still counts `placed` orders. The board holds them in state and never draws them, now that the New column is `paid` alone — dead weight on every snapshot and every reconnect, and the reason `e2e/kitchen-live.spec.ts` compares the board against the drawable subset rather than against the whole list. Either narrow what `active=1` means for the kitchen, or give the board the filter explicitly.
@@ -182,6 +190,7 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 - Two audit-count assertions in the payments tests depend on test order — the same shape as the M3 entry for `apps/api/src/lib/transitions.test.ts`.
 - `apps/web/components/kitchen/kitchen-board.test.tsx` builds its 409 payload with `from: 'placed'`, while the shared fixture defaults to `paid` and a real refusal would say `from: 'paid'`. Nothing reads the field; it is stale test data beside a live assertion.
 - `/pay/<id>` is outside the Lighthouse audit. It needs a guest cookie _and_ an order still waiting for payment, which `scripts/lighthouse-audit.mjs` does not set up, so the one screen M4 added is the one screen the accessibility gate does not see.
+- One test name in `apps/web/components/order/pay-button.test.tsx` claims more than the assertion under it checks.
 
 ## Found on the first Compose run
 
