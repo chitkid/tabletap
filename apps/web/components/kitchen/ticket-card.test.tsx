@@ -23,6 +23,7 @@ const order = (patch: Partial<OrderDto> = {}): OrderDto => ({
   ],
   subtotalCents: 2400,
   totalCents: 2400,
+  currency: 'USD',
   note: 'No basil',
   placedAt: '2026-09-03T10:00:00Z',
   paidAt: '2026-09-03T10:00:00Z',

@@ -86,6 +86,7 @@ export const OrderItemDtoSchema = z.object({
   lineTotalCents: z.number().int().nonnegative(),
 });
 export type OrderItemDto = z.infer<typeof OrderItemDtoSchema>;
+/** Everything the guest surface needs to render money: the amounts and the currency they are in. */
 export const OrderDtoSchema = z.object({
   id: z.uuid(),
   number: z.number().int().positive(),
@@ -95,6 +96,7 @@ export const OrderDtoSchema = z.object({
   items: z.array(OrderItemDtoSchema),
   subtotalCents: z.number().int().nonnegative(),
   totalCents: z.number().int().nonnegative(),
+  currency: z.string().length(3),
   note: z.string().nullable(),
   placedAt: z.iso.datetime().nullable(),
   paidAt: z.iso.datetime().nullable(),
@@ -154,3 +156,53 @@ export const PaymentSessionResponseSchema = z.object({ url: z.string().min(1) })
 export type PaymentSessionResponse = z.infer<typeof PaymentSessionResponseSchema>;
 export const DemoCompleteRequestSchema = z.object({ outcome: z.enum(['paid', 'declined']) });
 export type DemoCompleteRequest = z.infer<typeof DemoCompleteRequestSchema>;
+
+/** M5: staff writes to a menu category. Both fields beyond `name` are optional so a create can
+ * omit them and take the server's default, and a rename need not repeat them. */
+export const MenuCategoryWriteSchema = z.object({
+  name: z.string().min(1).max(60),
+  sortOrder: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+});
+export type MenuCategoryWrite = z.infer<typeof MenuCategoryWriteSchema>;
+
+export const MenuItemWriteSchema = z.object({
+  categoryId: z.uuid(),
+  name: z.string().min(1).max(80),
+  description: z.string().max(280).optional(),
+  priceCents: z.number().int().min(0).max(1_000_000),
+  allergens: z.array(AllergenSchema).optional(),
+  isAvailable: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+});
+export type MenuItemWrite = z.infer<typeof MenuItemWriteSchema>;
+
+export const TableWriteSchema = z.object({
+  number: z.number().int().min(1).max(999),
+  label: z.string().min(1).max(40),
+  seats: z.number().int().min(1).max(20).optional(),
+  isActive: z.boolean().optional(),
+});
+export type TableWrite = z.infer<typeof TableWriteSchema>;
+
+/** The client's own signed upload target: it PUTs the photo straight to storage on this URL. */
+export const PhotoUploadResponseSchema = z.object({
+  url: z.string().min(1),
+  key: z.string().min(1),
+  expiresInSeconds: z.number().int().positive(),
+});
+export type PhotoUploadResponse = z.infer<typeof PhotoUploadResponseSchema>;
+
+export const PhotoConfirmRequestSchema = z.object({ key: z.string().min(1) });
+export type PhotoConfirmRequest = z.infer<typeof PhotoConfirmRequestSchema>;
+
+export const DashboardResponseSchema = z.object({
+  today: z.object({
+    orders: z.number().int(),
+    revenueCents: z.number().int(),
+    averageReadyMs: z.number().int().nullable(),
+    openTickets: z.number().int(),
+  }),
+  week: z.array(z.object({ date: z.string(), orders: z.number().int() })),
+});
+export type DashboardResponse = z.infer<typeof DashboardResponseSchema>;

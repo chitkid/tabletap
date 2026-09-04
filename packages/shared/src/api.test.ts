@@ -160,6 +160,7 @@ describe('M2 contracts', () => {
         ],
         subtotalCents: 400,
         totalCents: 400,
+        currency: 'USD',
         note: null,
         placedAt: '2026-09-03T10:00:00.000Z',
         paidAt: null,
@@ -218,6 +219,7 @@ describe('M3 contracts', () => {
     expect(OrderDtoSchema.safeParse(base).success).toBe(false);
     const full = {
       ...base,
+      currency: 'USD',
       updatedAt: base.createdAt,
       paidAt: null,
       cookingAt: null,
@@ -277,6 +279,7 @@ describe('M4 contracts', () => {
       items: [],
       subtotalCents: 0,
       totalCents: 0,
+      currency: 'USD',
       note: null,
       placedAt: '2026-09-04T10:00:00.000Z',
       cookingAt: null,
@@ -307,5 +310,100 @@ describe('M4 contracts', () => {
     expect(DemoLinksResponseSchema.safeParse({ ...links, payments: undefined }).success).toBe(
       false,
     );
+  });
+});
+
+import {
+  DashboardResponseSchema,
+  MenuCategoryWriteSchema,
+  MenuItemWriteSchema,
+  PhotoConfirmRequestSchema,
+  PhotoUploadResponseSchema,
+  TableWriteSchema,
+} from './index';
+
+describe('M5 contracts', () => {
+  const orderBase = {
+    id: U1,
+    number: 42,
+    status: 'placed',
+    tableId: U2,
+    tableNumber: 7,
+    items: [],
+    subtotalCents: 0,
+    totalCents: 0,
+    note: null,
+    placedAt: '2026-09-04T10:00:00.000Z',
+    paidAt: null,
+    cookingAt: null,
+    readyAt: null,
+    servedAt: null,
+    cancelledAt: null,
+    createdAt: '2026-09-04T10:00:00.000Z',
+    updatedAt: '2026-09-04T10:00:00.000Z',
+  };
+
+  it('adds IN_USE', () => {
+    expect(ERROR_CODES).toContain('IN_USE');
+  });
+
+  it('carries the currency on the order, and only a real three-letter code', () => {
+    expect(OrderDtoSchema.safeParse(orderBase).success).toBe(false);
+    expect(OrderDtoSchema.safeParse({ ...orderBase, currency: 'USD' }).success).toBe(true);
+    expect(OrderDtoSchema.safeParse({ ...orderBase, currency: 'USDD' }).success).toBe(false);
+  });
+
+  it('validates a menu category write', () => {
+    expect(MenuCategoryWriteSchema.safeParse({ name: 'Drinks' }).success).toBe(true);
+    expect(MenuCategoryWriteSchema.safeParse({ name: '' }).success).toBe(false);
+  });
+
+  it('validates a menu item write', () => {
+    expect(
+      MenuItemWriteSchema.safeParse({ categoryId: U1, name: 'Cold Brew', priceCents: 450 }).success,
+    ).toBe(true);
+    expect(
+      MenuItemWriteSchema.safeParse({ categoryId: U1, name: 'Cold Brew', priceCents: -1 }).success,
+    ).toBe(false);
+  });
+
+  it('validates a table write', () => {
+    expect(TableWriteSchema.safeParse({ number: 1, label: 'Table 1' }).success).toBe(true);
+    expect(TableWriteSchema.safeParse({ number: 0, label: 'Table 1' }).success).toBe(false);
+  });
+
+  it('validates the photo upload and confirm shapes', () => {
+    expect(
+      PhotoUploadResponseSchema.safeParse({ url: 'https://x/y', key: 'k', expiresInSeconds: 60 })
+        .success,
+    ).toBe(true);
+    expect(
+      PhotoUploadResponseSchema.safeParse({ url: '', key: 'k', expiresInSeconds: 60 }).success,
+    ).toBe(false);
+    expect(PhotoConfirmRequestSchema.safeParse({ key: 'k' }).success).toBe(true);
+    expect(PhotoConfirmRequestSchema.safeParse({ key: '' }).success).toBe(false);
+  });
+
+  it('requires exactly the four today fields and a week of { date, orders }', () => {
+    const valid = {
+      today: { orders: 12, revenueCents: 34500, averageReadyMs: 600_000, openTickets: 3 },
+      week: [{ date: '2026-09-04', orders: 12 }],
+    };
+    expect(DashboardResponseSchema.safeParse(valid).success).toBe(true);
+    expect(
+      DashboardResponseSchema.safeParse({
+        ...valid,
+        today: { orders: 12, revenueCents: 34500, openTickets: 3 },
+      }).success,
+    ).toBe(false);
+    expect(
+      DashboardResponseSchema.safeParse({ ...valid, week: [{ date: '2026-09-04' }] }).success,
+    ).toBe(false);
+    expect(
+      DashboardResponseSchema.safeParse({
+        today: { ...valid.today, averageReadyMs: null },
+        week: [],
+      }).success,
+    ).toBe(true);
   });
 });

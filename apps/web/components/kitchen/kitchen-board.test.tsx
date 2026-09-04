@@ -23,6 +23,7 @@ const order = (id: string, patch: Partial<OrderDto> = {}): OrderDto => ({
   items: [],
   subtotalCents: 0,
   totalCents: 0,
+  currency: 'USD',
   note: null,
   placedAt: '2026-09-03T10:00:00Z',
   paidAt: '2026-09-03T10:00:00Z',

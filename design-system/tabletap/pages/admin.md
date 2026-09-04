@@ -9,7 +9,7 @@
 > **Override warning:** Rules in this file **override** the Master file (`design-system/tabletap/MASTER.md`).
 > Only deviations from the Master are documented here. For all other rules, refer to the Master.
 
-> **Reconciliation note:** The raw generator returned a "Real-Time / Operations Landing" marketing pattern (Hero with live preview / Key metrics / How it works / Start-trial CTA) and a dark, blue-primary "Exaggerated Minimalism" style — a SaaS product-landing treatment, not an internal admin dashboard, and the wrong palette (brand: admin is light, not dark). Rewritten below to match `docs/brand-guidelines.md`; the generated dials (Variance 3/10, Motion 2/10, Density 8/10) are kept. The generator's density-8 spacing table has since been replaced too: it named `--space-*` tokens this project does not have, and the density on this surface comes from a single `--spacing` multiplier in `packages/ui/theme.css`. See Spacing Overrides below.
+> **Reconciliation note:** The raw generator returned a "Real-Time / Operations Landing" marketing pattern (Hero with live preview / Key metrics / How it works / Start-trial CTA) and a dark, blue-primary "Exaggerated Minimalism" style — a SaaS product-landing treatment, not an internal admin dashboard, and the wrong palette (brand: admin is light, not dark). Rewritten below to match `docs/brand-guidelines.md`; the generated dials (Variance 3/10, Motion 2/10, Density 8/10) are kept. The generator's density-8 spacing table has since been replaced too: it named `--space-*` tokens this project does not have, and density on this surface comes from the grid and the type scale rather than a spacing multiplier. See Spacing Overrides below.
 
 ---
 
@@ -25,17 +25,7 @@
 
 Density 8/10 → the generator's "Dense / Dashboard" tier (8-10 bucket). **The generator expressed that as a `--space-xs … --space-3xl` table; this project has no such tokens, so the table has been replaced by the mechanism that actually ships.**
 
-`packages/ui/theme.css` sets one declaration for this surface:
-
-```css
-[data-surface='admin'] {
-  --spacing: 0.2rem;
-}
-```
-
-Tailwind 4 multiplies every spacing utility by `--spacing`, so the whole surface gets its density from that one value instead of a parallel set of classes. Against Tailwind's `0.25rem` default it is a 0.8x scale: `p-2` is `0.4rem`, `p-4` is `0.8rem`, `gap-6` is `1.2rem`, `px-8` is `1.6rem`. The `--primitive-space-*` tokens are unaffected — they are absolute rem values and do not scale with the multiplier, so a component token such as `--order-card-padding` stays `1rem` here.
-
-One consequence to keep in mind while building: the multiplier also scales the size utilities, so a `h-11` button is about `2.2rem` (≈35px) on this surface rather than 44px. Whether the density dial should reach the controls at all is a decision M5 owes before it builds real admin screens; it is in `docs/backlog.md`.
+`packages/ui/theme.css` sets no `--spacing` override for this surface. An earlier version multiplied every Tailwind spacing utility by `--spacing: 0.2rem`, which also scaled the size utilities — a `h-11` button came out at about `2.2rem` (≈35px), under the 44px target. M5 removed it: density on this surface comes from the grid and the type scale, not from shrinking every control below 44px. The `--primitive-space-*` tokens were never affected by the multiplier — they are absolute rem values, so a component token such as `--order-card-padding` stays `1rem` either way.
 
 ### Typography Overrides
 

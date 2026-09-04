@@ -70,9 +70,10 @@
   --text-2xl: 2rem;
   --text-2xl--line-height: 1.1;
 }
-/* Admin: denser spacing scale (Tailwind multiplies every spacing utility by --spacing). */
 [data-surface='admin'] {
-  --spacing: 0.2rem;
+  /* No --spacing override here. A blanket multiplier shrank every control along with the gaps
+     between them — an h-11 button read as ~35px, under the 44px target. Density on this surface
+     comes from the grid and the type scale, not from shrinking every control. */
 }
 
 body {

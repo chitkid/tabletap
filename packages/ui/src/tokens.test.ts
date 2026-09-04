@@ -91,4 +91,8 @@ describe('design tokens', () => {
     expect(block).toMatch(/--text-xl:\s*1\.75rem/);
     expect(block).toMatch(/--text-2xl:\s*2rem/);
   });
+  it('leaves the admin surface on the default spacing scale so its controls stay 44px', () => {
+    const block = theme.slice(theme.indexOf("[data-surface='admin']"));
+    expect(block.slice(0, block.indexOf('}'))).not.toMatch(/--spacing:/);
+  });
 });

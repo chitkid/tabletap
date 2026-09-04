@@ -20,6 +20,7 @@ const at = (iso: string, patch: Partial<OrderDto> = {}): OrderDto => ({
   items: [],
   subtotalCents: 0,
   totalCents: 0,
+  currency: 'USD',
   note: null,
   placedAt: iso,
   paidAt: null,

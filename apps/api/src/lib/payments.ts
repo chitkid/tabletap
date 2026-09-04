@@ -36,7 +36,7 @@ export async function startPayment(
       orderId: order.id,
       provider: provider.name,
       amountCents: order.totalCents,
-      currency: 'USD',
+      currency: order.currency,
       status: 'pending',
       createdAt: now,
       updatedAt: now,
@@ -49,7 +49,7 @@ export async function startPayment(
     paymentId: payment.id,
     number: order.number,
     amountCents: order.totalCents,
-    currency: 'USD',
+    currency: order.currency,
     description: `Order #${order.number} · Table ${order.tableNumber}`,
   });
   await db

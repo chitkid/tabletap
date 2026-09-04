@@ -15,6 +15,7 @@ const order: OrderDto = {
   items: [],
   subtotalCents: 2800,
   totalCents: 2800,
+  currency: 'USD',
   note: null,
   placedAt: '2026-09-03T10:00:00Z',
   paidAt: null,

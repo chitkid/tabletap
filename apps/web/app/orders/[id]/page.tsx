@@ -32,7 +32,5 @@ export default async function OrderPage({
   // `paid` says which way the guest came back from the payment page, and nothing more: the
   // status on screen is still the order's own. Any other value is treated as no claim at all.
   const paidStatus = paid === '1' ? 'received' : paid === '0' ? 'declined' : undefined;
-  // The order DTO carries no currency and M2 has one restaurant, priced in USD. M5 adds the
-  // currency to the DTO; until then the guest surface must not invent one per page.
-  return <OrderLive initial={order} currency="USD" paidStatus={paidStatus} />;
+  return <OrderLive initial={order} currency={order.currency} paidStatus={paidStatus} />;
 }

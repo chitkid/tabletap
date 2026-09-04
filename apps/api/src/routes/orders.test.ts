@@ -57,6 +57,7 @@ describe('orders', () => {
       note: 'No basil',
       subtotalCents: 2800,
       totalCents: 2800,
+      currency: 'USD',
     });
     expect(order.number).toBeGreaterThan(0);
     expect(order.placedAt).not.toBeNull();

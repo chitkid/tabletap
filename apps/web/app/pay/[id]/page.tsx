@@ -28,5 +28,5 @@ export default async function PayPage({ params }: { params: Promise<{ id: string
   // the page is registered either way, but a guest is never handed its URL, and the demo
   // completion route the buttons post to is not registered at all.
   if (order.status !== 'placed') notFound();
-  return <DemoTerminal order={order} currency="USD" />;
+  return <DemoTerminal order={order} currency={order.currency} />;
 }

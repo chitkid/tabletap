@@ -24,7 +24,12 @@ export type InternalOrderDto = OrderDto & {
   restaurantId: string;
 };
 
-function toDto(order: OrderRow, items: ItemRow[], tableNumber: number): InternalOrderDto {
+function toDto(
+  order: OrderRow,
+  items: ItemRow[],
+  tableNumber: number,
+  currencyOf: Map<string, string>,
+): InternalOrderDto {
   return {
     id: order.id,
     number: order.number,
@@ -41,6 +46,9 @@ function toDto(order: OrderRow, items: ItemRow[], tableNumber: number): Internal
     })),
     subtotalCents: order.subtotalCents,
     totalCents: order.totalCents,
+    // orders.restaurant_id is a restricted foreign key, so this cannot happen; the fallback
+    // exists so one missing restaurant row cannot fail an entire page of orders.
+    currency: currencyOf.get(order.restaurantId) ?? 'USD',
     note: order.note,
     placedAt: order.placedAt ? order.placedAt.toISOString() : null,
     paidAt: order.paidAt ? order.paidAt.toISOString() : null,
@@ -75,6 +83,11 @@ export async function hydrate(db: Db, orders: OrderRow[]): Promise<InternalOrder
       ),
     );
   const numberOf = new Map(tables.map((t) => [t.id, t.number]));
+  const restaurants = await db
+    .select({ id: schema.restaurants.id, currency: schema.restaurants.currency })
+    .from(schema.restaurants)
+    .where(inArray(schema.restaurants.id, [...new Set(orders.map((o) => o.restaurantId))]));
+  const currencyOf = new Map(restaurants.map((r) => [r.id, r.currency]));
   return orders.map((o) => {
     const tableNumber = numberOf.get(o.tableId);
     // orders.table_id is a restricted foreign key, so this cannot happen; a silent placeholder
@@ -84,6 +97,7 @@ export async function hydrate(db: Db, orders: OrderRow[]): Promise<InternalOrder
       o,
       items.filter((i) => i.orderId === o.id),
       tableNumber,
+      currencyOf,
     );
   });
 }
