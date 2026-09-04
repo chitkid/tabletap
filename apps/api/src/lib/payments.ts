@@ -8,6 +8,9 @@ import type { OrderEvents } from './order-events';
 
 export type SettleResult = 'paid' | 'declined' | 'replayed' | 'mismatch' | 'late' | 'unknown-order';
 
+/** Rolls the settlement back when the event names a payment that belongs to another order. */
+class ForeignPayment extends Error {}
+
 /**
  * Opens a payment attempt for an order the guest owns. The amount is the order's, read here and
  * never taken from the caller; the provider only learns what it must charge.
@@ -103,6 +106,18 @@ export async function settlePayment(
     });
   };
 
+  /** Written wherever a late event is noticed: before the update, or by the update that lost. */
+  const recordLate = async (writer: Db, status: string): Promise<void> => {
+    await recordAudit(writer, {
+      actorType: 'system',
+      actorId: null,
+      action: 'payment.late',
+      entityType: 'order',
+      entityId: order.id,
+      payload: { provider: input.provider, eventId: input.eventId, status },
+    });
+  };
+
   if (input.outcome === 'failed') {
     await fail('payment.declined', { number: order.number });
     return 'declined';
@@ -113,49 +128,86 @@ export async function settlePayment(
     return 'mismatch';
   }
   if (order.status !== 'placed') {
-    await recordAudit(db, {
-      actorType: 'system',
-      actorId: null,
-      action: 'payment.late',
-      entityType: 'order',
-      entityId: order.id,
-      payload: { provider: input.provider, eventId: input.eventId, status: order.status },
-    });
+    await recordLate(db, order.status);
     return 'late';
   }
 
-  const moved = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .update(schema.orders)
-      .set({ status: 'paid', paidAt: now, updatedAt: now })
-      .where(and(eq(schema.orders.id, order.id), eq(schema.orders.status, 'placed')))
-      .returning({ id: schema.orders.id });
-    if (!row) return false;
-    await tx
-      .update(schema.payments)
-      .set({
-        status: 'succeeded',
-        updatedAt: now,
-        providerPaymentIntentId: input.providerPaymentIntentId,
-        providerSessionId: input.providerSessionId,
-      })
-      .where(eq(schema.payments.id, input.paymentId));
-    await recordAudit(tx, {
+  // Both writes name this order. An event carrying a payment id from somewhere else must not
+  // mark that payment succeeded, and must not pay this order on the strength of it either.
+  const attempt = and(
+    eq(schema.payments.id, input.paymentId),
+    eq(schema.payments.orderId, order.id),
+  );
+  let settled: 'paid' | 'late';
+  try {
+    settled = await db.transaction(async (tx): Promise<'paid' | 'late'> => {
+      const [row] = await tx
+        .update(schema.orders)
+        .set({ status: 'paid', paidAt: now, updatedAt: now })
+        .where(and(eq(schema.orders.id, order.id), eq(schema.orders.status, 'placed')))
+        .returning({ id: schema.orders.id });
+      if (!row) {
+        // Something moved the order between the check above and this update, so the event is
+        // late after all. A late event leaves a trace wherever it is noticed, not only above.
+        const [current] = await tx
+          .select({ status: schema.orders.status })
+          .from(schema.orders)
+          .where(eq(schema.orders.id, order.id));
+        await recordLate(tx, current?.status ?? order.status);
+        return 'late';
+      }
+      // A provider does not have to repeat the session id it was given; keep the stored one
+      // rather than overwriting a real value with the null of an event that omits it.
+      const [before] = await tx
+        .select({ providerSessionId: schema.payments.providerSessionId })
+        .from(schema.payments)
+        .where(attempt);
+      const [updated] = await tx
+        .update(schema.payments)
+        .set({
+          status: 'succeeded',
+          updatedAt: now,
+          providerPaymentIntentId: input.providerPaymentIntentId,
+          providerSessionId: input.providerSessionId ?? before?.providerSessionId ?? null,
+        })
+        .where(attempt)
+        .returning({ id: schema.payments.id });
+      // No row: the event named a payment this order does not own. Undo the whole settlement.
+      if (!updated) throw new ForeignPayment();
+      await recordAudit(tx, {
+        actorType: 'system',
+        actorId: null,
+        action: 'payment.succeeded',
+        entityType: 'order',
+        entityId: order.id,
+        payload: {
+          provider: input.provider,
+          eventId: input.eventId,
+          number: order.number,
+          amountCents: input.amountCents,
+        },
+      });
+      return 'paid';
+    });
+  } catch (error) {
+    if (!(error instanceof ForeignPayment)) throw error;
+    // Nothing was written: this order is still unpaid and the other order's payment is untouched.
+    await recordAudit(db, {
       actorType: 'system',
       actorId: null,
-      action: 'payment.succeeded',
+      action: 'payment.mismatch',
       entityType: 'order',
       entityId: order.id,
       payload: {
         provider: input.provider,
         eventId: input.eventId,
-        number: order.number,
-        amountCents: input.amountCents,
+        paymentId: input.paymentId,
+        reason: 'the payment belongs to another order',
       },
     });
-    return true;
-  });
-  if (!moved) return 'late';
+    return 'mismatch';
+  }
+  if (settled === 'late') return 'late';
 
   // Only after the commit: a listener must never see an order the database could still roll back.
   const dto = (await loadOrder(db, order.id))!;

@@ -113,7 +113,11 @@ describe('payments', () => {
       .select()
       .from(schema.payments)
       .where(eq(schema.payments.id, paymentId));
-    expect(payment).toMatchObject({ status: 'succeeded' });
+    // The demo event carries no session id; the one startPayment stored must survive.
+    expect(payment).toMatchObject({
+      status: 'succeeded',
+      providerSessionId: `demo:${paymentId}`,
+    });
     const audit = await ctx.db
       .select()
       .from(schema.auditLog)
@@ -192,6 +196,43 @@ describe('payments', () => {
     const late = event({ orderId: order.id, paymentId, amountCents: order.totalCents });
     expect(await settlePayment(ctx.db, ctx.app.orderEvents, late)).toBe('late');
     expect(await auditCount('payment.late')).toBe(1);
+  });
+
+  it('refuses an event naming a payment that belongs to another order', async () => {
+    const a = await placeOrder(9);
+    const b = await placeOrder(10);
+    await startPayment(ctx.db, provider, { orderId: a.order.id, guestSessionId: a.guestSessionId });
+    await startPayment(ctx.db, provider, { orderId: b.order.id, guestSessionId: b.guestSessionId });
+    const paymentOfA = await paymentIdOf(a.order.id);
+    const paymentOfB = await paymentIdOf(b.order.id);
+    // The amount is right for order B, but the payment named is order A's.
+    const result = await settlePayment(
+      ctx.db,
+      ctx.app.orderEvents,
+      event({ orderId: b.order.id, paymentId: paymentOfA, amountCents: b.order.totalCents }),
+    );
+    expect(result).not.toBe('paid');
+    expect(result).toBe('mismatch');
+    const [orderB] = await ctx.db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.id, b.order.id));
+    expect(orderB).toMatchObject({ status: 'placed', paidAt: null });
+    const [otherPayment] = await ctx.db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, paymentOfA));
+    expect(otherPayment).toMatchObject({ status: 'pending', orderId: a.order.id });
+    const [ownPayment] = await ctx.db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, paymentOfB));
+    expect(ownPayment).toMatchObject({ status: 'pending' });
+    const [orderA] = await ctx.db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.id, a.order.id));
+    expect(orderA).toMatchObject({ status: 'placed' });
   });
 
   it('answers an event for an order that does not exist', async () => {
