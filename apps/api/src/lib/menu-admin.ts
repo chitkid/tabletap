@@ -14,7 +14,7 @@ import {
   type PresignedUpload,
   type UploadRejection,
 } from '../storage/types';
-import { recordAudit } from './audit';
+import { changedFields, recordAudit } from './audit';
 import { AppError } from './errors';
 
 type CategoryRow = typeof schema.menuCategories.$inferSelect;
@@ -107,20 +107,6 @@ function photoKeyFromImageUrl(itemId: string, imageUrl: string): string | null {
   const match = /(menu\/.+)$/.exec(imageUrl);
   const key = match ? match[1]! : null;
   return key !== null && isPhotoKeyFor(itemId, key) ? key : null;
-}
-
-/**
- * `{ field: { from, to } }` for every key the caller actually sent - the way `lib/transitions.ts`
- * records `{ from, to }` on every status change, so the audit row alone can settle a dispute
- * without a second query against a row that has since changed again (or been deleted).
- */
-function changedFields(
-  before: Record<string, unknown>,
-  body: Record<string, unknown>,
-): Record<string, { from: unknown; to: unknown }> {
-  const changed: Record<string, { from: unknown; to: unknown }> = {};
-  for (const key of Object.keys(body)) changed[key] = { from: before[key], to: body[key] };
-  return changed;
 }
 
 export async function createCategory(

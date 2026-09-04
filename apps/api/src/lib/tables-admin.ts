@@ -1,7 +1,7 @@
 import { and, asc, eq, notExists } from 'drizzle-orm';
 import { schema, type Db } from '@tabletap/db';
 import type { TableDto, TableWrite } from '@tabletap/shared';
-import { recordAudit } from './audit';
+import { changedFields, recordAudit } from './audit';
 import { AppError } from './errors';
 import { isUniqueViolation } from './orders';
 
@@ -26,20 +26,6 @@ async function loadTable(db: Db, restaurantId: string, id: string): Promise<Tabl
   if (!row || row.restaurantId !== restaurantId)
     throw new AppError('NOT_FOUND', 404, 'Table not found.');
   return row;
-}
-
-/**
- * `{ field: { from, to } }` for every key the caller actually sent, the same shape
- * `menu-admin.ts` and `transitions.ts` record, so the audit row alone can settle a dispute
- * without a second query against a row that has since changed again.
- */
-function changedFields(
-  before: Record<string, unknown>,
-  body: Record<string, unknown>,
-): Record<string, { from: unknown; to: unknown }> {
-  const changed: Record<string, { from: unknown; to: unknown }> = {};
-  for (const key of Object.keys(body)) changed[key] = { from: before[key], to: body[key] };
-  return changed;
 }
 
 /**
