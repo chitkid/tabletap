@@ -27,6 +27,7 @@ export const TEST_CONFIG: Config = {
   DEMO_RESET_INTERVAL_MINUTES: 0,
   DEMO_PASSWORD: 'tabletap-demo',
   demoMode: true,
+  paymentProvider: 'demo',
 };
 export const TEST_DEMO_PASSWORD = 'tabletap-demo';
 

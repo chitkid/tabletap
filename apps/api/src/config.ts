@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PaymentProviderName } from '@tabletap/shared';
 
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -30,8 +31,15 @@ const EnvSchema = z.object({
   DEMO_RESET_INTERVAL_MINUTES: z.coerce.number().int().nonnegative().default(60),
   /** Password for the three seeded staff accounts. */
   DEMO_PASSWORD: z.string().min(8).default('tabletap-demo'),
+  /** Both must be set for Stripe to be the provider; with either missing the demo one is used. */
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
 });
-export type Config = z.infer<typeof EnvSchema> & { cookieSecure: boolean; demoMode: boolean };
+export type Config = z.infer<typeof EnvSchema> & {
+  cookieSecure: boolean;
+  demoMode: boolean;
+  paymentProvider: PaymentProviderName;
+};
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const parsed = EnvSchema.safeParse(env);
@@ -42,5 +50,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const { COOKIE_SECURE, NODE_ENV, DEMO_MODE } = parsed.data;
   const cookieSecure =
     COOKIE_SECURE === undefined ? NODE_ENV === 'production' : COOKIE_SECURE === 'true';
-  return { ...parsed.data, cookieSecure, demoMode: DEMO_MODE === 'true' };
+  const paymentProvider: PaymentProviderName =
+    parsed.data.STRIPE_SECRET_KEY && parsed.data.STRIPE_WEBHOOK_SECRET ? 'stripe' : 'demo';
+  return { ...parsed.data, cookieSecure, demoMode: DEMO_MODE === 'true', paymentProvider };
 }
