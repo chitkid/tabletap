@@ -376,9 +376,10 @@ describe('KitchenBoard', () => {
     );
     act(() => socket.fire('connect'));
     await user.click(screen.getByRole('button', { name: 'Start #1' }));
-    // The ticket is still Placed and the board knows it: the refusal is about who asked.
+    // The ticket has not moved and the board knows it: the refusal is about who asked, so the
+    // notice must not blame the ticket's status the way a lost race would.
     expect(await screen.findByText("You can't move #1.")).toBeInTheDocument();
-    expect(screen.queryByText(/It is Placed now/)).toBeNull();
+    expect(screen.queryByText(/It is Paid now/)).toBeNull();
   });
   it('builds the chime on the first gesture when sound was left on', () => {
     window.localStorage.setItem('tt-kitchen-sound', 'on');

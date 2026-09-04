@@ -42,7 +42,7 @@ describe('transitionOrder', () => {
     await ctx.close();
   });
 
-  it('moves placed → cooking, stamps cookingAt and updatedAt, audits and emits', async () => {
+  it('moves paid → cooking, stamps cookingAt and updatedAt, audits and emits', async () => {
     const orderId = await placeOrder(2);
     await payOrder(ctx.db, orderId);
     const seen: string[] = [];

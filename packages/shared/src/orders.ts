@@ -29,7 +29,11 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   return ORDER_TRANSITIONS[from].includes(to);
 }
 
-/** The statuses a kitchen board shows; served and cancelled tickets leave it. */
+/**
+ * The statuses an order is still live in: it has been placed and it has not finished. Served and
+ * cancelled orders are done. The kitchen board draws a subset of these — `placed` is the guest's
+ * business until the payment settles — so this is what is still open, not what is on screen.
+ */
 export const ACTIVE_ORDER_STATUSES = ['placed', 'paid', 'cooking', 'ready'] as const;
 export function isActiveStatus(status: OrderStatus): boolean {
   return (ACTIVE_ORDER_STATUSES as readonly OrderStatus[]).includes(status);
