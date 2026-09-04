@@ -1,6 +1,6 @@
 # M4 Payments — Design Spec
 
-Date: 2026-09-04. Status: implemented on `feat/m4-payments` (2026-09-04); the deviations decided while building are recorded in §9 below. Verified locally against Docker Compose: e2e 6/6 with a payment-to-kitchen latency of 30-53 ms against the 500 ms budget across six runs, the offline banner in 7-9 ms, Lighthouse accessibility 100 on the landing, the menu and the kitchen board.
+Date: 2026-09-04. Status: implemented and merged into main on 2026-09-04 (final review clean after one fix wave; five findings parked in docs/backlog.md). The deviations decided while building are recorded in §9 below. Verified locally against Docker Compose: e2e 6/6 with a payment-to-kitchen latency of 30-53 ms against the 500 ms budget across six runs, the offline banner in 7-9 ms, Lighthouse accessibility 100 on the landing, the menu and the kitchen board.
 Project: TableTap — QR table ordering with a real-time kitchen display (portfolio full-stack project).
 Milestone: M4 of six. Builds on M1 Foundation, M2 Guest flow + Demo landing and M3 Kitchen display (all merged into `main`). The master brief remains the permanent context; this spec covers M4 only.
 
