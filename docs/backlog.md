@@ -120,6 +120,8 @@ Noticed while building and reviewing the M3 branch. Nothing here blocks the mile
 - Small type debt in `apps/api/src`: a redundant `String()` in the transition `keyGenerator`, a computed-key spread in `lib/transitions.ts` that bypasses Drizzle's column typing, and a non-null assertion on the post-commit reload.
 - Light-surface `timer-ok` (3.87:1) and `timer-warn` (3.24:1) are still asserted on the kitchen surface only. M1 deferred the light-surface assertions to M2, M2 deferred them to M3 expecting the board to need them, and M3 could not add them either: every `timer-*` token is consumed on the kitchen (dark) surface, and the guest order page shows an elapsed counter in body text using none of them. The gap is not a missing test but a missing consumer — either give a light surface a timer, or drop the light values from the token file. Deciding that is the actual task.
 
+- A browser sends no `x-forwarded-for`, and the Next rewrite forwards only what it receives, so every browser client reaches the API as the web container and shares one rate-limit bucket. A caller that sets the header gets its own bucket, which is what `TRUST_PROXY` is for behind a real reverse proxy. In the Compose demo the sign-in limit is therefore per deployment, not per member of staff.
+
 ## Resolved in the final M3 fix wave
 
 Found in the whole-branch review of M3 and fixed on the branch before merge. Listed so a reader of the entries above does not go looking for them.

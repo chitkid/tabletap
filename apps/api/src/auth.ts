@@ -18,6 +18,20 @@ export function createAuth(opts: { db: Db; config: Config }) {
       },
     },
     advanced: { useSecureCookies: config.cookieSecure },
+    /**
+     * better-auth runs its own limiter inside the handler `routes/auth` forwards to, and its
+     * default rule for `/sign-in/email` is three attempts per ten seconds — stricter than the
+     * ten a minute this project documents and applies at the route, and invisible from there.
+     * Two budgets meant the smaller, undocumented one decided: three sign-ins in a row (a shift
+     * change, or a test suite) locked the next caller out. The numbers are stated here so the
+     * documented one is the real one. Off outside production, as better-auth defaults it.
+     */
+    rateLimit: {
+      enabled: config.NODE_ENV === 'production',
+      window: 60,
+      max: 100,
+      customRules: { '/sign-in/email': { window: 60, max: 10 } },
+    },
   });
 }
 export type Auth = ReturnType<typeof createAuth>;
