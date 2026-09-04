@@ -21,6 +21,9 @@ export const tables = pgTable(
     label: text('label').notNull(),
     seats: integer('seats').notNull().default(2),
     isActive: boolean('is_active').notNull().default(true),
+    // Bumped when staff reissue this table's QR: the printed codes carry the old value in their
+    // signed token, so POST /api/guest/claim comparing it against this column revokes them.
+    qrVersion: integer('qr_version').notNull().default(1),
     ...timestamps,
   },
   (t) => [unique('tables_restaurant_number_unique').on(t.restaurantId, t.number)],

@@ -39,7 +39,12 @@ export async function guestRoutes(app: FastifyInstance) {
         throw err;
       }
       const [table] = await app.db
-        .select({ id: schema.tables.id, number: schema.tables.number, label: schema.tables.label })
+        .select({
+          id: schema.tables.id,
+          number: schema.tables.number,
+          label: schema.tables.label,
+          qrVersion: schema.tables.qrVersion,
+        })
         .from(schema.tables)
         .where(
           and(
@@ -49,6 +54,14 @@ export async function guestRoutes(app: FastifyInstance) {
           ),
         );
       if (!table) throw new AppError('NOT_FOUND', 404, 'This table is not available.');
+      // Reissuing a QR bumps the table's version, which revokes every code printed before: a
+      // token whose version is behind is refused even though its signature still verifies.
+      if (claims.qrVersion !== table.qrVersion)
+        throw new AppError(
+          'TOKEN_INVALID',
+          401,
+          'This QR code is no longer valid. Ask staff for a new one.',
+        );
 
       // A guest moving tables re-claims from the same browser: end the session the incoming
       // cookie still points at, so one browser never holds two live sessions.

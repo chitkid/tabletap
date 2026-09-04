@@ -46,7 +46,7 @@ describe('socket token', () => {
       verifySocketToken(token, { secret: 'another-secret-that-is-long-enough-000' }),
     ).rejects.toBeInstanceOf(SocketTokenVerifyError);
     const table = await signTableToken(
-      { tableId: U1, restaurantId: U1, tableNumber: 7 },
+      { tableId: U1, restaurantId: U1, tableNumber: 7, qrVersion: 1 },
       { secret: SECRET, ttlSeconds: 60 },
     );
     await expect(verifySocketToken(table, { secret: SECRET })).rejects.toMatchObject({

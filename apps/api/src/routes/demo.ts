@@ -30,7 +30,11 @@ export async function demoRoutes(app: FastifyInstance) {
         .where(eq(schema.restaurants.slug, DEMO_RESTAURANT_SLUG));
       const [table] = restaurant
         ? await app.db
-            .select({ id: schema.tables.id, number: schema.tables.number })
+            .select({
+              id: schema.tables.id,
+              number: schema.tables.number,
+              qrVersion: schema.tables.qrVersion,
+            })
             .from(schema.tables)
             .where(
               and(
@@ -41,7 +45,12 @@ export async function demoRoutes(app: FastifyInstance) {
         : [];
       if (!restaurant || !table) throw new AppError('NOT_FOUND', 404, 'Demo data is not seeded.');
       const token = await signTableToken(
-        { tableId: table.id, restaurantId: restaurant.id, tableNumber: table.number },
+        {
+          tableId: table.id,
+          restaurantId: restaurant.id,
+          tableNumber: table.number,
+          qrVersion: table.qrVersion,
+        },
         { secret: config.TABLE_TOKEN_SECRET, ttlSeconds: config.TABLE_TOKEN_TTL_DAYS * 86_400 },
       );
       return {

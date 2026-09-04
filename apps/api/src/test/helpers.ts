@@ -102,7 +102,7 @@ export async function claimTable(
     .where(eq(schema.tables.number, tableNumber));
   if (!restaurant || !table) throw new Error(`table ${tableNumber} not seeded`);
   const token = await signTableToken(
-    { tableId: table.id, restaurantId: restaurant.id, tableNumber },
+    { tableId: table.id, restaurantId: restaurant.id, tableNumber, qrVersion: table.qrVersion },
     { secret: TEST_CONFIG.TABLE_TOKEN_SECRET, ttlSeconds: 3600 },
   );
   const res = await app.inject({

@@ -4,6 +4,7 @@ export interface TableTokenInput {
   tableId: string;
   restaurantId: string;
   tableNumber: number;
+  qrVersion: number;
 }
 export interface TableTokenClaims extends TableTokenInput {
   issuedAt: number;
@@ -27,7 +28,7 @@ export async function signTableToken(
   opts: { secret: string; ttlSeconds: number; now?: Date },
 ): Promise<string> {
   const nowSec = Math.floor((opts.now ?? new Date()).getTime() / 1000);
-  return new SignJWT({ rid: input.restaurantId, tn: input.tableNumber })
+  return new SignJWT({ rid: input.restaurantId, tn: input.tableNumber, v: input.qrVersion })
     .setProtectedHeader({ alg: ALG, typ: TYP })
     .setSubject(input.tableId)
     .setIssuedAt(nowSec)
@@ -45,7 +46,7 @@ export async function verifyTableToken(
       typ: TYP,
       currentDate: opts.now,
     });
-    const { sub, rid, tn, iat, exp } = payload;
+    const { sub, rid, tn, v, iat, exp } = payload;
     if (
       typeof sub !== 'string' ||
       typeof rid !== 'string' ||
@@ -55,7 +56,17 @@ export async function verifyTableToken(
     ) {
       throw new TableTokenVerifyError('TOKEN_INVALID');
     }
-    return { tableId: sub, restaurantId: rid, tableNumber: tn, issuedAt: iat, expiresAt: exp };
+    // Codes printed before the `v` claim existed carry no version at all; they are honoured as
+    // version 1 so M4-era QR codes keep working instead of being treated as revoked.
+    const qrVersion = typeof v === 'number' ? v : 1;
+    return {
+      tableId: sub,
+      restaurantId: rid,
+      tableNumber: tn,
+      qrVersion,
+      issuedAt: iat,
+      expiresAt: exp,
+    };
   } catch (err) {
     if (err instanceof TableTokenVerifyError) throw err;
     if (err instanceof errors.JWTExpired) throw new TableTokenVerifyError('TOKEN_EXPIRED');

@@ -131,7 +131,12 @@ export async function seed(db: Db, opts: SeedOptions): Promise<SeedResult> {
   const guestUrls: string[] = [];
   for (const table of [...inserted.tables].sort((a, b) => a.number - b.number)) {
     const token = await signTableToken(
-      { tableId: table.id, restaurantId: inserted.restaurant.id, tableNumber: table.number },
+      {
+        tableId: table.id,
+        restaurantId: inserted.restaurant.id,
+        tableNumber: table.number,
+        qrVersion: table.qrVersion,
+      },
       { secret: opts.tableTokenSecret, ttlSeconds: opts.tableTokenTtlDays * 86_400, now },
     );
     guestUrls.push(`${opts.webOrigin}/t/${token}`);

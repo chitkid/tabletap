@@ -1,3 +1,4 @@
+import { SignJWT } from 'jose';
 import { describe, expect, it } from 'vitest';
 import { TableTokenVerifyError, signTableToken, verifyTableToken } from './table-token';
 
@@ -6,6 +7,7 @@ const input = {
   tableId: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f60',
   restaurantId: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f61',
   tableNumber: 7,
+  qrVersion: 1,
 };
 const now = new Date('2026-09-02T10:00:00Z');
 
@@ -47,5 +49,17 @@ describe('table token', () => {
     await expect(verifyTableToken('not-a-jwt', { secret, now })).rejects.toMatchObject({
       code: 'TOKEN_INVALID',
     });
+  });
+  it('carries the table version and reads a token without one as version 1', async () => {
+    const token = await signTableToken({ ...input, qrVersion: 3 }, { secret, ttlSeconds: 60, now });
+    expect((await verifyTableToken(token, { secret, now })).qrVersion).toBe(3);
+    // M4-era codes are already printed and carry no version; they are version 1 by definition.
+    const legacy = await new SignJWT({ rid: input.restaurantId, tn: input.tableNumber })
+      .setProtectedHeader({ alg: 'HS256', typ: 'tt-table' })
+      .setSubject(input.tableId)
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(new TextEncoder().encode(secret));
+    expect((await verifyTableToken(legacy, { secret })).qrVersion).toBe(1);
   });
 });

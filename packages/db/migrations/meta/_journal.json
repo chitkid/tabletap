@@ -29,6 +29,13 @@
       "when": 1788531400655,
       "tag": "0003_processed-events",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788550775778,
+      "tag": "0004_qr-version",
+      "breakpoints": true
     }
   ]
 }

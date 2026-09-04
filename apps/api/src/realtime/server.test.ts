@@ -117,7 +117,7 @@ describe('realtime', () => {
       data: { code: 'TOKEN_EXPIRED' },
     });
     const table = await signTableToken(
-      { tableId: randomUUID(), restaurantId: randomUUID(), tableNumber: 7 },
+      { tableId: randomUUID(), restaurantId: randomUUID(), tableNumber: 7, qrVersion: 1 },
       { secret: TEST_CONFIG.SOCKET_TOKEN_SECRET, ttlSeconds: 60 },
     );
     await expect(connect({ token: table })).rejects.toMatchObject({

@@ -17,7 +17,7 @@ describe('POST /api/guest/claim', () => {
       .from(schema.tables)
       .where(eq(schema.tables.number, tableNumber));
     return signTableToken(
-      { tableId: t!.id, restaurantId, tableNumber },
+      { tableId: t!.id, restaurantId, tableNumber, qrVersion: t!.qrVersion },
       {
         secret: extra.secret ?? TEST_CONFIG.TABLE_TOKEN_SECRET,
         ttlSeconds: extra.ttlSeconds ?? 3600,
@@ -86,7 +86,12 @@ describe('POST /api/guest/claim', () => {
   });
   it('rejects a token for an unknown table with 404', async () => {
     const token = await signTableToken(
-      { tableId: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f60', restaurantId, tableNumber: 99 },
+      {
+        tableId: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f60',
+        restaurantId,
+        tableNumber: 99,
+        qrVersion: 1,
+      },
       { secret: TEST_CONFIG.TABLE_TOKEN_SECRET, ttlSeconds: 3600 },
     );
     expect((await claim(token)).statusCode).toBe(404);
@@ -148,6 +153,28 @@ describe('POST /api/guest/claim', () => {
     const me = await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
     expect(me.statusCode).toBe(401);
     expect(me.cookies.find((c) => c.name === 'tt_guest')?.value).toBe('');
+  });
+  it('rejects a token whose version is behind the table current version with 401 TOKEN_INVALID', async () => {
+    const token = await tokenFor(8);
+    await ctx.db.update(schema.tables).set({ qrVersion: 2 }).where(eq(schema.tables.number, 8));
+    const res = await claim(token);
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.code).toBe('TOKEN_INVALID');
+    expect(res.json().error.message).toBe(
+      'This QR code is no longer valid. Ask staff for a new one.',
+    );
+  });
+  it('claims successfully with the table current qr version', async () => {
+    await ctx.db.update(schema.tables).set({ qrVersion: 2 }).where(eq(schema.tables.number, 9));
+    const token = await tokenFor(9);
+    const res = await claim(token);
+    expect(res.statusCode).toBe(200);
+  });
+  it('keeps a session claimed before a version bump working', async () => {
+    const { cookie } = await claimTable(ctx.app, ctx.db, 10);
+    await ctx.db.update(schema.tables).set({ qrVersion: 2 }).where(eq(schema.tables.number, 10));
+    const me = await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
+    expect(me.statusCode).toBe(200);
   });
   it('rate-limits claims to 20 per minute per IP', async () => {
     const token = await tokenFor(1);

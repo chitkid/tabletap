@@ -134,7 +134,12 @@ describe('seed', () => {
     const [restaurant] = await ctx.db.select().from(schema.restaurants);
     const [table] = await ctx.db.select().from(schema.tables).where(eq(schema.tables.number, 7));
     const token = await signTableToken(
-      { tableId: table!.id, restaurantId: restaurant!.id, tableNumber: 7 },
+      {
+        tableId: table!.id,
+        restaurantId: restaurant!.id,
+        tableNumber: 7,
+        qrVersion: table!.qrVersion,
+      },
       { secret: opts.tableTokenSecret, ttlSeconds: 86_400 },
     );
 
