@@ -7,11 +7,12 @@ import {
   type MenuItemDto,
   type MenuItemWrite,
 } from '@tabletap/shared';
-import type {
-  ObjectStorage,
-  PhotoContentType,
-  PresignedUpload,
-  UploadRejection,
+import {
+  isPhotoKeyFor,
+  type ObjectStorage,
+  type PhotoContentType,
+  type PresignedUpload,
+  type UploadRejection,
 } from '../storage/types';
 import { recordAudit } from './audit';
 import { AppError } from './errors';
@@ -95,10 +96,17 @@ async function nextItemSortOrder(db: Db, categoryId: string): Promise<number> {
  * `publicUrl` (storage/s3.ts) is `${base}/${key}` and `key` always starts with `menu/`
  * (photoKey's own shape). There is nowhere else the stored key lives, so recovering it from the
  * URL we already wrote to `image_url` is the only way back to it for a delete.
+ *
+ * The recovered key is then checked against the shape `photoKey` builds for *this* item before any
+ * caller deletes with it. `remove` asks no questions, and a row can carry a URL this code never
+ * wrote - one saved before the confirmation pinned the key to its item, or set by any other hand -
+ * so a `menu/<thisItem>/../<otherItem>/<uuid>.jpg` would otherwise destroy an object another
+ * restaurant's dish still points at. Null means "not ours to delete", never "no photograph".
  */
-function storageKeyFromImageUrl(imageUrl: string): string | null {
+function photoKeyFromImageUrl(itemId: string, imageUrl: string): string | null {
   const match = /(menu\/.+)$/.exec(imageUrl);
-  return match ? match[1]! : null;
+  const key = match ? match[1]! : null;
+  return key !== null && isPhotoKeyFor(itemId, key) ? key : null;
 }
 
 /**
@@ -369,9 +377,16 @@ const UPLOAD_REFUSALS: Record<UploadRejection, string> = {
 /**
  * Confirms an upload and writes it onto the dish. Two checks stand between a caller and an
  * arbitrary object, in this order: the item has to belong to this restaurant (404 otherwise, the
- * same rule as everywhere else here), and the key has to sit under that item's own prefix. Since
- * the prefix is built from the id that just passed the ownership check, no key belonging to
- * another restaurant's dish - or to anything else in the bucket - can reach storage at all.
+ * same rule as everywhere else here), and the key has to be one `photoKey(id, …)` could have
+ * built - `isPhotoKeyFor`, not a prefix test, because `menu/<id>/../<otherId>/<uuid>.jpg` starts
+ * with this item's prefix and still leaves its folder. Since the id in the key is the one that
+ * just passed the ownership check, no object outside this dish's own folder can be confirmed, or
+ * even asked about.
+ *
+ * The write carries the same `updatedAt` guard as `updateItem`, for the same reason: `before` is
+ * read outside the transaction, and without tying the two together a concurrent edit would leave
+ * an audit row whose `from` describes a state that never existed. A guard that matches nothing is
+ * 404 when the row is gone and 409 `CONFLICT` when someone else changed it first.
  */
 export async function setItemPhoto(
   db: Db,
@@ -382,33 +397,43 @@ export async function setItemPhoto(
   storage: ObjectStorage,
 ): Promise<MenuItemDto> {
   const before = await loadItem(db, restaurantId, id);
-  if (!key.startsWith(`menu/${id}/`))
+  if (!isPhotoKeyFor(id, key))
     throw new AppError('VALIDATION_FAILED', 400, 'That upload does not belong to this dish.');
   const check = await storage.checkUpload(key);
   if (!check.ok) throw new AppError('CONFLICT', 409, UPLOAD_REFUSALS[check.reason]);
   const imageUrl = storage.publicUrl(key);
-  const row = await db.transaction(async (tx) => {
-    const [updated] = await tx
+  // Null when the dish had no photograph, and also when the URL it had is not a key this item
+  // owns: either way there is nothing here for us to delete. The audit row records which it was.
+  const previousKey = before.imageUrl === null ? null : photoKeyFromImageUrl(id, before.imageUrl);
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
       .update(schema.menuItems)
       .set({ imageUrl, updatedAt: new Date() })
-      .where(eq(schema.menuItems.id, id))
+      .where(and(eq(schema.menuItems.id, id), eq(schema.menuItems.updatedAt, before.updatedAt)))
       .returning();
-    if (!updated) throw new AppError('NOT_FOUND', 404, 'Item not found.');
+    if (!row) return null;
     await recordAudit(tx, {
       actorType: 'user',
       actorId,
       action: 'menu.item.photo',
       entityType: 'menu_item',
       entityId: id,
-      payload: { key, changed: changedFields(before, { imageUrl }) },
+      payload: { key, previousKey, changed: changedFields(before, { imageUrl }) },
     });
-    return updated;
+    return row;
   });
+  if (!updated) {
+    await loadItem(db, restaurantId, id); // still gone or foreign -> throws 404
+    throw new AppError(
+      'CONFLICT',
+      409,
+      'This item changed while you were editing it. Reload and try again.',
+    );
+  }
   // Only now, with the new photograph committed, is the old object safe to drop: a delete before
   // this point would leave the dish pointing at nothing if the confirmation went on to fail.
-  const previousKey = before.imageUrl === null ? null : storageKeyFromImageUrl(before.imageUrl);
   if (previousKey !== null && previousKey !== key) await storage.remove(previousKey);
-  return toItemDto(row);
+  return toItemDto(updated);
 }
 
 /**
@@ -460,7 +485,8 @@ export async function deleteItem(
     throw new AppError('IN_USE', 409, 'This item appears on an order. Mark it sold out instead.');
   }
   if (item.imageUrl && storage) {
-    const key = storageKeyFromImageUrl(item.imageUrl);
+    // Same check the confirmation step makes: only a key this item could own is ours to delete.
+    const key = photoKeyFromImageUrl(id, item.imageUrl);
     if (key) await storage.remove(key);
   }
 }

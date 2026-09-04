@@ -253,7 +253,7 @@ describe('menu photographs', () => {
    * shape `PhotoUploadResponseSchema` demands, so a route that returned the wrong thing would fail
    * on serialization rather than quietly pass.
    */
-  function fakeStorage(check: UploadCheck = OK_UPLOAD) {
+  function fakeStorage(check: UploadCheck = OK_UPLOAD, gate?: () => Promise<void>) {
     return {
       photoKey: vi.fn((id: string) => `menu/${id}/${randomUUID()}.jpg`),
       presignPut: vi.fn(async (key: string) => ({
@@ -262,16 +262,61 @@ describe('menu photographs', () => {
         expiresInSeconds: 60,
       })),
       head: vi.fn(async () => null),
-      checkUpload: vi.fn(async () => check),
+      checkUpload: vi.fn(async () => {
+        if (gate) await gate();
+        return check;
+      }),
       exists: vi.fn(async () => check.ok),
       publicUrl: vi.fn((key: string) => `${PUBLIC_BASE}/${key}`),
       remove: vi.fn(async () => {}),
     } satisfies ObjectStorage;
   }
 
+  /**
+   * Holds every caller until `count` of them have arrived. Confirming a photograph reads the row,
+   * asks storage about the object, then writes: this parks both requests in that gap, so both have
+   * read the same row before either write lands - the race a guarded UPDATE exists to lose.
+   */
+  function barrier(count: number): () => Promise<void> {
+    let arrived = 0;
+    let open = () => {};
+    const gate = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    return async () => {
+      arrived += 1;
+      if (arrived >= count) open();
+      await gate;
+    };
+  }
+
+  /** A dish of this test's own, so the audit rows it collects are nobody else's. */
+  async function createDish(name: string): Promise<string> {
+    const [category] = await ctx.db
+      .select()
+      .from(schema.menuCategories)
+      .where(eq(schema.menuCategories.name, 'Bowls'));
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/menu/items',
+      headers: { cookie: admin },
+      payload: { categoryId: category!.id, name, priceCents: 1100 },
+    });
+    expect(res.statusCode).toBe(201);
+    return MenuItemDtoSchema.parse(res.json().item).id;
+  }
+
   async function imageUrlOf(id: string): Promise<string | null> {
     const [row] = await ctx.db.select().from(schema.menuItems).where(eq(schema.menuItems.id, id));
     return row?.imageUrl ?? null;
+  }
+
+  async function photoAuditsFor(id: string) {
+    const rows = await ctx.db
+      .select()
+      .from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'menu.item.photo'));
+    return rows.filter((r) => r.entityId === id);
   }
 
   async function setImageUrl(id: string, imageUrl: string | null): Promise<void> {
@@ -430,7 +475,7 @@ describe('menu photographs', () => {
     });
   });
 
-  it('refuses a key outside this dish own prefix before it touches storage', async () => {
+  it('refuses any key but the exact shape this dish own photo key has', async () => {
     const storage = fakeStorage();
     ctx.app.storage = storage;
     const someoneElse = randomUUID();
@@ -440,6 +485,15 @@ describe('menu photographs', () => {
       `menu/${randomUUID()}.jpg`,
       `../menu/${itemId}/${randomUUID()}.jpg`,
       'private/backups/dump.sql',
+      // Starts with this dish's own prefix and still leaves its folder: a backend that collapses
+      // dot segments resolves this to somebody else's object, and every browser normalises the
+      // `..` out of the URL before fetching, so a guest would load bytes we never checked.
+      `menu/${itemId}/../${someoneElse}/${randomUUID()}.jpg`,
+      `menu/${itemId}/${randomUUID()}/../../${someoneElse}/${randomUUID()}.jpg`,
+      // Under the prefix, but nothing `photoKey` could have built.
+      `menu/${itemId}/${randomUUID()}.exe`,
+      `menu/${itemId}/x.jpg`,
+      `menu/${itemId}/${randomUUID()}.jpg/index.html`,
     ];
     for (const key of keys) {
       const res = await ctx.app.inject({
@@ -515,6 +569,7 @@ describe('menu photographs', () => {
     expect(typeof audits[0]!.actorId).toBe('string');
     expect(audits[0]!.payload).toMatchObject({
       key,
+      previousKey: null, // there was no photograph before this one
       changed: { imageUrl: { from: null, to: `${PUBLIC_BASE}/${key}` } },
     });
 
@@ -562,6 +617,67 @@ describe('menu photographs', () => {
     );
     expect(await imageUrlOf(itemId)).toBe(`${PUBLIC_BASE}/${key}`);
     await setImageUrl(itemId, null);
+  });
+
+  it('never hands a key it cannot recognise to remove, however the old URL got there', async () => {
+    // A row written before the key was pinned to its item - or by any other hand - can carry a URL
+    // whose key escapes the folder. `remove` asks no questions, so the check has to happen here.
+    const dishId = await createDish('Traversal Bowl');
+    const traversal = `menu/${dishId}/../${randomUUID()}/${randomUUID()}.jpg`;
+    await setImageUrl(dishId, `${PUBLIC_BASE}/${traversal}`);
+    const storage = fakeStorage();
+    ctx.app.storage = storage;
+    const key = `menu/${dishId}/${randomUUID()}.jpg`;
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: `/api/menu/items/${dishId}/photo`,
+      headers: { cookie: admin },
+      payload: { key },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(storage.remove).not.toHaveBeenCalled();
+    expect(await imageUrlOf(dishId)).toBe(`${PUBLIC_BASE}/${key}`);
+    // The audit says no object was reclaimed, so the one left behind is findable later.
+    const audits = await photoAuditsFor(dishId);
+    expect(audits).toHaveLength(1);
+    expect(audits[0]!.payload).toMatchObject({
+      key,
+      previousKey: null,
+      changed: { imageUrl: { from: `${PUBLIC_BASE}/${traversal}` } },
+    });
+  });
+
+  it('a confirmation that lost a race answers 409, and audits no transition that never happened', async () => {
+    const dishId = await createDish('Race Bowl');
+    const storage = fakeStorage(OK_UPLOAD, barrier(2));
+    ctx.app.storage = storage;
+    const keys = [`menu/${dishId}/${randomUUID()}.jpg`, `menu/${dishId}/${randomUUID()}.jpg`];
+    const responses = await Promise.all(
+      keys.map((key) =>
+        ctx.app.inject({
+          method: 'POST',
+          url: `/api/menu/items/${dishId}/photo`,
+          headers: { cookie: admin },
+          payload: { key },
+        }),
+      ),
+    );
+    expect(responses.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    const loser = responses.find((r) => r.statusCode === 409)!;
+    expect(ErrorEnvelopeSchema.parse(loser.json()).error).toMatchObject({
+      code: 'CONFLICT',
+      message: 'This item changed while you were editing it. Reload and try again.',
+    });
+    const winner = responses.find((r) => r.statusCode === 200)!;
+    const written = MenuItemDtoSchema.parse(winner.json().item).imageUrl;
+    expect(await imageUrlOf(dishId)).toBe(written);
+    // One audit row, and its `from` is the value the dish genuinely held - never one a stale read
+    // merely believed was current.
+    const audits = await photoAuditsFor(dishId);
+    expect(audits).toHaveLength(1);
+    expect(audits[0]!.payload).toMatchObject({
+      changed: { imageUrl: { from: null, to: written } },
+    });
   });
 
   it('says photographs are not configured when the deployment names no bucket', async () => {

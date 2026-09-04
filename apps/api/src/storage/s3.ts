@@ -2,8 +2,11 @@ import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-s
 import { randomUUID } from 'node:crypto';
 import {
   PHOTO_CONTENT_TYPES,
+  PHOTO_EXTENSIONS,
   PHOTO_MAX_BYTES,
   PRESIGN_TTL_SECONDS,
+  UUID_PATTERN,
+  UUID_SOURCE,
   type ObjectStorage,
   type PhotoContentType,
   type StoredObject,
@@ -25,16 +28,13 @@ export type PutPresigner = (
   options: { expiresIn: number; signableHeaders: Set<string> },
 ) => Promise<string>;
 
-const EXTENSIONS: Record<PhotoContentType, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
-const UUID_SOURCE = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-const UUID = new RegExp(`^${UUID_SOURCE}$`, 'i');
-/** Exactly what `photoKey` builds, so no route can hand `presignPut` a key of its own. */
+/**
+ * Exactly what `photoKey` builds, so no route can hand `presignPut` a key of its own - narrowed
+ * here to the one extension this content type may carry. The shape itself (and the check the
+ * confirmation step makes against it) lives in `types.ts`, so there is one definition of it.
+ */
 const photoKeyPattern = (contentType: PhotoContentType) =>
-  new RegExp(`^menu/${UUID_SOURCE}/${UUID_SOURCE}\\.${EXTENSIONS[contentType]}$`, 'i');
+  new RegExp(`^menu/${UUID_SOURCE}/${UUID_SOURCE}\\.${PHOTO_EXTENSIONS[contentType]}$`, 'i');
 
 /**
  * A missing object. S3 answers HeadObject with `NotFound`; some compatible implementations say
@@ -57,8 +57,8 @@ export function createS3Storage(opts: {
     photoKey(itemId, contentType) {
       // The route already validates the id, but the key is a security boundary: a `..` or a slash
       // reaching it would put the object outside the prefix the bucket policy makes public.
-      if (!UUID.test(itemId)) throw new Error('photoKey needs a uuid item id');
-      return `menu/${itemId}/${randomUUID()}.${EXTENSIONS[contentType]}`;
+      if (!UUID_PATTERN.test(itemId)) throw new Error('photoKey needs a uuid item id');
+      return `menu/${itemId}/${randomUUID()}.${PHOTO_EXTENSIONS[contentType]}`;
     },
     async presignPut(key, contentType) {
       // The one write the port hands out has to be for a key this port built. A route that passed
