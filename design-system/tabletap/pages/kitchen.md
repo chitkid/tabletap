@@ -23,7 +23,7 @@
 
 ### Spacing Overrides
 
-- **No spacing override.** Density 6/10 falls in the same "Standard" tier as the guest surface's density 4/10 (both resolve to the generator's 4-7 bucket), and the kitchen surface takes Tailwind's default `--spacing` unchanged. The generator's `--space-xs … --space-3xl` names do not exist in this project; see `design-system/tabletap/MASTER.md` § Spacing for the two real mechanisms (the `--primitive-space-*` scale and the per-surface `--spacing` multiplier). The only thing `[data-surface="kitchen"]` sets in `packages/ui/theme.css` is `font-size: var(--kitchen-body-size)` and `color-scheme: dark`.
+- **No spacing override.** Density 6/10 falls in the same "Standard" tier as the guest surface's density 4/10 (both resolve to the generator's 4-7 bucket), and the kitchen surface takes Tailwind's default `--spacing` unchanged. The generator's `--space-xs … --space-3xl` names do not exist in this project; see `design-system/tabletap/MASTER.md` § Spacing for the two real mechanisms (the `--primitive-space-*` scale and the per-surface `--spacing` multiplier). `[data-surface="kitchen"]` in `packages/ui/theme.css` sets `font-size: var(--kitchen-body-size)`, `color-scheme: dark` and the `--text-*` scale below — no spacing token among them.
 - Ticket card internal padding: `--primitive-space-4` (`1rem`, the `--order-card-padding` token). Gutter between ticket cards and between columns: `--primitive-space-6` (`1.5rem`, Tailwind `gap-6`).
 
 ### Typography Overrides

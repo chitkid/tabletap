@@ -71,6 +71,61 @@ Found in the M2 reviews and fixed on the branch before merge. Listed so a reader
 - The Lighthouse gate scored whatever page the browser ended on, so a redirect (an expired claim sending `/menu` to `/session-ended`) could pass it. The audit now fails unless `finalDisplayedUrl` is the path it asked for.
 - A 409 `CONFLICT` from `POST /api/orders` showed "Can't reach the server". It now says the basket was already sent from another table.
 
+## Resolved in M3
+
+Items from the lists above that the kitchen display closed. Listed so a reader of those entries does not go looking for open work.
+
+- The kitchen `font-size` mechanism (final M1 review). `[data-surface='kitchen']` in `packages/ui/theme.css` now overrides Tailwind's `--text-*` scale — `text-xs` 16 px through `text-2xl` 32 px — so the utilities the board actually uses render at the kitchen sizes instead of ignoring the surface's `font-size`.
+- `GET /api/orders/:id` answering 400 before 401 (M2 review). Both order routes now validate `params` inside the handler, behind the guard, so an unauthenticated caller gets 401 whether or not the id is well formed. `POST /api/orders/:id/transition` was written the same way.
+- Extracting the cookie-unsign plus `resolvePrincipal` pair for the socket handshake (recommendation carried past M2). **Withdrawn**, not done: the handshake authenticates with a socket token, not a cookie jar, and that token is minted by a route which has already run the normal principal pipeline. There is nothing left to share. See [ADR 0008](adr/0008-realtime-delivery.md).
+
+## Deferred from M3 review
+
+Noticed while building and reviewing the M3 branch. Nothing here blocks the milestone.
+
+**Scope deliberately left for later milestones**
+
+- A guest cancel endpoint. `orders.cancel.own` exists in the RBAC matrix and nothing routes to it; the kitchen can cancel, the guest cannot. Needs a window rule (before `cooking`, presumably) more than it needs code.
+- A Redis adapter for multi-instance Socket.io (M6, with deployment). The in-memory adapter means two API instances never see each other's rooms. Same shape as the rate limiter's in-memory store, already on this list.
+- A waiter surface (M5). `TRANSITION_RIGHTS.waiter` grants `served` and `cancelled`, and there is no screen from which to use them.
+- Served and cancelled history on the board. Tickets leave when they leave; there is no way to look at the last hour, and no undo for a mis-bump.
+- The `kitchen` room is global while the snapshot it answers is restaurant-scoped (`apps/api/src/realtime/server.ts`). Correct for one tenant, wrong the day there are two — and multi-restaurant tenancy is a stated non-goal, so this is a marker rather than a task.
+
+**Security and privacy**
+
+- The transition rate limit keys on the raw `cookie` header (`apps/api/src/routes/orders.ts`), chosen at `onRequest` where no principal exists yet. Owner's ruling on 2026-09-03: keep it as planned. A junk cookie opens a fresh 60/min bucket before the guard rejects the request, which costs nothing against the in-memory store; revisit with a shared store, and add an ip-wide limit across the guarded routes at the same time (M6).
+- A guest socket outlives its guest session. After a table is re-claimed by a new party, a tab left open on the old session still receives `table:<tableId>` payloads for the new one. No identifiers leak — every payload passes the public `OrderDtoSchema` — but the order lines do. Expiring the socket with the session, or re-checking the principal on each broadcast, would close it.
+- `subscribe` is not rate limited: it is a socket message, and `@fastify/rate-limit` only sees HTTP requests. A client can re-subscribe in a loop and each one runs the active-orders query.
+- A throw inside the `publish` listener in `apps/api/src/realtime/server.ts` would surface as a 500 on a request whose row is already committed. Wrap the listener and log instead.
+
+**Real-time behaviour**
+
+- The offline banner takes about 45 seconds to appear, because engine.io's defaults (25 s `pingInterval` plus 20 s `pingTimeout`) are what detect the loss. A kitchen board should know within seconds: lower the server heartbeat, and/or have the board listen to the window `offline` event, then tighten `OFFLINE_DETECTION_MS` in `e2e/kitchen-live.spec.ts`. Recommended for the final fix wave.
+- The demo reset cancels a running rush (`app.rush.stop()` in `apps/api/src/plugins/demo-reset.ts`) rather than pausing it. Pausing and resuming after the reseed would keep the demo's minute of orders intact for whoever pressed the button.
+- `apps/api/src/realtime/server.ts` awaits `io.close()` in `onClose`, which also closes the HTTP server and can wait out keep-alive sockets before Fastify force-closes them. Only visible as a slow shutdown.
+- `createRush({ count: 0 })` never resolves its run, and `rush.stop()` puts no timeout on the drain; its doc comment says "the stopped run" while `inFlight` is not generation-scoped (conservative, so it over-waits rather than under-waits). `apps/api/src/lib/rush.ts`.
+
+**Kitchen board polish**
+
+- The board server-renders every timer as `0:00` with the ok threshold, then grows the cards on hydration: Lighthouse measures CLS 0.212 and performance 84 on `/kitchen` (accessibility is 100). Passing the server clock into `getServerSnapshot` for `useNow` would fix both the shift and the flash.
+- A restored `Sound on` preference stays silent until the toggle is pressed again, because the `AudioContext` is only built on the click. Expected given the browser gesture rule, but the toggle should say so rather than look enabled and do nothing.
+- `"Couldn't start a rush."` never clears — only the success and 409 messages are put on a timer (`apps/web/components/kitchen/rush-button.tsx`).
+- Confirming a cancel drops focus to `<body>` (`apps/web/components/kitchen/ticket-card.tsx`); it should return to the card's remaining control.
+- The live regions mount with their text already in them, so a screen reader may not announce the first one. Render the region empty and fill it.
+- `OrderLive` keeps applying `setOrder` after the order was cleared by a reset (`apps/web/components/order/order-live.tsx`); harmless, since the cleared notice replaces the screen, but it is state nobody reads.
+- `kitchen-board.tsx` is 204 lines and holds the socket lifecycle, the optimistic-move logic and the layout. Splitting the lifecycle into a hook would make both halves testable on their own.
+- `globals.css`'s `body:has` rule for the kitchen surface reaches for the night-background primitive instead of the surface's own `--background`.
+- A redundant flex wrapper sits around `RushButton` on the landing page.
+
+**Tests**
+
+- `columnsOf` indexes `COLUMNS` by position (`apps/web/lib/board-store.ts`), so reordering the column list silently reorders the board.
+- Gaps worth closing: a token with an invalid `role` claim (the title in `packages/shared/src/server/socket-token.test.ts` promises the case, the body never signs one); an idempotency replay not emitting `order:created` (holds by inspection in `apps/api/src/lib/orders.ts`); a cancelled transition, the `readyAt`/`servedAt` stamps and `details.current` over HTTP; the equal-`updatedAt` event boundary in the board store; `POST /api/demo/rush` answering 404 outside demo mode; `useNow` and `useSoundPreference`.
+- The audit assertion in `apps/api/src/lib/transitions.test.ts` depends on test order.
+- The fake socket in the board tests has a no-op `removeAllListeners`, so a listener leak in the real component would go unnoticed; the `nextEvent` helper casts through `unknown` where two literal call sites would typecheck.
+- Small type debt in `apps/api/src`: a redundant `String()` in the transition `keyGenerator`, a computed-key spread in `lib/transitions.ts` that bypasses Drizzle's column typing, and a non-null assertion on the post-commit reload.
+- Light-surface `timer-ok` and `timer-warn` contrast is still unasserted (M2 review expected M3 to close it). It could not be: every `timer-*` token is consumed on the kitchen surface only, and the guest order page still shows an elapsed counter in body text. Either add a light-surface consumer or drop the light values.
+
 ## Found on the first Compose run
 
 Docker was not available on the owner's machine until 2026-09-03, so `docker compose up`, the Playwright suite against the stack and the Lighthouse gate had never executed before that day. The first run found three defects, all fixed on `main`:
