@@ -17,8 +17,12 @@ if (typeof window !== 'undefined') current = Date.now();
  * ticket timer, and React answers a hydration mismatch by discarding the server's HTML and
  * rendering the whole board again. Read as an external store, the server render and the
  * hydrating client render both take the same constant snapshot and agree.
+ *
+ * That constant is `serverNow`, the API's clock at render time. It used to be zero, which painted
+ * every ticket at 0:00 and then grew all of them on hydration — a flash, and most of the page's
+ * layout shift. With the real clock the server's HTML is already the truth.
  */
-export function useNow(intervalMs = 1_000): number {
+export function useNow(intervalMs = 1_000, serverNow = 0): number {
   const subscribe = useCallback(
     (onChange: () => void) => {
       current = Date.now();
@@ -33,6 +37,6 @@ export function useNow(intervalMs = 1_000): number {
   return useSyncExternalStore(
     subscribe,
     () => current,
-    () => 0,
+    () => serverNow,
   );
 }

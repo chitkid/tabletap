@@ -23,7 +23,18 @@ export default async function KitchenPage() {
     apiFetch('/api/orders?active=1', { schema: OrdersResponseSchema, ...withJar }),
     fetchDemoLinks(),
   ]);
+  // The API answered a moment ago, so this clock is the kitchen's within a request's latency:
+  // close enough for the first paint, and replaced by the socket's own `serverTime` on connect.
+  // The purity rule guards against a component that re-renders to a different answer; this one
+  // is `force-dynamic` and runs once per request on the server, where the clock is the point.
+  // eslint-disable-next-line react-hooks/purity -- rendered once per request; the time is the data
+  const serverNow = Date.now();
   return (
-    <KitchenBoard initialOrders={orders} staffName={principal.name} demoMode={links !== null} />
+    <KitchenBoard
+      initialOrders={orders}
+      staffName={principal.name}
+      serverNow={serverNow}
+      demoMode={links !== null}
+    />
   );
 }

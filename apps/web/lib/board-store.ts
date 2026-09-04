@@ -1,4 +1,9 @@
-import { isActiveStatus, type OrderDto, type OrderStatus } from '@tabletap/shared';
+import {
+  isActiveStatus,
+  type BoardSnapshot,
+  type OrderDto,
+  type OrderStatus,
+} from '@tabletap/shared';
 
 /** The board's model: active tickets by id. Pure functions so the socket effect stays thin. */
 export interface BoardState {
@@ -23,6 +28,38 @@ export function applyEvent(state: BoardState, order: OrderDto): BoardState {
   }
   return { byId: { ...state.byId, [order.id]: order } };
 }
+
+/**
+ * A snapshot is the board's truth as of `serverTime` — the moment the server began reading, not
+ * the moment it answered. The socket is already in its room by then, so an order committed during
+ * that read reaches the board as an event first and is missing from the snapshot that follows.
+ * Replacing the board wholesale erased that ticket and nothing ever brought it back.
+ *
+ * So: start from the snapshot, then keep whatever the board learned after the read — a ticket the
+ * snapshot has never seen, or a newer copy of one it has. Anything the board holds from before
+ * `serverTime` and the snapshot does not carry is genuinely gone.
+ */
+export function mergeSnapshot(state: BoardState, snapshot: BoardSnapshot): BoardState {
+  const byId: Record<string, OrderDto> = { ...applySnapshot(snapshot.orders).byId };
+  const readAt = Date.parse(snapshot.serverTime);
+  for (const local of Object.values(state.byId)) {
+    if (!isActiveStatus(local.status)) continue;
+    const localAt = Date.parse(local.updatedAt);
+    if (localAt <= readAt) continue;
+    const known = byId[local.id];
+    if (known && Date.parse(known.updatedAt) >= localAt) continue;
+    byId[local.id] = local;
+  }
+  return { byId };
+}
+
+/**
+ * How far the server's clock is ahead of this display's. A kitchen screen is a machine nobody
+ * signs into and nobody notices the clock on; timers add this so a ticket's age is the kitchen's
+ * answer rather than the screen's opinion.
+ */
+export const clockOffsetOf = (snapshot: BoardSnapshot, clientNow: number): number =>
+  Date.parse(snapshot.serverTime) - clientNow;
 
 export const ordersOf = (state: BoardState): OrderDto[] => Object.values(state.byId);
 

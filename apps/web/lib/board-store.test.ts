@@ -5,7 +5,9 @@ import {
   NEXT_STATUS,
   applyEvent,
   applySnapshot,
+  clockOffsetOf,
   columnsOf,
+  mergeSnapshot,
   ordersOf,
 } from './board-store';
 
@@ -54,6 +56,59 @@ describe('board store', () => {
       at('2026-09-03T10:00:00Z', { status: 'served', updatedAt: '2026-09-03T10:07:00Z' }),
     );
     expect(ordersOf(state)).toEqual([]);
+  });
+  it('keeps a ticket the board learned about after the snapshot was read', () => {
+    // The order was committed while the snapshot query was running: it reached the board as an
+    // event and the snapshot cannot know about it. Wholesale replacement erased it for good.
+    let state = applySnapshot([at('2026-09-03T10:00:00Z')]);
+    state = applyEvent(
+      state,
+      at('2026-09-03T10:04:59Z', { id: 'o2', updatedAt: '2026-09-03T10:04:59Z' }),
+    );
+    const merged = mergeSnapshot(state, {
+      orders: [at('2026-09-03T10:00:00Z')],
+      serverTime: '2026-09-03T10:04:58Z',
+    });
+    expect(
+      ordersOf(merged)
+        .map((o) => o.id)
+        .sort(),
+    ).toEqual(['o1', 'o2']);
+  });
+  it('drops a local ticket the snapshot is entitled to have seen', () => {
+    let state = applySnapshot([at('2026-09-03T10:00:00Z')]);
+    state = applyEvent(
+      state,
+      at('2026-09-03T10:01:00Z', { id: 'o2', updatedAt: '2026-09-03T10:01:00Z' }),
+    );
+    // Read after that ticket was written and without it: it is gone, not late.
+    const merged = mergeSnapshot(state, {
+      orders: [at('2026-09-03T10:00:00Z')],
+      serverTime: '2026-09-03T10:02:00Z',
+    });
+    expect(ordersOf(merged).map((o) => o.id)).toEqual(['o1']);
+  });
+  it('prefers whichever copy of a known ticket is newer', () => {
+    const state = applySnapshot([
+      at('2026-09-03T10:00:00Z', { status: 'cooking', updatedAt: '2026-09-03T10:05:30Z' }),
+    ]);
+    const stale = mergeSnapshot(state, {
+      orders: [at('2026-09-03T10:00:00Z', { updatedAt: '2026-09-03T10:00:00Z' })],
+      serverTime: '2026-09-03T10:05:00Z',
+    });
+    expect(ordersOf(stale)[0]!.status).toBe('cooking');
+    const fresher = mergeSnapshot(state, {
+      orders: [at('2026-09-03T10:00:00Z', { status: 'ready', updatedAt: '2026-09-03T10:06:00Z' })],
+      serverTime: '2026-09-03T10:06:00Z',
+    });
+    expect(ordersOf(fresher)[0]!.status).toBe('ready');
+  });
+  it('measures how far the server clock is from this display', () => {
+    const snapshot = { orders: [], serverTime: '2026-09-03T10:00:05Z' };
+    // A display five seconds behind the kitchen adds five seconds to every timer.
+    expect(clockOffsetOf(snapshot, Date.parse('2026-09-03T10:00:00Z'))).toBe(5_000);
+    expect(clockOffsetOf(snapshot, Date.parse('2026-09-03T10:00:20Z'))).toBe(-15_000);
+    expect(clockOffsetOf(snapshot, Date.parse('2026-09-03T10:00:05Z'))).toBe(0);
   });
   it('columns are oldest first and follow the status', () => {
     const cols = columnsOf([

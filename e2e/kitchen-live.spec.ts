@@ -2,12 +2,12 @@ import { expect, test, type Page } from '@playwright/test';
 
 const LATENCY_BUDGET_MS = 500;
 /**
- * `setOffline` blocks new connections but leaves an established WebSocket open, so the client
- * only learns it is offline when engine.io's heartbeat deadline passes: pingInterval (25 s) plus
- * pingTimeout (20 s) after the last packet, i.e. between 20 and 45 seconds. Measured 45.1 s here.
- * The banner still has to say exactly what it says; only the wait is long.
+ * `setOffline` blocks new connections but leaves an established WebSocket open, so the board finds
+ * out one of two ways: the browser's own `offline` event, which it listens for, or engine.io's
+ * heartbeat deadline — now a 10 s interval plus a 5 s timeout rather than the 25 + 20 defaults
+ * that used to make this take 45 seconds. Either path is comfortably inside this budget.
  */
-const OFFLINE_DETECTION_MS = 60_000;
+const OFFLINE_DETECTION_MS = 20_000;
 
 async function guestOrders(page: Page): Promise<{ number: number; placedAt: string }> {
   await page.goto('/');
@@ -36,8 +36,9 @@ async function guestOrders(page: Page): Promise<{ number: number; placedAt: stri
 test('a placed order is on the kitchen board within 500 ms and the guest follows it to ready', async ({
   browser,
 }) => {
-  // The default 30 s does not cover the offline heartbeat above.
-  test.setTimeout(OFFLINE_DETECTION_MS + 60_000);
+  // Two contexts, an order placed through the whole guest flow, three bumps and a reconnect:
+  // more than the default 30 s allows, even now that the offline wait is short.
+  test.setTimeout(90_000);
   const kitchenContext = await browser.newContext();
   const guestContext = await browser.newContext();
   const kitchen = await kitchenContext.newPage();
@@ -54,7 +55,11 @@ test('a placed order is on the kitchen board within 500 ms and the guest follows
   const ticket = kitchen.getByRole('heading', { name: `Table 7 · #${number}` });
   await expect(ticket).toBeVisible({ timeout: 5_000 });
   const visibleAt = Date.now();
-  expect(visibleAt - Date.parse(placedAt)).toBeLessThan(LATENCY_BUDGET_MS);
+  const latencyMs = visibleAt - Date.parse(placedAt);
+  // Both numbers this spec exists to measure, in the run's own output: a budget that passes at
+  // 480 ms is worth knowing about before it stops passing.
+  console.log(`guest to kitchen: ${latencyMs} ms`);
+  expect(latencyMs).toBeLessThan(LATENCY_BUDGET_MS);
 
   await kitchen.getByRole('button', { name: `Start #${number}` }).click();
   await expect(
@@ -69,10 +74,12 @@ test('a placed order is on the kitchen board within 500 ms and the guest follows
   await expect(guest.getByRole('heading', { level: 1 })).toHaveText(`Order #${number} is ready.`);
 
   // Reconnect: the banner appears offline and the board matches the API once back online.
+  const wentOffline = Date.now();
   await kitchenContext.setOffline(true);
   await expect(banner).toHaveText('Reconnecting… the board will catch up.', {
     timeout: OFFLINE_DETECTION_MS,
   });
+  console.log(`offline banner: ${Date.now() - wentOffline} ms`);
   await kitchenContext.setOffline(false);
   await expect(banner).toHaveCount(0, { timeout: 15_000 });
   const active = (await kitchen.evaluate(async () =>

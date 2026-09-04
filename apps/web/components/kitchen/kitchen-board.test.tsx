@@ -26,6 +26,8 @@ const order = (id: string, patch: Partial<OrderDto> = {}): OrderDto => ({
   ...patch,
 });
 
+const SERVER_NOW = Date.parse('2026-09-03T10:00:00Z');
+
 describe('KitchenBoard', () => {
   it('renders the first snapshot from the server, subscribes on connect and applies events', () => {
     const socket = fakeSocket();
@@ -33,6 +35,7 @@ describe('KitchenBoard', () => {
       <KitchenBoard
         initialOrders={[order('o1')]}
         staffName="Theo"
+        serverNow={SERVER_NOW}
         demoMode={false}
         socketFactory={() => socket as unknown as AppSocket}
         fetcher={vi.fn()}
@@ -73,6 +76,7 @@ describe('KitchenBoard', () => {
       <KitchenBoard
         initialOrders={[]}
         staffName="Theo"
+        serverNow={SERVER_NOW}
         demoMode={false}
         socketFactory={() => socket as unknown as AppSocket}
         fetcher={fetcher}
@@ -110,6 +114,7 @@ describe('KitchenBoard', () => {
       <KitchenBoard
         initialOrders={[order('o1')]}
         staffName="Theo"
+        serverNow={SERVER_NOW}
         demoMode={false}
         socketFactory={() => socket as unknown as AppSocket}
         fetcher={fetcher}
@@ -127,6 +132,7 @@ describe('KitchenBoard', () => {
       <KitchenBoard
         initialOrders={[order('o1')]}
         staffName="Theo"
+        serverNow={SERVER_NOW}
         demoMode
         socketFactory={() => socket as unknown as AppSocket}
         fetcher={vi.fn()}
@@ -145,6 +151,7 @@ describe('KitchenBoard', () => {
       <KitchenBoard
         initialOrders={[]}
         staffName="Theo"
+        serverNow={SERVER_NOW}
         demoMode={false}
         socketFactory={() => socket as unknown as AppSocket}
         fetcher={vi.fn()}
@@ -176,6 +183,7 @@ describe('KitchenBoard', () => {
       <KitchenBoard
         initialOrders={[]}
         staffName="Theo"
+        serverNow={SERVER_NOW}
         demoMode={false}
         socketFactory={() => socket as unknown as AppSocket}
         fetcher={vi.fn()}
@@ -196,6 +204,99 @@ describe('KitchenBoard', () => {
     expect(screen.queryByRole('article')).toBeNull();
     expect(document.title).toBe('Kitchen · TableTap');
   });
+  it('keeps a ticket that arrived while the snapshot was being read', () => {
+    const socket = fakeSocket();
+    render(
+      <KitchenBoard
+        initialOrders={[]}
+        staffName="Theo"
+        serverNow={SERVER_NOW}
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={vi.fn()}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    act(() =>
+      socket.fire('order:created', { order: order('o2', { updatedAt: '2026-09-03T10:05:00Z' }) }),
+    );
+    // The snapshot began reading before that order existed, so it cannot carry it.
+    act(() => socket.lastAck?.({ orders: [], serverTime: '2026-09-03T10:04:00Z' }));
+    expect(screen.getByRole('heading', { name: 'Table 7 · #2' })).toBeInTheDocument();
+  });
+  it('keeps the board and retries when the server cannot answer', () => {
+    vi.useFakeTimers();
+    try {
+      const socket = fakeSocket();
+      render(
+        <KitchenBoard
+          initialOrders={[order('o1')]}
+          staffName="Theo"
+          serverNow={SERVER_NOW}
+          demoMode={false}
+          socketFactory={() => socket as unknown as AppSocket}
+          fetcher={vi.fn()}
+        />,
+      );
+      act(() => socket.fire('connect'));
+      socket.emit.mockClear();
+      act(() => socket.lastAck?.(null));
+      expect(screen.getByRole('heading', { name: 'Table 7 · #1' })).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent("Couldn't refresh the board. Retrying…");
+      expect(socket.emit).not.toHaveBeenCalled();
+      act(() => void vi.advanceTimersByTime(2_000));
+      expect(socket.emit).toHaveBeenCalledWith('subscribe', expect.any(Function));
+      act(() => socket.lastAck?.({ orders: [order('o1')], serverTime: '2026-09-03T10:00:00Z' }));
+      expect(screen.queryByRole('status')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('times a ticket by the kitchen clock, not the clock of the screen showing it', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(SERVER_NOW);
+      const socket = fakeSocket();
+      render(
+        <KitchenBoard
+          initialOrders={[order('o1')]}
+          staffName="Theo"
+          serverNow={SERVER_NOW}
+          demoMode={false}
+          socketFactory={() => socket as unknown as AppSocket}
+          fetcher={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole('timer')).toHaveTextContent('0:00');
+      // This display is a minute and a half behind the kitchen; the ticket is that much older.
+      act(() => socket.fire('connect'));
+      act(() => socket.lastAck?.({ orders: [order('o1')], serverTime: '2026-09-03T10:01:30Z' }));
+      expect(screen.getByRole('timer')).toHaveTextContent('1:30');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('says it is offline the moment the browser does, and reconnects when it returns', () => {
+    const socket = fakeSocket();
+    render(
+      <KitchenBoard
+        initialOrders={[]}
+        staffName="Theo"
+        serverNow={SERVER_NOW}
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={vi.fn()}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    expect(screen.queryByRole('status')).toBeNull();
+    // Waiting for the heartbeat to time out would leave a dead board looking live for seconds.
+    act(() => void window.dispatchEvent(new Event('offline')));
+    expect(screen.getByRole('status')).toHaveTextContent('Reconnecting… the board will catch up.');
+    socket.connect.mockClear();
+    act(() => void window.dispatchEvent(new Event('online')));
+    expect(socket.connect).toHaveBeenCalled();
+  });
   it('ignores a move that resolves after a demo reset', async () => {
     const user = userEvent.setup();
     const socket = fakeSocket();
@@ -208,6 +309,7 @@ describe('KitchenBoard', () => {
       <KitchenBoard
         initialOrders={[order('o3')]}
         staffName="Theo"
+        serverNow={SERVER_NOW}
         demoMode
         socketFactory={() => socket as unknown as AppSocket}
         fetcher={fetcher}

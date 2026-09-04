@@ -1,12 +1,19 @@
 'use client';
-import { OrderResponseSchema, type OrderDto, type OrderStatus } from '@tabletap/shared';
+import {
+  OrderResponseSchema,
+  type BoardSnapshot,
+  type OrderDto,
+  type OrderStatus,
+} from '@tabletap/shared';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError, clientFetch } from '../../lib/api';
 import {
   COLUMNS,
   applyEvent,
   applySnapshot,
+  clockOffsetOf,
   columnsOf,
+  mergeSnapshot,
   ordersOf,
   type BoardState,
 } from '../../lib/board-store';
@@ -19,9 +26,19 @@ import { SoundToggle, useSoundPreference } from './sound-toggle';
 import { TicketCard } from './ticket-card';
 import { useNow } from './use-now';
 
-type Action = { type: 'snapshot'; orders: OrderDto[] } | { type: 'event'; order: OrderDto };
-const reducer = (state: BoardState, action: Action): BoardState =>
-  action.type === 'snapshot' ? applySnapshot(action.orders) : applyEvent(state, action.order);
+type Action =
+  | { type: 'snapshot'; snapshot: BoardSnapshot }
+  | { type: 'cleared' }
+  | { type: 'event'; order: OrderDto };
+const reducer = (state: BoardState, action: Action): BoardState => {
+  if (action.type === 'cleared') return applySnapshot([]);
+  if (action.type === 'snapshot') return mergeSnapshot(state, action.snapshot);
+  return applyEvent(state, action.order);
+};
+/** A refused snapshot is retried, backing off so a struggling API is not asked once a second. */
+const RETRY_FIRST_MS = 2_000;
+const RETRY_MAX_MS = 10_000;
+const STALE_NOTICE = "Couldn't refresh the board. Retrying…";
 const STATUS_WORD: Record<OrderStatus, string> = {
   draft: 'Draft',
   placed: 'Placed',
@@ -37,18 +54,23 @@ type Fetcher = typeof clientFetch;
 export function KitchenBoard({
   initialOrders,
   staffName,
+  serverNow,
   demoMode,
   socketFactory = createSocket,
   fetcher = clientFetch,
 }: {
   initialOrders: OrderDto[];
   staffName: string;
+  /** The API's clock at render time. The server's HTML then paints real ages, not 0:00. */
+  serverNow: number;
   demoMode: boolean;
   socketFactory?: () => AppSocket;
   fetcher?: Fetcher;
 }) {
   const [state, dispatch] = useReducer(reducer, initialOrders, applySnapshot);
   const [connection, setConnection] = useState<ConnectionState>('connecting');
+  const [offset, setOffset] = useState(0);
+  const [stale, setStale] = useState(false);
   const [fresh, setFresh] = useState<ReadonlySet<string>>(() => new Set());
   const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
   const [optimistic, setOptimistic] = useState<Readonly<Record<string, OrderStatus>>>({});
@@ -66,7 +88,13 @@ export function KitchenBoard({
   // Bumped by every demo reset. A transition that resolves after one belongs to orders the
   // reset deleted, and dispatching it would put a ghost ticket back on a cleared board.
   const generation = useRef(0);
-  const now = useNow(1_000);
+  const retry = useRef<{ timer: ReturnType<typeof setTimeout> | null; delayMs: number }>({
+    timer: null,
+    delayMs: RETRY_FIRST_MS,
+  });
+  // Every timer on the board is the kitchen's answer, corrected for whatever this screen's own
+  // clock believes.
+  const now = useNow(1_000, serverNow) + offset;
 
   const visible = ordersOf(state).map((o) =>
     optimistic[o.id] ? { ...o, status: optimistic[o.id]! } : o,
@@ -77,10 +105,20 @@ export function KitchenBoard({
   // the tab counter are the intersection, not the raw set.
   const freshIds = new Set(columns.new.filter((o) => fresh.has(o.id)).map((o) => o.id));
 
-  const resync = useCallback(() => {
+  const resync = useCallback(function run() {
     socketRef.current?.emit('subscribe', (snapshot) => {
-      if (snapshot === null) return;
-      dispatch({ type: 'snapshot', orders: snapshot.orders });
+      if (retry.current.timer !== null) clearTimeout(retry.current.timer);
+      if (snapshot === null) {
+        // The board keeps every ticket it holds: the server said "not now", not "nothing left".
+        setStale(true);
+        retry.current.timer = setTimeout(run, retry.current.delayMs);
+        retry.current.delayMs = Math.min(retry.current.delayMs * 2, RETRY_MAX_MS);
+        return;
+      }
+      retry.current = { timer: null, delayMs: RETRY_FIRST_MS };
+      setStale(false);
+      setOffset(clockOffsetOf(snapshot, Date.now()));
+      dispatch({ type: 'snapshot', snapshot });
     });
   }, []);
 
@@ -100,7 +138,7 @@ export function KitchenBoard({
     socket.on('order:updated', ({ order }) => dispatch({ type: 'event', order }));
     socket.on('demo:reset', () => {
       generation.current += 1;
-      dispatch({ type: 'snapshot', orders: [] });
+      dispatch({ type: 'cleared' });
       setFresh(new Set());
       setPending(new Set());
       setOptimistic({});
@@ -111,8 +149,26 @@ export function KitchenBoard({
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
+      if (retry.current.timer !== null) clearTimeout(retry.current.timer);
+      retry.current = { timer: null, delayMs: RETRY_FIRST_MS };
     };
   }, [socketFactory, resync]);
+
+  // The heartbeat is the backstop; the browser knows first. A board that keeps showing tickets
+  // it can no longer be told about is worse than one that admits it.
+  useEffect(() => {
+    const lost = () => setConnection('offline');
+    const back = () => {
+      const socket = socketRef.current;
+      if (socket && !socket.connected) socket.connect();
+    };
+    window.addEventListener('offline', lost);
+    window.addEventListener('online', back);
+    return () => {
+      window.removeEventListener('offline', lost);
+      window.removeEventListener('online', back);
+    };
+  }, []);
 
   const freshCount = freshIds.size;
   useEffect(() => {
@@ -190,6 +246,11 @@ export function KitchenBoard({
         </div>
       </header>
       <ConnectionBanner state={connection} />
+      {stale ? (
+        <p role="status" aria-live="polite" className="px-6 py-2 text-timer-warn">
+          {STALE_NOTICE}
+        </p>
+      ) : null}
       {notice ? (
         <p role="status" aria-live="polite" className="px-6 py-2 text-timer-warn">
           {notice}
