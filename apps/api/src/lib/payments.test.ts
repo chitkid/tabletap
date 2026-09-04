@@ -153,6 +153,29 @@ describe('payments', () => {
     ).toHaveLength(1);
   });
 
+  it('settles once when the same event is delivered twice at the same moment', async () => {
+    const { order, guestSessionId } = await placeOrder(3);
+    await startPayment(ctx.db, provider, { orderId: order.id, guestSessionId });
+    const paymentId = await paymentIdOf(order.id);
+    const one = event({ orderId: order.id, paymentId, amountCents: order.totalCents });
+    // Two deliveries of one event, in flight together: the `processed_events` insert goes in
+    // before any work precisely so the second one loses the unique index rather than the race.
+    const settle = () => settlePayment(ctx.db, ctx.app.orderEvents, one);
+    const results = await Promise.allSettled([settle(), settle()]);
+    expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+    const answers = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+    expect([...answers].sort()).toEqual(['paid', 'replayed']);
+    expect(await auditCount('payment.succeeded', order.id)).toBe(1);
+    expect(
+      await ctx.db
+        .select()
+        .from(schema.processedEvents)
+        .where(eq(schema.processedEvents.eventId, one.eventId)),
+    ).toHaveLength(1);
+    const [after] = await ctx.db.select().from(schema.orders).where(eq(schema.orders.id, order.id));
+    expect(after).toMatchObject({ status: 'paid' });
+  });
+
   it('refuses an amount that does not match the order, and records why', async () => {
     const { order, guestSessionId } = await placeOrder(6);
     await startPayment(ctx.db, provider, { orderId: order.id, guestSessionId });

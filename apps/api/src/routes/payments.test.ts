@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import Stripe from 'stripe';
 import { schema } from '@tabletap/db';
 import {
   IDEMPOTENCY_KEY_HEADER,
@@ -194,6 +195,85 @@ describe('payments routes', () => {
   });
 
   describe('POST /api/payments/webhook', () => {
+    it('answers 200 and pays the order for an event the provider vouches for', async () => {
+      const secret = 'whsec_test_webhook';
+      const stripe = await createTestApp({
+        config: {
+          ...TEST_CONFIG,
+          paymentProvider: 'stripe',
+          STRIPE_SECRET_KEY: 'sk_test_x',
+          STRIPE_WEBHOOK_SECRET: secret,
+        },
+      });
+      try {
+        const { cookie } = await claimTable(stripe.app, stripe.db, 2);
+        const menu = MenuResponseSchema.parse(
+          (
+            await stripe.app.inject({ method: 'GET', url: '/api/menu', headers: { cookie } })
+          ).json(),
+        );
+        const placed = await stripe.app.inject({
+          method: 'POST',
+          url: '/api/orders',
+          headers: { cookie, [IDEMPOTENCY_KEY_HEADER]: randomUUID() },
+          payload: { items: [{ menuItemId: menu.categories[0]!.items[0]!.id, quantity: 1 }] },
+        });
+        const { order } = OrderResponseSchema.parse(placed.json());
+        // The attempt is written straight to the database: opening one through the route would
+        // have Stripe create a Checkout session, and these tests never leave the machine.
+        const [payment] = await stripe.db
+          .insert(schema.payments)
+          .values({
+            orderId: order.id,
+            provider: 'stripe',
+            amountCents: order.totalCents,
+            currency: 'USD',
+            status: 'pending',
+            providerSessionId: 'cs_test_1',
+          })
+          .returning();
+        const body = JSON.stringify({
+          id: `evt_${randomUUID()}`,
+          type: 'checkout.session.completed',
+          data: {
+            object: {
+              id: 'cs_test_1',
+              payment_intent: 'pi_test_1',
+              amount_total: order.totalCents,
+              currency: 'usd',
+              metadata: { orderId: order.id, paymentId: payment!.id },
+            },
+          },
+        });
+        const res = await stripe.app.inject({
+          method: 'POST',
+          url: '/api/payments/webhook',
+          headers: {
+            'content-type': 'application/json',
+            'stripe-signature': Stripe.webhooks.generateTestHeaderString({ payload: body, secret }),
+          },
+          payload: body,
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toEqual({ received: true });
+        const [row] = await stripe.db
+          .select()
+          .from(schema.orders)
+          .where(eq(schema.orders.id, order.id));
+        expect(row).toMatchObject({ status: 'paid' });
+        const [settled] = await stripe.db
+          .select()
+          .from(schema.payments)
+          .where(eq(schema.payments.id, payment!.id));
+        expect(settled).toMatchObject({
+          status: 'succeeded',
+          providerPaymentIntentId: 'pi_test_1',
+        });
+      } finally {
+        await stripe.close();
+      }
+    });
+
     it('refuses an event the provider will not vouch for', async () => {
       const res = await ctx.app.inject({
         method: 'POST',
