@@ -83,6 +83,7 @@ Noticed while building and reviewing the M3 branch. Nothing here blocks the mile
 
 - A guest cancel endpoint. `orders.cancel.own` exists in the RBAC matrix and nothing routes to it; the kitchen can cancel, the guest cannot. Needs a window rule (before `cooking`, presumably) more than it needs code.
 - A Redis adapter for multi-instance Socket.io (M6, with deployment). The in-memory adapter means two API instances never see each other's rooms. Same shape as the rate limiter's in-memory store, already on this list.
+- Deployment order, for whoever writes the M6 pipeline: **API before web.** `OrderDtoSchema` now requires `updatedAt` and the four per-status timestamps, so an M3 web against an M2 API fails to parse every order response — the menu still works and nothing after it does. The reverse order is safe: an M2 web ignores fields it does not know about.
 - A waiter surface (M5). `TRANSITION_RIGHTS.waiter` grants `served` and `cancelled`, and there is no screen from which to use them.
 - Served and cancelled history on the board. Tickets leave when they leave; there is no way to look at the last hour, and no undo for a mis-bump.
 - The `kitchen` room is global while the snapshot it answers is restaurant-scoped (`apps/api/src/realtime/server.ts`). Correct for one tenant, wrong the day there are two — and multi-restaurant tenancy is a stated non-goal, so this is a marker rather than a task.
@@ -90,27 +91,20 @@ Noticed while building and reviewing the M3 branch. Nothing here blocks the mile
 **Security and privacy**
 
 - The transition rate limit keys on the raw `cookie` header (`apps/api/src/routes/orders.ts`), chosen at `onRequest` where no principal exists yet. Owner's ruling on 2026-09-03: keep it as planned. A junk cookie opens a fresh 60/min bucket before the guard rejects the request, which costs nothing against the in-memory store; revisit with a shared store, and add an ip-wide limit across the guarded routes at the same time (M6).
-- A guest socket outlives its guest session. After a table is re-claimed by a new party, a tab left open on the old session still receives `table:<tableId>` payloads for the new one. No identifiers leak — every payload passes the public `OrderDtoSchema` — but the order lines do. Expiring the socket with the session, or re-checking the principal on each broadcast, would close it.
-- `subscribe` is not rate limited: it is a socket message, and `@fastify/rate-limit` only sees HTTP requests. A client can re-subscribe in a loop and each one runs the active-orders query.
-- A throw inside the `publish` listener in `apps/api/src/realtime/server.ts` would surface as a 500 on a request whose row is already committed. Wrap the listener and log instead.
 
 **Real-time behaviour**
 
-- The offline banner takes about 45 seconds to appear, because engine.io's defaults (25 s `pingInterval` plus 20 s `pingTimeout`) are what detect the loss. A kitchen board should know within seconds: lower the server heartbeat, and/or have the board listen to the window `offline` event, then tighten `OFFLINE_DETECTION_MS` in `e2e/kitchen-live.spec.ts`. Recommended for the final fix wave.
+- A ticket transitioned between the moment `subscribe` stamps `serverTime` and the moment its query reads the table comes back as active in that snapshot, so a board that had already removed it on the event puts it back until the next one arrives. The window is one query wide and the same ticket's next bump clears it; closing it properly needs the board to remember what it removed, not just what it holds.
 - The demo reset cancels a running rush (`app.rush.stop()` in `apps/api/src/plugins/demo-reset.ts`) rather than pausing it. Pausing and resuming after the reseed would keep the demo's minute of orders intact for whoever pressed the button.
 - `apps/api/src/realtime/server.ts` awaits `io.close()` in `onClose`, which also closes the HTTP server and can wait out keep-alive sockets before Fastify force-closes them. Only visible as a slow shutdown.
 - `createRush({ count: 0 })` never resolves its run, and `rush.stop()` puts no timeout on the drain; its doc comment says "the stopped run" while `inFlight` is not generation-scoped (conservative, so it over-waits rather than under-waits). `apps/api/src/lib/rush.ts`.
 
 **Kitchen board polish**
 
-- The board server-renders every timer as `0:00` with the ok threshold, then grows the cards on hydration: Lighthouse measures CLS 0.212 and performance 84 on `/kitchen` (accessibility is 100). Passing the server clock into `getServerSnapshot` for `useNow` would fix both the shift and the flash.
-- A restored `Sound on` preference stays silent until the toggle is pressed again, because the `AudioContext` is only built on the click. Expected given the browser gesture rule, but the toggle should say so rather than look enabled and do nothing.
-- `"Couldn't start a rush."` never clears — only the success and 409 messages are put on a timer (`apps/web/components/kitchen/rush-button.tsx`).
-- Confirming a cancel drops focus to `<body>` (`apps/web/components/kitchen/ticket-card.tsx`); it should return to the card's remaining control.
 - The live regions mount with their text already in them, so a screen reader may not announce the first one. Render the region empty and fill it.
 - `OrderLive` keeps applying `setOrder` after the order was cleared by a reset (`apps/web/components/order/order-live.tsx`); harmless, since the cleared notice replaces the screen, but it is state nobody reads.
-- `kitchen-board.tsx` is 204 lines and holds the socket lifecycle, the optimistic-move logic and the layout. Splitting the lifecycle into a hook would make both halves testable on their own.
-- `globals.css`'s `body:has` rule for the kitchen surface reaches for the night-background primitive instead of the surface's own `--background`.
+- `kitchen-board.tsx` is 313 lines after the fix wave and holds the socket lifecycle, the resync-and-retry logic, the server-clock offset, the optimistic moves and the layout. Splitting the lifecycle into a hook would make both halves testable on their own; it is the largest single thing on this list now.
+- `globals.css`'s `body:has` rule for the kitchen surface reaches for the night-background primitive rather than the semantic `--background`, and it cannot do otherwise: `--background` is redefined on `[data-surface='kitchen']`, which is a descendant of `<body>`, and custom properties inherit downward only. The two values are the same colour and the primitive is the only one in scope at `body` level, so this is not fixable as written. Closing it properly means a surface attribute the document element carries — a decision about how surfaces are declared, not a CSS tweak.
 - A redundant flex wrapper sits around `RushButton` on the landing page.
 
 **Tests**
@@ -121,6 +115,22 @@ Noticed while building and reviewing the M3 branch. Nothing here blocks the mile
 - The fake socket in the board tests has a no-op `removeAllListeners`, so a listener leak in the real component would go unnoticed; the `nextEvent` helper casts through `unknown` where two literal call sites would typecheck.
 - Small type debt in `apps/api/src`: a redundant `String()` in the transition `keyGenerator`, a computed-key spread in `lib/transitions.ts` that bypasses Drizzle's column typing, and a non-null assertion on the post-commit reload.
 - Light-surface `timer-ok` (3.87:1) and `timer-warn` (3.24:1) are still asserted on the kitchen surface only. M1 deferred the light-surface assertions to M2, M2 deferred them to M3 expecting the board to need them, and M3 could not add them either: every `timer-*` token is consumed on the kitchen (dark) surface, and the guest order page shows an elapsed counter in body text using none of them. The gap is not a missing test but a missing consumer — either give a light surface a timer, or drop the light values from the token file. Deciding that is the actual task.
+
+## Resolved in the final M3 fix wave
+
+Found in the whole-branch review of M3 and fixed on the branch before merge. Listed so a reader of the entries above does not go looking for them.
+
+- A guest socket outlived its guest session: a tab left open on a table's last sitting kept receiving the next party's `table:<tableId>` payloads. Rooms are now `session:<guestSessionId>` (owner's decision 2026-09-04; [ADR 0008](adr/0008-realtime-delivery.md)), and the leak itself is a test.
+- A snapshot replaced the board wholesale, so an order committed while the snapshot query was running — already delivered as `order:created`, because the socket joins its room at connection time — was erased and never came back. `serverTime` is stamped before the read and `mergeSnapshot` keeps whatever the board learned after it.
+- A failed `subscribe` acked `{ orders: [] }`, which every client reads as "everything is gone". The ack is `BoardSnapshot | null`; the board keeps its tickets, says "Couldn't refresh the board. Retrying…" and retries with a backoff, and the guest's order page stays quiet.
+- The offline banner took about 45 seconds. The server heartbeat is 10 s with a 5 s timeout, the board listens for the browser's own `offline` and `online` events, and `OFFLINE_DETECTION_MS` in `e2e/kitchen-live.spec.ts` is down to 20 s.
+- `publish` is wrapped, so a broadcast that throws cannot answer 500 for a write that already committed. `subscribe` is throttled to one a second per socket.
+- Timers followed the display's clock. The board keeps the offset between `serverTime` and its own clock; `/kitchen` passes its render-time clock into `useNow`'s server snapshot, so the server's HTML paints real ages rather than `0:00` — which was also most of the page's layout shift.
+- A restored `Sound on` preference now builds the chime on the first gesture anywhere on the page, so the label is honest.
+- A 403 says "You can't move #42." rather than blaming the ticket's status.
+- Confirming a cancel hands focus to the next ticket's bump button, or to the column heading when there is none.
+- "Couldn't start a rush." clears on the same cool-down as every other message.
+- The plan's claim that `guestSessionId` "never leaves the API" was contradicted by the socket token's subject. The wording is narrowed everywhere (spec §6, the plan's Global Constraints, ADR 0008, README): the id never appears in an order payload and never reaches another client, and the token hands the guest's own session id back to the browser that already holds it in its cookie.
 
 ## Found on the first Compose run
 
