@@ -94,7 +94,16 @@ export async function settlePayment(
           updatedAt: now,
           providerPaymentIntentId: input.providerPaymentIntentId,
         })
-        .where(and(eq(schema.payments.id, input.paymentId), eq(schema.payments.orderId, order.id)));
+        // Only an attempt still in flight may fail. A provider that emits a failure after the
+        // success for the same attempt - its own event, so the replay guard never sees it -
+        // must not walk a settled payment back to failed.
+        .where(
+          and(
+            eq(schema.payments.id, input.paymentId),
+            eq(schema.payments.orderId, order.id),
+            eq(schema.payments.status, 'pending'),
+          ),
+        );
       await recordAudit(tx, {
         actorType: 'system',
         actorId: null,

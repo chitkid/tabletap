@@ -32,19 +32,23 @@ export const TEST_CONFIG: Config = {
 export const TEST_DEMO_PASSWORD = 'tabletap-demo';
 
 export async function createTestApp(
-  opts: { seed?: boolean; ready?: boolean } = {},
+  // `config` builds an app that is not the default demo deployment - a Stripe one, say, whose
+  // route table has to be different. It is a whole Config, not a patch: the caller spreads
+  // TEST_CONFIG so the override reads as the one deliberate difference.
+  opts: { seed?: boolean; ready?: boolean; config?: Config } = {},
 ): Promise<{ app: FastifyInstance; db: Db; close: () => Promise<void> }> {
+  const config = opts.config ?? TEST_CONFIG;
   const { db, close: closeDb } = await createTestDb();
   if (opts.seed !== false) {
     await seed(db, {
       mode: 'reset',
       demoPassword: TEST_DEMO_PASSWORD,
-      tableTokenSecret: TEST_CONFIG.TABLE_TOKEN_SECRET,
+      tableTokenSecret: config.TABLE_TOKEN_SECRET,
       tableTokenTtlDays: 365,
-      webOrigin: TEST_CONFIG.WEB_ORIGIN,
+      webOrigin: config.WEB_ORIGIN,
     });
   }
-  const app = await buildApp({ db, config: TEST_CONFIG, logger: false });
+  const app = await buildApp({ db, config, logger: false });
   if (opts.ready !== false) {
     await app.ready();
   }

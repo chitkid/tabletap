@@ -25,6 +25,7 @@ import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
 import { menuRoutes } from './routes/menu';
 import { ordersRoutes } from './routes/orders';
+import { demoPaymentRoutes, paymentWebhookRoutes } from './routes/payments';
 import { socketTokenRoutes } from './routes/socket-token';
 import { tablesRoutes } from './routes/tables';
 import './types';
@@ -101,6 +102,13 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(tablesRoutes, { prefix: '/api' });
   await app.register(menuRoutes, { prefix: '/api' });
   await app.register(ordersRoutes, { prefix: '/api' });
+  // Deliberately not wrapped in fastify-plugin: the webhook's raw-body parser lives in its own
+  // scope and must not reach the JSON routes above.
+  await app.register(paymentWebhookRoutes, { prefix: '/api' });
+  // The demo terminal stands in for a real checkout page, so it exists only where there is no
+  // real one to stand in for - and only in the demo deployment.
+  if (config.paymentProvider === 'demo' && config.demoMode)
+    await app.register(demoPaymentRoutes, { prefix: '/api' });
   await app.register(demoRoutes, { prefix: '/api' });
   await app.register(socketTokenRoutes, { prefix: '/api' });
   await app.register(realtimePlugin);

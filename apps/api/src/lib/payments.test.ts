@@ -184,6 +184,28 @@ describe('payments', () => {
     expect(payment).toMatchObject({ status: 'failed' });
   });
 
+  it('leaves a payment that already succeeded alone when a failure arrives after it', async () => {
+    const { order, guestSessionId } = await placeOrder(11);
+    await startPayment(ctx.db, provider, { orderId: order.id, guestSessionId });
+    const paymentId = await paymentIdOf(order.id);
+    const settled = event({ orderId: order.id, paymentId, amountCents: order.totalCents });
+    expect(await settlePayment(ctx.db, ctx.app.orderEvents, settled)).toBe('paid');
+    // A provider can emit a failure for the same attempt afterwards, under its own event id, so
+    // the replay guard does not catch it: the attempt itself must refuse to move backwards.
+    await settlePayment(
+      ctx.db,
+      ctx.app.orderEvents,
+      event({ orderId: order.id, paymentId, amountCents: order.totalCents, outcome: 'failed' }),
+    );
+    const [payment] = await ctx.db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, paymentId));
+    expect(payment).toMatchObject({ status: 'succeeded' });
+    const [after] = await ctx.db.select().from(schema.orders).where(eq(schema.orders.id, order.id));
+    expect(after).toMatchObject({ status: 'paid' });
+  });
+
   it('answers a late event about an order that has moved on, without changing it', async () => {
     const { order, guestSessionId } = await placeOrder(8);
     await startPayment(ctx.db, provider, { orderId: order.id, guestSessionId });

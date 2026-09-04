@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
@@ -9,16 +9,18 @@ import {
   OrderDtoSchema,
   OrderResponseSchema,
   OrdersResponseSchema,
+  PaymentSessionResponseSchema,
   TransitionRequestSchema,
   can,
   type OrderDto,
 } from '@tabletap/shared';
-import { AppError } from '../lib/errors';
+import { AppError, validate } from '../lib/errors';
 import { GUEST_COOKIE } from '../lib/guest-sessions';
 import { createOrder, listOrders, loadOrder, type InternalOrderDto } from '../lib/orders';
+import { startPayment } from '../lib/payments';
 import { restaurantIdFor } from '../lib/restaurant';
 import { transitionOrder } from '../lib/transitions';
-import { requireAction, requireAuthenticated } from '../plugins/rbac';
+import { requireAction, requireAuthenticated, requireGuest } from '../plugins/rbac';
 
 /**
  * `guestSessionId` decides who may read an order and must never reach a client. Re-parsing
@@ -27,23 +29,16 @@ import { requireAction, requireAuthenticated } from '../plugins/rbac';
 const strip = (order: InternalOrderDto): OrderDto => OrderDtoSchema.parse(order);
 
 /**
- * Fastify validates a declared `schema.body`/`schema.headers` before any preHandler, so the
- * access guard would answer after the payload check: an anonymous caller would be told what is
- * wrong with a body we were never going to read. POST /orders therefore validates its input
- * inside the handler, once the guard has passed. A declared headers schema would also replace
- * `request.headers` with the parsed subset, dropping the cookie the staff session resolves from.
+ * The limiter runs at onRequest, so there is no principal yet — and waiting for one would mean
+ * not counting the callers the guard turns away. @fastify/cookie is registered first and has
+ * already parsed the jar, so the session id comes from the signed cookie; anyone without a valid
+ * one shares their ip's bucket.
  */
-function validate<T>(schema: z.ZodType<T>, value: unknown): T {
-  const result = schema.safeParse(value);
-  if (!result.success)
-    throw new AppError(
-      'VALIDATION_FAILED',
-      400,
-      'Request did not match the expected shape.',
-      result.error.issues,
-    );
-  return result.data;
-}
+const guestKey = (request: FastifyRequest): string => {
+  const raw = request.cookies[GUEST_COOKIE];
+  const unsigned = raw ? request.unsignCookie(raw) : null;
+  return unsigned?.valid && unsigned.value ? `guest:${unsigned.value}` : `ip:${request.ip}`;
+};
 
 export async function ordersRoutes(app: FastifyInstance) {
   const r = app.withTypeProvider<ZodTypeProvider>();
@@ -51,23 +46,7 @@ export async function ordersRoutes(app: FastifyInstance) {
     '/orders',
     {
       preHandler: requireAction('orders.create'),
-      config: {
-        rateLimit: {
-          max: 10,
-          timeWindow: '1 minute',
-          // The limiter runs at onRequest, so there is no principal yet — and waiting for one
-          // would mean not counting the callers the guard turns away. @fastify/cookie is
-          // registered first and has already parsed the jar, so the session id comes from the
-          // signed cookie; anyone without a valid one shares their ip's bucket.
-          keyGenerator: (request) => {
-            const raw = request.cookies[GUEST_COOKIE];
-            const unsigned = raw ? request.unsignCookie(raw) : null;
-            return unsigned?.valid && unsigned.value
-              ? `guest:${unsigned.value}`
-              : `ip:${request.ip}`;
-          },
-        },
-      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute', keyGenerator: guestKey } },
       schema: { response: { 200: OrderResponseSchema, 201: OrderResponseSchema } },
     },
     async (request, reply) => {
@@ -136,6 +115,22 @@ export async function ordersRoutes(app: FastifyInstance) {
         restaurantId: await restaurantIdFor(app.db, p),
       });
       return { order: strip(order) };
+    },
+  );
+  r.post(
+    '/orders/:id/payment',
+    {
+      preHandler: requireGuest(),
+      config: { rateLimit: { max: 10, timeWindow: '1 minute', keyGenerator: guestKey } },
+      schema: { response: { 200: PaymentSessionResponseSchema } },
+    },
+    async (request) => {
+      const p = request.principal;
+      if (p.kind !== 'guest')
+        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+      const { id } = validate(z.object({ id: z.uuid() }), request.params);
+      // The amount is never in the request: startPayment reads it from the order.
+      return startPayment(app.db, app.payments, { orderId: id, guestSessionId: p.guestSessionId });
     },
   );
   r.get(
