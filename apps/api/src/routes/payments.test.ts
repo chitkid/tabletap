@@ -99,13 +99,45 @@ describe('payments routes', () => {
       expect((await paymentRows(order.id))[0]).toMatchObject({ status: 'succeeded' });
       expect(await auditFor(order.id, 'payment.succeeded')).toHaveLength(1);
 
-      // The attempt is settled, so there is nothing left to complete: the second press is
-      // refused rather than settling the order a second time.
+      // The order is paid, so the second press has nothing to settle - and saying so is not the
+      // same as saying payment is required.
       const again = await complete({ orderId: order.id, outcome: 'paid' }, { cookie });
-      expect(again.statusCode).toBe(409);
-      expect(again.json().error.code).toBe('PAYMENT_REQUIRED');
+      expect(again.statusCode).toBe(200);
+      expect(again.json()).toEqual({ ok: true });
       expect(await auditFor(order.id, 'payment.succeeded')).toHaveLength(1);
       expect(await orderRow(order.id)).toMatchObject({ status: 'paid' });
+
+      // Same answer once the kitchen has moved the ticket on and the guest's tab is stale.
+      const kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
+      const moved = await ctx.app.inject({
+        method: 'POST',
+        url: `/api/orders/${order.id}/transition`,
+        headers: { cookie: kitchen },
+        payload: { to: 'cooking' },
+      });
+      expect(moved.statusCode).toBe(200);
+      const stale = await complete({ orderId: order.id, outcome: 'paid' }, { cookie });
+      expect(stale.statusCode).toBe(200);
+      expect(await auditFor(order.id, 'payment.succeeded')).toHaveLength(1);
+    });
+
+    it('refuses an order that was never paid and is no longer waiting', async () => {
+      const { order, cookie } = await placeOrder(3);
+      expect((await startPayment(order.id, { cookie })).statusCode).toBe(200);
+      const waiter = await signInAs(ctx.app, 'waiter@littlefurnace.demo');
+      const cancelled = await ctx.app.inject({
+        method: 'POST',
+        url: `/api/orders/${order.id}/transition`,
+        headers: { cookie: waiter },
+        payload: { to: 'cancelled' },
+      });
+      expect(cancelled.statusCode).toBe(200);
+
+      const res = await complete({ orderId: order.id, outcome: 'paid' }, { cookie });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('PAYMENT_REQUIRED');
+      expect(await orderRow(order.id)).toMatchObject({ status: 'cancelled', paidAt: null });
+      expect(await auditFor(order.id, 'payment.succeeded')).toHaveLength(0);
     });
 
     it('records a decline without paying the order', async () => {
@@ -129,9 +161,11 @@ describe('payments routes', () => {
       );
       expect(await orderRow(order.id)).toMatchObject({ status: 'paid' });
 
+      // The older attempt is still pending, so Decline has something to aim at - but the order it
+      // belongs to is paid, and the terminal settles nothing.
       const declined = await complete({ orderId: order.id, outcome: 'declined' }, { cookie });
-      expect(declined.statusCode).toBe(409);
-      expect(declined.json().error.code).toBe('PAYMENT_REQUIRED');
+      expect(declined.statusCode).toBe(200);
+      expect(declined.json()).toEqual({ ok: true });
       expect(await orderRow(order.id)).toMatchObject({ status: 'paid' });
       const rows = await paymentRows(order.id);
       expect(rows.filter((r) => r.status === 'succeeded')).toHaveLength(1);

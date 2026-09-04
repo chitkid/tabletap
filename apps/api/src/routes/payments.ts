@@ -1,14 +1,34 @@
 import { and, desc, eq } from 'drizzle-orm';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { schema } from '@tabletap/db';
 import { DemoCompleteRequestSchema } from '@tabletap/shared';
 import { AppError, validate } from '../lib/errors';
+import { guestKey } from '../lib/guest-sessions';
 import { loadOrder } from '../lib/orders';
 import { settlePayment } from '../lib/payments';
-import { PaymentSignatureError } from '../payments/types';
+import { PaymentSignatureError, type SettleInput } from '../payments/types';
 import { requireGuest } from '../plugins/rbac';
+
+/** Verifies the callback and translates it; a rejected signature becomes the route's 400. */
+function readEvent(app: FastifyInstance, request: FastifyRequest): SettleInput | null {
+  const signature = request.headers['stripe-signature'];
+  try {
+    return app.payments.readEvent(
+      request.body as Buffer,
+      typeof signature === 'string' ? signature : undefined,
+    );
+  } catch (err) {
+    if (err instanceof PaymentSignatureError)
+      throw new AppError(
+        'SIGNATURE_INVALID',
+        400,
+        'This event is not signed by the payment provider.',
+      );
+    throw err;
+  }
+}
 
 /**
  * Not wrapped in fastify-plugin on purpose: the raw-body parser below must stay inside this
@@ -27,22 +47,7 @@ export async function paymentWebhookRoutes(app: FastifyInstance) {
     '/payments/webhook',
     { config: { public: true, principal: false } },
     async (request, reply) => {
-      const signature = request.headers['stripe-signature'];
-      let input;
-      try {
-        input = app.payments.readEvent(
-          request.body as Buffer,
-          typeof signature === 'string' ? signature : undefined,
-        );
-      } catch (err) {
-        if (err instanceof PaymentSignatureError)
-          throw new AppError(
-            'SIGNATURE_INVALID',
-            400,
-            'This event is not signed by the payment provider.',
-          );
-        throw err;
-      }
+      const input = readEvent(app, request);
       // A signed event we do not act on is still an event we accept: answering anything else
       // makes the provider retry something that will never change.
       if (input !== null) {
@@ -62,7 +67,7 @@ export async function demoPaymentRoutes(app: FastifyInstance) {
     '/payments/demo/complete',
     {
       preHandler: requireGuest(),
-      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute', keyGenerator: guestKey } },
       schema: { response: { 200: z.object({ ok: z.literal(true) }) } },
     },
     async (request) => {
@@ -74,8 +79,13 @@ export async function demoPaymentRoutes(app: FastifyInstance) {
       // A stranger's order and an order that never existed answer the same way, as everywhere else.
       if (!order || order.guestSessionId !== p.guestSessionId)
         throw new AppError('NOT_FOUND', 404, 'Order not found.');
-      // The terminal may only settle an order that is still waiting: without this an order paid
-      // through one attempt could be declined through an older one that is still open.
+      // Pressing the button twice is not an error, and neither is coming back to a tab left open
+      // while the kitchen got on with it: the order has been paid, nothing is left to settle, and
+      // saying PAYMENT_REQUIRED would assert the opposite of the truth.
+      if (order.paidAt !== null) return { ok: true as const };
+      // Every other order that is not waiting - cancelled, or never placed - has no payment to
+      // complete. This also keeps an older open attempt from declining an order paid through a
+      // newer one.
       if (order.status !== 'placed')
         throw new AppError('PAYMENT_REQUIRED', 409, 'This order is not waiting for payment.', {
           status: order.status,

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { schema } from '@tabletap/db';
 import { IDEMPOTENCY_KEY_HEADER, MenuResponseSchema, OrderResponseSchema } from '@tabletap/shared';
 import { randomUUID } from 'node:crypto';
@@ -31,8 +31,18 @@ describe('payments', () => {
   const paymentIdOf = async (orderId: string) =>
     (await ctx.db.select().from(schema.payments).where(eq(schema.payments.orderId, orderId)))[0]!
       .id;
-  const auditCount = async (action: string) =>
-    (await ctx.db.select().from(schema.auditLog).where(eq(schema.auditLog.action, action))).length;
+  // `entityId` scopes the count to one order: more than one test now writes payment.late rows.
+  const auditCount = async (action: string, entityId?: string) =>
+    (
+      await ctx.db
+        .select()
+        .from(schema.auditLog)
+        .where(
+          entityId === undefined
+            ? eq(schema.auditLog.action, action)
+            : and(eq(schema.auditLog.action, action), eq(schema.auditLog.entityId, entityId)),
+        )
+    ).length;
   const event = (over: Partial<SettleInput>): SettleInput => ({
     provider: 'demo',
     eventId: `demo:${randomUUID()}`,
@@ -217,7 +227,59 @@ describe('payments', () => {
     );
     const late = event({ orderId: order.id, paymentId, amountCents: order.totalCents });
     expect(await settlePayment(ctx.db, ctx.app.orderEvents, late)).toBe('late');
-    expect(await auditCount('payment.late')).toBe(1);
+    expect(await auditCount('payment.late', order.id)).toBe(1);
+  });
+
+  it('calls a failure that arrives after the order is paid late, not a decline', async () => {
+    const { order, guestSessionId } = await placeOrder(12);
+    // Two attempts open at once: the guest went back and started checkout again.
+    await startPayment(ctx.db, provider, { orderId: order.id, guestSessionId });
+    const abandoned = await paymentIdOf(order.id);
+    await startPayment(ctx.db, provider, { orderId: order.id, guestSessionId });
+    const rows = await ctx.db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.orderId, order.id));
+    const finished = rows.find((r) => r.id !== abandoned)!.id;
+    expect(
+      await settlePayment(
+        ctx.db,
+        ctx.app.orderEvents,
+        event({ orderId: order.id, paymentId: finished, amountCents: order.totalCents }),
+      ),
+    ).toBe('paid');
+
+    // Stripe expires the session nobody finished. The attempt is genuinely pending, so it fails -
+    // but the order it belongs to was paid through the other one.
+    expect(
+      await settlePayment(
+        ctx.db,
+        ctx.app.orderEvents,
+        event({
+          orderId: order.id,
+          paymentId: abandoned,
+          amountCents: order.totalCents,
+          outcome: 'failed',
+        }),
+      ),
+    ).toBe('late');
+    const [after] = await ctx.db.select().from(schema.orders).where(eq(schema.orders.id, order.id));
+    expect(after).toMatchObject({ status: 'paid' });
+    const settledRows = await ctx.db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.orderId, order.id));
+    expect(settledRows.find((r) => r.id === abandoned)).toMatchObject({ status: 'failed' });
+    expect(settledRows.find((r) => r.id === finished)).toMatchObject({ status: 'succeeded' });
+    expect(await auditCount('payment.declined', order.id)).toBe(0);
+    expect(await auditCount('payment.late', order.id)).toBe(1);
+    const [row] = await ctx.db
+      .select()
+      .from(schema.auditLog)
+      .where(
+        and(eq(schema.auditLog.action, 'payment.late'), eq(schema.auditLog.entityId, order.id)),
+      );
+    expect(row!.payload).toMatchObject({ status: 'paid' });
   });
 
   it('refuses an event naming a payment that belongs to another order', async () => {

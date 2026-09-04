@@ -128,6 +128,13 @@ export async function settlePayment(
   };
 
   if (input.outcome === 'failed') {
+    // A guest can leave more than one attempt open, and a provider expires the ones nobody
+    // finished: closing that attempt is right, but calling it a decline of an order that is
+    // already paid is not. The order's real status is what the audit trail has to say.
+    if (order.status !== 'placed') {
+      await fail('payment.late', { status: order.status });
+      return 'late';
+    }
     await fail('payment.declined', { number: order.number });
     return 'declined';
   }

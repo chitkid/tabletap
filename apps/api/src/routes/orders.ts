@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
@@ -15,7 +15,7 @@ import {
   type OrderDto,
 } from '@tabletap/shared';
 import { AppError, validate } from '../lib/errors';
-import { GUEST_COOKIE } from '../lib/guest-sessions';
+import { guestKey } from '../lib/guest-sessions';
 import { createOrder, listOrders, loadOrder, type InternalOrderDto } from '../lib/orders';
 import { startPayment } from '../lib/payments';
 import { restaurantIdFor } from '../lib/restaurant';
@@ -27,18 +27,6 @@ import { requireAction, requireAuthenticated, requireGuest } from '../plugins/rb
  * through the public contract drops it - and anything else that is not in the contract.
  */
 const strip = (order: InternalOrderDto): OrderDto => OrderDtoSchema.parse(order);
-
-/**
- * The limiter runs at onRequest, so there is no principal yet — and waiting for one would mean
- * not counting the callers the guard turns away. @fastify/cookie is registered first and has
- * already parsed the jar, so the session id comes from the signed cookie; anyone without a valid
- * one shares their ip's bucket.
- */
-const guestKey = (request: FastifyRequest): string => {
-  const raw = request.cookies[GUEST_COOKIE];
-  const unsigned = raw ? request.unsignCookie(raw) : null;
-  return unsigned?.valid && unsigned.value ? `guest:${unsigned.value}` : `ip:${request.ip}`;
-};
 
 export async function ordersRoutes(app: FastifyInstance) {
   const r = app.withTypeProvider<ZodTypeProvider>();

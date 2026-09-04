@@ -1,6 +1,7 @@
 import { and, eq, gt } from 'drizzle-orm';
 import { schema, type Db } from '@tabletap/db';
 import type { CookieSerializeOptions } from '@fastify/cookie';
+import type { FastifyRequest } from 'fastify';
 import type { Config } from '../config';
 
 export const GUEST_COOKIE = 'tt_guest';
@@ -22,6 +23,19 @@ export function guestCookieOptions(config: Config, expiresAt: Date): CookieSeria
     path: '/',
     expires: expiresAt,
   };
+}
+
+/**
+ * One rate-limit bucket per guest session, for every route a guest reaches. The limiter runs at
+ * onRequest, so there is no principal yet — and waiting for one would mean not counting the
+ * callers the guard turns away. @fastify/cookie is registered first and has already parsed the
+ * jar, so the session id comes from the signed cookie; anyone without a valid one shares their
+ * ip's bucket.
+ */
+export function guestKey(request: FastifyRequest): string {
+  const raw = request.cookies[GUEST_COOKIE];
+  const unsigned = raw ? request.unsignCookie(raw) : null;
+  return unsigned?.valid && unsigned.value ? `guest:${unsigned.value}` : `ip:${request.ip}`;
 }
 
 export async function createGuestSession(
