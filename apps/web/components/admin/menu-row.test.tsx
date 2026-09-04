@@ -168,8 +168,26 @@ describe('MenuRow', () => {
     );
     expect(screen.getByLabelText('Name')).toHaveValue('Margherita Flatbread');
     expect(screen.getByLabelText('Price')).toHaveValue(12);
-    expect(screen.getByRole('switch', { name: 'Available' })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Available' })).toBeChecked();
     expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('names the availability switch for what it switches, not for the state it is in', async () => {
+    const user = userEvent.setup();
+    render(<Harness fetcher={vi.fn()} />, { wrapper });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const toggle = screen.getByRole('switch', { name: 'Available' });
+    expect(toggle).toBeChecked();
+    expect(toggle).toHaveTextContent('Available');
+
+    await user.click(toggle);
+
+    // The same control under the same name: only the state and the word inside it moved. A name
+    // that flipped to "Sold out" would announce an unavailable dish as "Sold out, switch, off".
+    expect(screen.getByRole('switch', { name: 'Available' })).toBe(toggle);
+    expect(toggle).not.toBeChecked();
+    expect(toggle).toHaveTextContent('Sold out');
   });
 
   it('restores on cancel without asking the server anything', async () => {

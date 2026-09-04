@@ -9,19 +9,23 @@ import {
 import { Button, Input, Label, cn } from '@tabletap/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { z } from 'zod';
-import { ApiError, clientFetch } from '../../lib/api';
+import { clientFetch } from '../../lib/api';
 import { randomUuid } from '../../lib/uuid';
 import { MENU_COLUMNS, MenuRow, ROW_LINE } from './menu-row';
+import {
+  OkResponseSchema,
+  RowActions,
+  RowNotice,
+  asJson,
+  deleteRefusal,
+  refusal,
+} from './row-editor';
 
 const CategoryResponseSchema = z.object({ category: MenuCategoryDtoSchema });
-const OkResponseSchema = z.object({ ok: z.literal(true) });
 
 const IN_USE = 'This category still holds dishes. Empty it first.';
 const INCOMPLETE = "Couldn't save. Give the category a name.";
 const HEAD_CELL = 'relative border-l-2 px-3 text-left';
-
-const refusal = (error: unknown) =>
-  error instanceof ApiError ? `Couldn't save. ${error.message}` : "Couldn't save. Try again.";
 
 /** The order the API answers in, kept as rows move: sort order first, then the name. */
 const bySortOrder = <T extends { sortOrder: number; name: string }>(a: T, b: T) =>
@@ -362,11 +366,7 @@ function CategoryEditor({
         isNew ? '/api/menu/categories' : `/api/menu/categories/${category.id}`,
         {
           schema: CategoryResponseSchema,
-          init: {
-            method: isNew ? 'POST' : 'PATCH',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(body),
-          },
+          init: asJson(isNew ? 'POST' : 'PATCH', body),
         },
       );
       onSaved(saved);
@@ -389,7 +389,7 @@ function CategoryEditor({
       });
       onDeleted();
     } catch (error) {
-      setNotice(error instanceof ApiError && error.code === 'IN_USE' ? IN_USE : refusal(error));
+      setNotice(deleteRefusal(error, IN_USE));
     } finally {
       setBusy(false);
     }
@@ -411,27 +411,11 @@ function CategoryEditor({
             onChange={(event) => setName(event.target.value)}
           />
         </th>
-        <td className="px-3 text-right">
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              disabled={busy}
-              aria-busy={busy || undefined}
-              onClick={() => void save()}
-            >
-              Save
-            </Button>
-            <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>
-              Cancel
-            </Button>
-          </div>
-        </td>
+        <RowActions busy={busy} onSave={() => void save()} onCancel={onCancel} />
       </tr>
       <tr className="border-b border-border/50 bg-secondary/60">
         <td colSpan={MENU_COLUMNS} className="px-3 pb-4">
-          <p role="status" aria-live="polite" className="mb-2 min-h-5 text-sm text-destructive">
-            {notice}
-          </p>
+          <RowNotice notice={notice} />
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex max-w-xs flex-col gap-2">
               <Label htmlFor={sortId}>Sort order</Label>

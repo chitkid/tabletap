@@ -9,12 +9,19 @@ import {
 import { Badge, Button, Input, Label, Textarea, cn } from '@tabletap/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { z } from 'zod';
-import { ApiError, clientFetch } from '../../lib/api';
+import { clientFetch } from '../../lib/api';
 import { formatCents } from '../../lib/money';
 import { PhotoField } from './photo-field';
+import {
+  OkResponseSchema,
+  RowActions,
+  RowNotice,
+  asJson,
+  deleteRefusal,
+  refusal,
+} from './row-editor';
 
 const ItemResponseSchema = z.object({ item: MenuItemDtoSchema });
-const OkResponseSchema = z.object({ ok: z.literal(true) });
 
 export const MENU_COLUMNS = 4;
 /**
@@ -50,16 +57,6 @@ const draftOf = (item: MenuItemDto): Draft => ({
 
 const sameAllergens = (a: readonly Allergen[], b: readonly Allergen[]) =>
   a.length === b.length && a.every((value, index) => value === b[index]);
-
-/** `Couldn't save.` and then whatever the server said, because the server said it best. */
-const refusal = (error: unknown) =>
-  error instanceof ApiError ? `Couldn't save. ${error.message}` : "Couldn't save. Try again.";
-
-const asJson = (method: 'POST' | 'PATCH', body: unknown): RequestInit => ({
-  method,
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify(body),
-});
 
 type RowProps = {
   item: MenuItemDto;
@@ -212,7 +209,7 @@ function EditRow({
       });
       onDeleted(item.id);
     } catch (error) {
-      setNotice(error instanceof ApiError && error.code === 'IN_USE' ? IN_USE : refusal(error));
+      setNotice(deleteRefusal(error, IN_USE));
     } finally {
       setBusy(false);
     }
@@ -250,9 +247,14 @@ function EditRow({
           />
         </td>
         <td className="px-3">
+          {/* The name is the thing being switched and never moves; `aria-checked` carries the
+              state. Named from the word inside it, an unavailable dish would announce as
+              "Sold out, switch, off" - a double negative, to the operators least able to
+              afford one. The visible word still says which way the switch is set. */}
           <Button
             type="button"
             role="switch"
+            aria-label="Available"
             variant={draft.isAvailable ? 'outline' : 'secondary'}
             aria-checked={draft.isAvailable}
             onClick={() => change({ isAvailable: !draft.isAvailable })}
@@ -260,27 +262,11 @@ function EditRow({
             {draft.isAvailable ? 'Available' : 'Sold out'}
           </Button>
         </td>
-        <td className="px-3 text-right">
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              disabled={busy}
-              aria-busy={busy || undefined}
-              onClick={() => void save()}
-            >
-              Save
-            </Button>
-            <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>
-              Cancel
-            </Button>
-          </div>
-        </td>
+        <RowActions busy={busy} onSave={() => void save()} onCancel={onCancel} />
       </tr>
       <tr className="border-b border-border/50 bg-secondary/60">
         <td colSpan={MENU_COLUMNS} className="px-3 pb-4">
-          <p role="status" aria-live="polite" className="mb-2 min-h-5 text-sm text-destructive">
-            {notice}
-          </p>
+          <RowNotice notice={notice} />
           <div className="grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor={descriptionId}>Description</Label>

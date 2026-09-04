@@ -4,6 +4,7 @@ import { Button, Input, Label } from '@tabletap/ui';
 import { useId, useRef, useState } from 'react';
 import { z } from 'zod';
 import { clientFetch } from '../../lib/api';
+import { asJson } from './row-editor';
 
 const ItemResponseSchema = z.object({ item: MenuItemDtoSchema });
 
@@ -31,12 +32,6 @@ async function putToStorage(url: string, file: File): Promise<void> {
   });
   if (!res.ok) throw new Error(`Storage refused the upload with status ${res.status}`);
 }
-
-const asJson = (body: unknown): RequestInit => ({
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify(body),
-});
 
 /**
  * Three steps, in this order: ask the API for a signed URL, PUT the bytes straight to storage,
@@ -80,12 +75,12 @@ export function PhotoField({
     try {
       const presigned = await fetcher(`/api/menu/items/${itemId}/photo-url`, {
         schema: PhotoUploadResponseSchema,
-        init: asJson({ contentType }),
+        init: asJson('POST', { contentType }),
       });
       await upload(presigned.url, chosen);
       const { item } = await fetcher(`/api/menu/items/${itemId}/photo`, {
         schema: ItemResponseSchema,
-        init: asJson({ key: presigned.key }),
+        init: asJson('POST', { key: presigned.key }),
       });
       setUploaded(item.imageUrl);
       setChosen(null);
