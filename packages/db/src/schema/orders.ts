@@ -1,4 +1,13 @@
-import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { orderStatusEnum, paymentProviderEnum, paymentStatusEnum } from './enums';
 import { guestSessions } from './guest';
 import { id, timestamps } from './helpers';
@@ -58,16 +67,37 @@ export const orderItems = pgTable(
   (t) => [index('order_items_order_id_idx').on(t.orderId)],
 );
 
-export const payments = pgTable('payments', {
-  id: id(),
-  orderId: uuid('order_id')
-    .notNull()
-    .references(() => orders.id, { onDelete: 'cascade' }),
-  provider: paymentProviderEnum('provider').notNull(),
-  providerSessionId: text('provider_session_id'),
-  providerPaymentIntentId: text('provider_payment_intent_id'),
-  amountCents: integer('amount_cents').notNull(),
-  currency: text('currency').notNull().default('USD'),
-  status: paymentStatusEnum('status').notNull().default('pending'),
-  ...timestamps,
-});
+export const payments = pgTable(
+  'payments',
+  {
+    id: id(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    provider: paymentProviderEnum('provider').notNull(),
+    providerSessionId: text('provider_session_id'),
+    providerPaymentIntentId: text('provider_payment_intent_id'),
+    amountCents: integer('amount_cents').notNull(),
+    currency: text('currency').notNull().default('USD'),
+    status: paymentStatusEnum('status').notNull().default('pending'),
+    ...timestamps,
+  },
+  (t) => [index('payments_order_id_idx').on(t.orderId)],
+);
+
+/**
+ * Every provider event this API has already acted on. The row goes in before the work, so a
+ * retry - which Stripe guarantees - loses the unique index and does nothing the second time.
+ */
+export const processedEvents = pgTable(
+  'processed_events',
+  {
+    id: id(),
+    provider: paymentProviderEnum('provider').notNull(),
+    eventId: text('event_id').notNull(),
+    type: text('type').notNull(),
+    payload: jsonb('payload').notNull().default({}),
+    receivedAt: timestamp('received_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('processed_events_provider_event_uidx').on(t.provider, t.eventId)],
+);
