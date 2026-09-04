@@ -1,6 +1,6 @@
 # M3 Kitchen Display — Design Spec
 
-Date: 2026-09-03. Status: implemented on branch feat/m3-kitchen-display (2026-09-04); merge pending final review.
+Date: 2026-09-03. Status: implemented and merged into main on 2026-09-04 (final review clean after one fix wave; one finding parked as unreachable and recorded in docs/backlog.md). Verified locally against Docker Compose: e2e 5/5 with guest-to-kitchen latency 71 ms against the 500 ms budget, the offline banner in 7 ms, Lighthouse accessibility 100 on the landing, the menu and the kitchen board.
 Project: TableTap — QR table ordering with a real-time kitchen display (portfolio full-stack project).
 Milestone: M3 of six. Builds on M1 Foundation and M2 Guest flow + Demo landing (both merged into `main` on 2026-09-03). The master brief remains the permanent context; this spec covers M3 only.
 
