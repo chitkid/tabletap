@@ -59,6 +59,20 @@ describe('OrderLive', () => {
     );
     expect(screen.getByRole('alert')).toHaveTextContent('Order #42 is ready.');
   });
+  it('keeps the order when the server could not answer the resync', () => {
+    const socket = fakeSocket();
+    render(
+      <OrderLive
+        initial={order}
+        currency="USD"
+        socketFactory={() => socket as unknown as AppSocket}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    act(() => socket.lastAck?.(null));
+    expect(screen.queryByText(/cleared by the hourly demo reset/)).toBeNull();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Order #42');
+  });
   it('says so when a resync no longer contains the order', () => {
     const socket = fakeSocket();
     render(

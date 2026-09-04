@@ -239,8 +239,9 @@ describe('M3 contracts', () => {
         .success,
     ).toBe(true);
   });
-  it('names the rooms', () => {
+  it('names the rooms after the session, not the table', () => {
     expect(SOCKET_ROOMS.kitchen).toBe('kitchen');
-    expect(SOCKET_ROOMS.table(U1)).toBe(`table:${U1}`);
+    expect(SOCKET_ROOMS.session(U1)).toBe(`session:${U1}`);
+    expect(SOCKET_ROOMS).not.toHaveProperty('table');
   });
 });

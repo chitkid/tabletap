@@ -2,7 +2,7 @@ import { vi, type Mock } from 'vitest';
 import type { OrderDto } from '@tabletap/shared';
 
 type Handler = (...args: never[]) => void;
-type Snapshot = { orders: OrderDto[]; serverTime: string };
+type Snapshot = { orders: OrderDto[]; serverTime: string } | null;
 /**
  * Annotated because the literal below refers to itself (`on` returns the socket, `emit` stores
  * the ack on it): without the annotation the inferred type is circular.

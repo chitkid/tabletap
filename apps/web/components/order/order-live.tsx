@@ -24,6 +24,8 @@ export function OrderLive({
     };
     socket.on('connect', () =>
       socket.emit('subscribe', (snapshot) => {
+        // The server could not answer this time. Silence is not "your order is gone".
+        if (snapshot === null) return;
         const mine = snapshot.orders.find((o) => o.id === initial.id);
         if (mine) take(mine);
         else setCleared(true);

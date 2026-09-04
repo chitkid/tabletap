@@ -78,9 +78,10 @@ export function KitchenBoard({
   const freshIds = new Set(columns.new.filter((o) => fresh.has(o.id)).map((o) => o.id));
 
   const resync = useCallback(() => {
-    socketRef.current?.emit('subscribe', (snapshot) =>
-      dispatch({ type: 'snapshot', orders: snapshot.orders }),
-    );
+    socketRef.current?.emit('subscribe', (snapshot) => {
+      if (snapshot === null) return;
+      dispatch({ type: 'snapshot', orders: snapshot.orders });
+    });
   }, []);
 
   useEffect(() => {
