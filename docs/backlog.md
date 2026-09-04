@@ -191,6 +191,7 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 - `apps/web/components/kitchen/kitchen-board.test.tsx` builds its 409 payload with `from: 'placed'`, while the shared fixture defaults to `paid` and a real refusal would say `from: 'paid'`. Nothing reads the field; it is stale test data beside a live assertion.
 - `/pay/<id>` is outside the Lighthouse audit. It needs a guest cookie _and_ an order still waiting for payment, which `scripts/lighthouse-audit.mjs` does not set up, so the one screen M4 added is the one screen the accessibility gate does not see.
 - One test name in `apps/web/components/order/pay-button.test.tsx` claims more than the assertion under it checks.
+- `apps/web/components/login-form.test.tsx` > "submits email and password" times out at Vitest's 5 s default under load: it passed twelve runs in a row on its own and failed once while fifteen Turbo tasks were running in parallel. Untouched since M1 and nothing to do with payments; it is `userEvent` typing two fields character by character with no headroom. Give that one test an explicit timeout, or type into the fields directly.
 
 ## Found on the first Compose run
 
