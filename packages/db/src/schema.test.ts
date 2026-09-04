@@ -1,5 +1,6 @@
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import * as schema from './schema/index';
 import { createTestDb } from './testing';
 
 let ctx: Awaited<ReturnType<typeof createTestDb>>;
@@ -93,5 +94,33 @@ describe('migrations', () => {
       'audit_log_action_idx',
     ])
       expect(names, n).toContain(n);
+  });
+  it('stores updated_at at exactly the precision a JS Date can carry, so a value read back always guards its own row', async () => {
+    const inserted = (await ctx.db.execute(
+      sql`insert into restaurants (name, slug) values ('Precision', 'precision-check') returning id`,
+    )) as unknown as Rows;
+    const id = inserted.rows[0]!.id as string;
+    // What an unconstrained timestamp column actually receives from Postgres's own now(): six
+    // fractional digits (microseconds) - one more level of precision than a JS Date can hold.
+    await ctx.db.execute(
+      sql`update restaurants set updated_at = '2026-03-14 09:26:53.123456+00' where id = ${id}`,
+    );
+    const [row] = await ctx.db
+      .select({ updatedAt: schema.restaurants.updatedAt })
+      .from(schema.restaurants)
+      .where(eq(schema.restaurants.id, id));
+    const before = row!.updatedAt;
+    // The exact guard apps/api/src/lib/menu-admin.ts's updateCategory/updateItem run:
+    // WHERE id = ... AND updated_at = <the Date just read>. Drizzle serialises `before` through
+    // .toISOString(), which always carries three fractional digits - if the column stores more,
+    // Postgres compares a six-digit value on disk against a three-digit value in the query and
+    // finds no match, so the guard refuses every write forever, for reasons that have nothing to
+    // do with a concurrent writer.
+    const guarded = await ctx.db
+      .update(schema.restaurants)
+      .set({ name: 'Precision Retried' })
+      .where(and(eq(schema.restaurants.id, id), eq(schema.restaurants.updatedAt, before)))
+      .returning();
+    expect(guarded).toHaveLength(1);
   });
 });

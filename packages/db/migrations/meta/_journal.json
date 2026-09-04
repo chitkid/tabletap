@@ -36,6 +36,13 @@
       "when": 1788550775778,
       "tag": "0004_qr-version",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788557634373,
+      "tag": "0005_timestamp-precision",
+      "breakpoints": true
     }
   ]
 }
