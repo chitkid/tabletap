@@ -73,6 +73,15 @@ export const COLUMNS: readonly { key: Column; title: string; statuses: readonly 
     { key: 'ready', title: 'Ready', statuses: ['ready'] },
   ];
 
+/**
+ * Does the board hold this ticket in its first column? A ticket the kitchen has not started is
+ * new work; one it holds anywhere else — or does not hold at all — is not.
+ */
+export const inNewColumn = (state: BoardState, id: string): boolean => {
+  const order = state.byId[id];
+  return order !== undefined && COLUMNS[0]!.statuses.includes(order.status);
+};
+
 const startOf = (o: OrderDto) => Date.parse(o.placedAt ?? o.createdAt);
 
 /** Oldest first: the cook works from the top of each column. */

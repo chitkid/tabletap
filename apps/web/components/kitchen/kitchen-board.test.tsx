@@ -10,6 +10,9 @@ import { KitchenBoard } from './kitchen-board';
 // The real one needs an AudioContext, which jsdom does not have; the board's own use of it -
 // when it is built, and whether it is built at all - is what these tests are about.
 vi.mock('../../lib/chime', () => ({ createChime: vi.fn(() => ({ play: vi.fn() })) }));
+/** The chime the board built on its nth call, so a test can hear what the room would hear. */
+const chimeOf = (nth: number): { play: ReturnType<typeof vi.fn> } =>
+  vi.mocked(createChime).mock.results[nth]!.value;
 
 const order = (id: string, patch: Partial<OrderDto> = {}): OrderDto => ({
   id,
@@ -397,6 +400,85 @@ describe('KitchenBoard', () => {
       expect(createChime).not.toHaveBeenCalled();
       act(() => void document.dispatchEvent(new Event('pointerdown')));
       expect(createChime).toHaveBeenCalled();
+    } finally {
+      window.localStorage.clear();
+    }
+  });
+  it('says nothing while an order is only placed, and chimes when the payment lands', () => {
+    window.localStorage.setItem('tt-kitchen-sound', 'on');
+    try {
+      const socket = fakeSocket();
+      vi.mocked(createChime).mockClear();
+      render(
+        <KitchenBoard
+          initialOrders={[]}
+          staffName="Theo"
+          serverNow={SERVER_NOW}
+          demoMode={false}
+          socketFactory={() => socket as unknown as AppSocket}
+          fetcher={vi.fn()}
+        />,
+      );
+      act(() => void document.dispatchEvent(new Event('pointerdown')));
+      act(() => socket.fire('connect'));
+      // The guest has ordered but not paid, and `order:created` is the event that carries that.
+      // The New column is `paid` alone, so announcing this ticket announces nothing visible.
+      act(() =>
+        socket.fire('order:created', { order: order('o20', { status: 'placed', paidAt: null }) }),
+      );
+      expect(screen.queryByRole('article')).toBeNull();
+      expect(chimeOf(0).play).not.toHaveBeenCalled();
+      expect(document.title).toBe('Kitchen · TableTap');
+      // The payment settles: the ticket lands in New, and it arrives as an update.
+      act(() =>
+        socket.fire('order:updated', {
+          order: order('o20', { updatedAt: '2026-09-03T10:01:00Z' }),
+        }),
+      );
+      expect(
+        within(screen.getByRole('region', { name: 'New' })).getByRole('article'),
+      ).toHaveAttribute('data-fresh', 'true');
+      expect(chimeOf(0).play).toHaveBeenCalledTimes(1);
+      expect(document.title).toBe('(1) Kitchen · TableTap');
+      // Moving on inside the board is not another arrival.
+      act(() =>
+        socket.fire('order:updated', {
+          order: order('o20', {
+            status: 'cooking',
+            cookingAt: '2026-09-03T10:02:00Z',
+            updatedAt: '2026-09-03T10:02:00Z',
+          }),
+        }),
+      );
+      expect(chimeOf(0).play).toHaveBeenCalledTimes(1);
+    } finally {
+      window.localStorage.clear();
+    }
+  });
+  it('announces a paid ticket it hears about for the first time as an update', () => {
+    window.localStorage.setItem('tt-kitchen-sound', 'on');
+    try {
+      const socket = fakeSocket();
+      vi.mocked(createChime).mockClear();
+      render(
+        <KitchenBoard
+          initialOrders={[]}
+          staffName="Theo"
+          serverNow={SERVER_NOW}
+          demoMode={false}
+          socketFactory={() => socket as unknown as AppSocket}
+          fetcher={vi.fn()}
+        />,
+      );
+      act(() => void document.dispatchEvent(new Event('pointerdown')));
+      act(() => socket.fire('connect'));
+      // A board that connected after the guest ordered never saw the creation; the settlement is
+      // the whole of what it hears, and it is still a ticket nobody in the kitchen has seen.
+      act(() => socket.fire('order:updated', { order: order('o21') }));
+      expect(
+        within(screen.getByRole('region', { name: 'New' })).getByRole('article'),
+      ).toHaveAttribute('data-fresh', 'true');
+      expect(chimeOf(0).play).toHaveBeenCalledTimes(1);
     } finally {
       window.localStorage.clear();
     }

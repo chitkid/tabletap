@@ -13,6 +13,7 @@ import {
   applySnapshot,
   clockOffsetOf,
   columnsOf,
+  inNewColumn,
   mergeSnapshot,
   ordersOf,
   type BoardState,
@@ -83,6 +84,13 @@ export function KitchenBoard({
   useEffect(() => {
     soundRef.current = sound;
   }, [sound]);
+  // What the board holds, as the socket handlers see it: they are registered once, so they cannot
+  // read today's state through the closure they were built with. Written by the handler that
+  // dispatches - two events can land in one tick, before any render - and re-synced after each.
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
   const chime = useRef<ReturnType<typeof createChime> | null>(null);
   const socketRef = useRef<AppSocket | null>(null);
   // Bumped by every demo reset. A transition that resolves after one belongs to orders the
@@ -130,12 +138,21 @@ export function KitchenBoard({
       resync();
     });
     socket.on('disconnect', () => setConnection('offline'));
-    socket.on('order:created', ({ order }) => {
+    // A ticket is new to the kitchen when it *enters* the New column, whichever event carries it
+    // there. A guest placing an order is `order:created` and is not yet paid, so the board draws
+    // nothing and says nothing; the settlement that follows is an `order:updated`, and that is
+    // the moment the cook has a ticket to see.
+    const receive = (order: OrderDto) => {
+      const before = stateRef.current;
+      const after = applyEvent(before, order);
+      stateRef.current = after;
       dispatch({ type: 'event', order });
+      if (inNewColumn(before, order.id) || !inNewColumn(after, order.id)) return;
       setFresh((prev) => new Set(prev).add(order.id));
       if (soundRef.current) chime.current?.play();
-    });
-    socket.on('order:updated', ({ order }) => dispatch({ type: 'event', order }));
+    };
+    socket.on('order:created', ({ order }) => receive(order));
+    socket.on('order:updated', ({ order }) => receive(order));
     socket.on('demo:reset', () => {
       generation.current += 1;
       dispatch({ type: 'cleared' });
