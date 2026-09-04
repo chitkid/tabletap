@@ -22,6 +22,7 @@ const at = (iso: string, patch: Partial<OrderDto> = {}): OrderDto => ({
   totalCents: 0,
   note: null,
   placedAt: iso,
+  paidAt: null,
   cookingAt: null,
   readyAt: null,
   servedAt: null,

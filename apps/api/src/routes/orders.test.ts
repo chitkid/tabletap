@@ -325,6 +325,21 @@ describe('orders', () => {
         expect(res.json().order).not.toHaveProperty('guestSessionId');
       }
     });
+    it('answers with paidAt once the money has settled, and with null before', async () => {
+      const kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
+      const order = await place(9);
+      // Straight off the response the route already sent: the schema lets the field through
+      // rather than stripping it, so a guest surface can time the wait from the payment.
+      expect(order.paidAt).toBeNull();
+      const paidAt = new Date();
+      await payOrder(ctx.db, order.id, paidAt);
+      const res = await ctx.app.inject({
+        method: 'GET',
+        url: `/api/orders/${order.id}`,
+        headers: { cookie: kitchen },
+      });
+      expect(OrderResponseSchema.parse(res.json()).order.paidAt).toBe(paidAt.toISOString());
+    });
     it('refuses to start a placed order that has not been paid', async () => {
       const kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
       const order = await place(9);

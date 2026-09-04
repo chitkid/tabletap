@@ -15,14 +15,13 @@ type OrderRow = typeof schema.orders.$inferSelect;
 type ItemRow = typeof schema.orderItems.$inferSelect;
 
 /**
- * The scoping columns travel with the DTO inside the API; routes strip them before replying.
- * `paidAt` is internal-only for the same reason: the public contract does not carry it yet, so
- * `strip` (routes/orders.ts) re-parsing through `OrderDtoSchema` drops it along with the rest.
+ * The scoping columns travel with the DTO inside the API; routes strip them before replying,
+ * because `strip` (routes/orders.ts) re-parses through `OrderDtoSchema` and that schema does not
+ * carry them. `paidAt` is on the public contract since M4 and so is not one of them.
  */
 export type InternalOrderDto = OrderDto & {
   guestSessionId: string | null;
   restaurantId: string;
-  paidAt: string | null;
 };
 
 function toDto(order: OrderRow, items: ItemRow[], tableNumber: number): InternalOrderDto {

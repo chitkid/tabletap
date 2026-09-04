@@ -21,6 +21,7 @@ const order = {
   totalCents: 2400,
   note: 'No basil',
   placedAt: '2026-09-03T10:00:00.000Z',
+  paidAt: null,
   cookingAt: null,
   readyAt: null,
   servedAt: null,

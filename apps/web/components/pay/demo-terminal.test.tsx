@@ -16,6 +16,7 @@ const order: OrderDto = {
   totalCents: 2800,
   note: null,
   placedAt: '2026-09-03T10:00:00Z',
+  paidAt: null,
   cookingAt: null,
   readyAt: null,
   servedAt: null,

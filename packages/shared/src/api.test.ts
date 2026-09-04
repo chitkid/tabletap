@@ -162,6 +162,7 @@ describe('M2 contracts', () => {
         totalCents: 400,
         note: null,
         placedAt: '2026-09-03T10:00:00.000Z',
+        paidAt: null,
         cookingAt: null,
         readyAt: null,
         servedAt: null,
@@ -218,6 +219,7 @@ describe('M3 contracts', () => {
     const full = {
       ...base,
       updatedAt: base.createdAt,
+      paidAt: null,
       cookingAt: null,
       readyAt: null,
       servedAt: null,
@@ -264,6 +266,32 @@ describe('M4 contracts', () => {
     expect(DemoCompleteRequestSchema.safeParse({ outcome: 'paid' }).success).toBe(true);
     expect(DemoCompleteRequestSchema.safeParse({ outcome: 'maybe' }).success).toBe(false);
     expect(PaymentProviderNameSchema.options).toEqual(['stripe', 'demo']);
+  });
+  it('carries paidAt on the public order, beside the other stage timestamps', () => {
+    const base = {
+      id: U1,
+      number: 42,
+      status: 'paid',
+      tableId: U2,
+      tableNumber: 7,
+      items: [],
+      subtotalCents: 0,
+      totalCents: 0,
+      note: null,
+      placedAt: '2026-09-04T10:00:00.000Z',
+      cookingAt: null,
+      readyAt: null,
+      servedAt: null,
+      cancelledAt: null,
+      createdAt: '2026-09-04T10:00:00.000Z',
+      updatedAt: '2026-09-04T10:00:00.000Z',
+    };
+    // Required, not optional: a guest surface measuring the wait from the payment must be able
+    // to tell "not paid yet" (null) from "the field was left out of this response".
+    expect(OrderDtoSchema.safeParse(base).success).toBe(false);
+    expect(OrderDtoSchema.parse({ ...base, paidAt: null }).paidAt).toBeNull();
+    expect(OrderDtoSchema.parse({ ...base, paidAt: base.placedAt }).paidAt).toBe(base.placedAt);
+    expect(OrderDtoSchema.safeParse({ ...base, paidAt: 'yesterday' }).success).toBe(false);
   });
   it('carries the payment block on the demo links', () => {
     const links = {

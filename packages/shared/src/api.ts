@@ -97,6 +97,7 @@ export const OrderDtoSchema = z.object({
   totalCents: z.number().int().nonnegative(),
   note: z.string().nullable(),
   placedAt: z.iso.datetime().nullable(),
+  paidAt: z.iso.datetime().nullable(),
   cookingAt: z.iso.datetime().nullable(),
   readyAt: z.iso.datetime().nullable(),
   servedAt: z.iso.datetime().nullable(),
