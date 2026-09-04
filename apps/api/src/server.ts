@@ -19,6 +19,7 @@ import { errorHandlerPlugin } from './plugins/error-handler';
 import { principalPlugin } from './plugins/principal';
 import { routeGuardPlugin } from './plugins/route-guard';
 import { realtimePlugin } from './realtime/server';
+import { dashboardRoutes } from './routes/dashboard';
 import { demoRoutes } from './routes/demo';
 import { guestRoutes } from './routes/guest';
 import { healthRoutes } from './routes/health';
@@ -103,6 +104,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(guestRoutes, { prefix: '/api' });
   await app.register(tablesRoutes, { prefix: '/api' });
   await app.register(menuRoutes, { prefix: '/api' });
+  await app.register(dashboardRoutes, { prefix: '/api' });
   await app.register(ordersRoutes, { prefix: '/api' });
   // Deliberately not wrapped in fastify-plugin: the webhook's raw-body parser lives in its own
   // scope and must not reach the JSON routes above.
