@@ -25,15 +25,19 @@ export function RushButton({ fetcher = clientFetch }: { fetcher?: typeof clientF
     [],
   );
 
-  // The message and the quiet button describe the same rush, so they end together: a board that
-  // still reads "12 orders over the next minute" ten minutes later is telling the room a lie.
-  const cool = (seconds: number) => {
-    setCooling(true);
+  // Every message has the same shelf life: a board that still reads "12 orders over the next
+  // minute" - or that a rush failed - ten minutes later is telling the room a lie.
+  const clearAfter = (seconds: number) => {
     if (timer.current !== null) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       setCooling(false);
       setMessage(null);
     }, seconds * 1_000);
+  };
+  // The message and the quiet button describe the same rush, so they end together.
+  const cool = (seconds: number) => {
+    setCooling(true);
+    clearAfter(seconds);
   };
 
   const start = async () => {
@@ -51,7 +55,9 @@ export function RushButton({ fetcher = clientFetch }: { fetcher?: typeof clientF
         setMessage('A rush is already running.');
         cool(CONFLICT_COOLDOWN_SECONDS);
       } else {
+        // Nothing is running, so the button stays pressable; only the message is on a timer.
         setMessage("Couldn't start a rush.");
+        clearAfter(CONFLICT_COOLDOWN_SECONDS);
       }
     } finally {
       setBusy(false);

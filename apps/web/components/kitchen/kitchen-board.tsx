@@ -170,6 +170,24 @@ export function KitchenBoard({
     };
   }, []);
 
+  // A remembered "Sound on" is a label the board has to honour. The AudioContext still needs a
+  // gesture, so take the first one anywhere on the page rather than waiting for this toggle to
+  // be pressed again - otherwise the button says on and the room hears nothing.
+  useEffect(() => {
+    if (!sound || chime.current !== null) return;
+    const build = () => {
+      chime.current ??= createChime();
+      document.removeEventListener('pointerdown', build);
+      document.removeEventListener('keydown', build);
+    };
+    document.addEventListener('pointerdown', build);
+    document.addEventListener('keydown', build);
+    return () => {
+      document.removeEventListener('pointerdown', build);
+      document.removeEventListener('keydown', build);
+    };
+  }, [sound]);
+
   const freshCount = freshIds.size;
   useEffect(() => {
     document.title = freshCount > 0 ? `(${freshCount}) Kitchen · TableTap` : 'Kitchen · TableTap';
@@ -204,6 +222,12 @@ export function KitchenBoard({
       if (sameBoard()) dispatch({ type: 'event', order: updated });
     } catch (err) {
       if (!sameBoard()) return;
+      // A 403 is about who asked, not about where the ticket is. Telling a waiter the ticket "is
+      // Placed now" reads as a lost race and invites them to press again.
+      if (err instanceof ApiError && err.code === 'FORBIDDEN') {
+        setNotice(`You can't move #${order.number}.`);
+        return;
+      }
       const current =
         err instanceof ApiError &&
         err.code === 'INVALID_TRANSITION' &&
@@ -259,7 +283,11 @@ export function KitchenBoard({
       <main className="grid flex-1 grid-cols-1 gap-6 p-6 md:grid-cols-3">
         {COLUMNS.map((col) => (
           <section key={col.key} aria-label={col.title} className="flex flex-col gap-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{`${col.title} · ${columns[col.key].length}`}</h2>
+            {/* Focusable only by script: where focus lands when the ticket it was in is gone. */}
+            <h2
+              tabIndex={-1}
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >{`${col.title} · ${columns[col.key].length}`}</h2>
             {columns[col.key].length === 0 ? (
               <p className="text-muted-foreground">Nothing here.</p>
             ) : null}

@@ -2,9 +2,14 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { OrderDto } from '@tabletap/shared';
 import { describe, expect, it, vi } from 'vitest';
+import { createChime } from '../../lib/chime';
 import type { AppSocket } from '../../lib/socket';
 import { fakeSocket } from '../../test/fake-socket';
 import { KitchenBoard } from './kitchen-board';
+
+// The real one needs an AudioContext, which jsdom does not have; the board's own use of it -
+// when it is built, and whether it is built at all - is what these tests are about.
+vi.mock('../../lib/chime', () => ({ createChime: vi.fn(() => ({ play: vi.fn() })) }));
 
 const order = (id: string, patch: Partial<OrderDto> = {}): OrderDto => ({
   id,
@@ -324,5 +329,95 @@ describe('KitchenBoard', () => {
       await inFlight;
     });
     expect(screen.queryByRole('article')).toBeNull();
+  });
+  it('says a refused move is about the role, not about the ticket', async () => {
+    const user = userEvent.setup();
+    const socket = fakeSocket();
+    const { ApiError } = await import('../../lib/api');
+    const fetcher = vi
+      .fn()
+      .mockRejectedValue(new ApiError(403, 'FORBIDDEN', 'A waiter may not start cooking.'));
+    render(
+      <KitchenBoard
+        initialOrders={[order('o1')]}
+        staffName="Theo"
+        serverNow={SERVER_NOW}
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={fetcher}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    await user.click(screen.getByRole('button', { name: 'Start #1' }));
+    // The ticket is still Placed and the board knows it: the refusal is about who asked.
+    expect(await screen.findByText("You can't move #1.")).toBeInTheDocument();
+    expect(screen.queryByText(/It is Placed now/)).toBeNull();
+  });
+  it('builds the chime on the first gesture when sound was left on', () => {
+    window.localStorage.setItem('tt-kitchen-sound', 'on');
+    try {
+      const socket = fakeSocket();
+      render(
+        <KitchenBoard
+          initialOrders={[]}
+          staffName="Theo"
+          serverNow={SERVER_NOW}
+          demoMode={false}
+          socketFactory={() => socket as unknown as AppSocket}
+          fetcher={vi.fn()}
+        />,
+      );
+      // The label says the sound is on, so it has to be on as soon as the browser allows it -
+      // which is the first gesture anywhere on the page, not the next press of this toggle.
+      expect(screen.getByRole('button', { name: 'Sound on' })).toBeInTheDocument();
+      expect(createChime).not.toHaveBeenCalled();
+      act(() => void document.dispatchEvent(new Event('pointerdown')));
+      expect(createChime).toHaveBeenCalled();
+    } finally {
+      window.localStorage.clear();
+    }
+  });
+  it('leaves focus on the board after a cancel is confirmed', async () => {
+    const user = userEvent.setup();
+    const socket = fakeSocket();
+    const fetcher = vi.fn().mockResolvedValue({
+      order: order('o1', { status: 'cancelled', updatedAt: '2026-09-03T10:02:00Z' }),
+    });
+    render(
+      <KitchenBoard
+        initialOrders={[order('o1'), order('o2')]}
+        staffName="Theo"
+        serverNow={SERVER_NOW}
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={fetcher}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    await user.click(screen.getByRole('button', { name: 'Cancel #1' }));
+    await user.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+    // The card the cook was working in has gone; focus goes to the next ticket, not to <body>.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Start #2' }));
+  });
+  it('falls back to the column heading when the cancelled ticket was the last one', async () => {
+    const user = userEvent.setup();
+    const socket = fakeSocket();
+    const fetcher = vi.fn().mockResolvedValue({
+      order: order('o1', { status: 'cancelled', updatedAt: '2026-09-03T10:02:00Z' }),
+    });
+    render(
+      <KitchenBoard
+        initialOrders={[order('o1')]}
+        staffName="Theo"
+        serverNow={SERVER_NOW}
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={fetcher}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    await user.click(screen.getByRole('button', { name: 'Cancel #1' }));
+    await user.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: /^New/ }));
   });
 });

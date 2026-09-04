@@ -30,6 +30,7 @@ export function TicketCard({
   const [confirming, setConfirming] = useState(false);
   // Opening and dismissing the confirm unmounts the control that was just pressed, which drops
   // keyboard focus to the document. A cook working a bump bar would land back at the page top.
+  const cardRef = useRef<HTMLElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const restore = useRef<'confirm' | 'cancel' | null>(null);
@@ -39,12 +40,27 @@ export function TicketCard({
     restore.current = null;
     (target === 'confirm' ? confirmRef : cancelRef).current?.focus();
   }, [confirming]);
+  /**
+   * Confirming a cancel takes the whole card off the board, and with it the button that was just
+   * pressed. Hand focus on first, while there is still a card to hand it from: the next ticket's
+   * bump button, or the column's own heading when this was the last one.
+   */
+  const handOverFocus = () => {
+    const item = cardRef.current?.closest('li');
+    const siblings = [...(item?.parentElement?.children ?? [])].filter((el) => el !== item);
+    const nextBump = siblings
+      .map((el) => el.querySelector<HTMLButtonElement>('button[data-bump]'))
+      .find((button) => button !== null);
+    const heading = cardRef.current?.closest('section')?.querySelector<HTMLElement>('h2');
+    (nextBump ?? heading)?.focus();
+  };
   const elapsedMs = Math.max(0, now - Date.parse(timerStartOf(order)));
   const next = NEXT_STATUS[order.status];
   const verb = BUMP_LABEL[order.status];
   const cancellable = order.status === 'placed' || order.status === 'paid';
   return (
     <article
+      ref={cardRef}
       aria-labelledby={`ticket-${order.id}`}
       data-fresh={fresh ? 'true' : undefined}
       className={cn(
@@ -95,6 +111,7 @@ export function TicketCard({
                 type="button"
                 variant="destructive"
                 onClick={() => {
+                  handOverFocus();
                   setConfirming(false);
                   onCancel(order);
                 }}
@@ -116,6 +133,7 @@ export function TicketCard({
           {next && verb ? (
             <Button
               type="button"
+              data-bump
               disabled={pending}
               aria-busy={pending}
               onClick={() => onBump(order, next)}
