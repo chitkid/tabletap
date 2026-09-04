@@ -46,7 +46,8 @@ const handshakeError = (code: 'TOKEN_INVALID' | 'TOKEN_EXPIRED') =>
 
 /**
  * Delivery only. Rooms come from the token's principal, never from the client; every payload
- * passes through the public schema so `guestSessionId` stays inside the API.
+ * passes through the public schema so `guestSessionId` and `restaurantId` never appear in a
+ * payload sent to a client.
  */
 export const realtimePlugin = fp(async (app: FastifyInstance) => {
   const io: RealtimeServer = new Server(app.server, {

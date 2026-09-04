@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-03-m3-kitchen-display-design.md` — read it before any task. Earlier specs: `docs/superpowers/specs/2026-09-02-m1-foundation-design.md`, `docs/superpowers/specs/2026-09-03-m2-guest-flow-design.md`. Deferred items: `docs/backlog.md`.
 
+**Superseded during the final review:** guest sockets join `session:<guestSessionId>`, not `table:<tableId>` — see ADR 0008. The task text below is the plan as executed.
+
 ## Global Constraints
 
 - Language: code, comments, commits, docs in English. Conventional Commits; every commit ends with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Every commit is a working state; no TODO stubs.
