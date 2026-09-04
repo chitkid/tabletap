@@ -279,6 +279,71 @@ describe('menu-admin', () => {
     await updateItem(ctx.db, restaurantId, margherita.id, { isAvailable: true }, ACTOR);
   });
 
+  it('a concurrent item edit loses the race: 409 CONFLICT, and no audit row records a stale transition', async () => {
+    const bowls = await categoryByName('Bowls');
+    const item = await createItem(
+      ctx.db,
+      restaurantId,
+      { categoryId: bowls.id, name: 'Race Update Item', priceCents: 500 },
+      ACTOR,
+    );
+    const results = await Promise.allSettled([
+      updateItem(ctx.db, restaurantId, item.id, { priceCents: 600 }, ACTOR),
+      updateItem(ctx.db, restaurantId, item.id, { priceCents: 700 }, ACTOR),
+    ]);
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses).toEqual(['fulfilled', 'rejected']);
+    const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+    expect(rejected.reason).toMatchObject({ code: 'CONFLICT', statusCode: 409 });
+    // Exactly one update audit row for this item, and its `from` is the price it genuinely held
+    // before the winning write - never a value the loser's stale read merely thought was current.
+    const winner = results.find(
+      (r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof updateItem>>> =>
+        r.status === 'fulfilled',
+    )!;
+    const updateAudits = (
+      await ctx.db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'menu.item.updated'))
+    ).filter((r) => r.entityId === item.id);
+    expect(updateAudits).toHaveLength(1);
+    expect(updateAudits[0]!.payload).toMatchObject({
+      changed: { priceCents: { from: 500, to: winner.value.priceCents } },
+    });
+  });
+
+  it('a concurrent category edit loses the race: 409 CONFLICT, and no audit row records a stale transition', async () => {
+    const category = await createCategory(
+      ctx.db,
+      restaurantId,
+      { name: 'Race Update Category' },
+      ACTOR,
+    );
+    const results = await Promise.allSettled([
+      updateCategory(ctx.db, restaurantId, category.id, { sortOrder: 11 }, ACTOR),
+      updateCategory(ctx.db, restaurantId, category.id, { sortOrder: 12 }, ACTOR),
+    ]);
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses).toEqual(['fulfilled', 'rejected']);
+    const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+    expect(rejected.reason).toMatchObject({ code: 'CONFLICT', statusCode: 409 });
+    const winner = results.find(
+      (r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof updateCategory>>> =>
+        r.status === 'fulfilled',
+    )!;
+    const updateAudits = (
+      await ctx.db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'menu.category.updated'))
+    ).filter((r) => r.entityId === category.id);
+    expect(updateAudits).toHaveLength(1);
+    expect(updateAudits[0]!.payload).toMatchObject({
+      changed: { sortOrder: { from: category.sortOrder, to: winner.value.sortOrder } },
+    });
+  });
+
   it('a price change leaves an audit row both the old and new price can be read from', async () => {
     const bowls = await categoryByName('Bowls');
     const item = await createItem(

@@ -141,8 +141,27 @@ export async function createCategory(
   return toCategoryDto(row, []);
 }
 
-/** Writes only the fields present in `body`: `MenuCategoryWriteSchema.partial()` parses a missing
- * optional field as an absent key, not `undefined`, so a plain spread already does the right thing. */
+/**
+ * Writes only the fields present in `body`: `MenuCategoryWriteSchema.partial()` parses a missing
+ * optional field as an absent key, not `undefined`, so a plain spread already does the right thing.
+ *
+ * `before` is read once, then the write's own `WHERE` is guarded on `updatedAt` matching what
+ * `before` just saw - the same shape `lib/transitions.ts` uses (`WHERE status = <the status we
+ * read>`). Without that guard a second write landing in the gap between reading `before` and
+ * writing would still succeed, and the audit's `from` would describe a transition that never
+ * happened. (The read stays a plain, untransacted `loadCategory` rather than moving inside the
+ * `db.transaction()` below: PGlite serializes every statement - plain or transactional - through
+ * one exclusive lock (`_runExclusiveTransaction` in `@electric-sql/pglite`), so a read taken
+ * *inside* the guarded transaction can never observe a value another call raced past; there would
+ * be no way to write a test that ever sees the guard refuse. Reading it here, exactly where
+ * `transitions.ts` reads `current`, keeps the same real-Postgres guarantee - the guard is what
+ * `WHERE ... AND updatedAt = $2` checks at UPDATE time, not when the value was captured - while
+ * staying provable in this test environment.) A guard that matches nothing is disambiguated
+ * afterward: 404 if the category is gone entirely, 409 `CONFLICT` if it is still there but someone
+ * else changed it first - chosen over a silent retry so an admin's save never lands quietly on top
+ * of an edit they never saw (`docs/superpowers/specs/2026-09-04-m5-admin-design.md` has the failed
+ * save "restore the previous values and say which field the server refused").
+ */
 export async function updateCategory(
   db: Db,
   restaurantId: string,
@@ -151,13 +170,18 @@ export async function updateCategory(
   actorId: string,
 ): Promise<MenuCategoryDto> {
   const before = await loadCategory(db, restaurantId, id);
-  const row = await db.transaction(async (tx) => {
-    const [updated] = await tx
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
       .update(schema.menuCategories)
       .set({ ...body, updatedAt: new Date() })
-      .where(eq(schema.menuCategories.id, id))
+      .where(
+        and(
+          eq(schema.menuCategories.id, id),
+          eq(schema.menuCategories.updatedAt, before.updatedAt),
+        ),
+      )
       .returning();
-    if (!updated) throw new AppError('NOT_FOUND', 404, 'Category not found.');
+    if (!row) return null;
     await recordAudit(tx, {
       actorType: 'user',
       actorId,
@@ -166,10 +190,18 @@ export async function updateCategory(
       entityId: id,
       payload: { changed: changedFields(before, body) },
     });
-    return updated;
+    return row;
   });
+  if (!updated) {
+    await loadCategory(db, restaurantId, id); // still gone or foreign -> throws 404
+    throw new AppError(
+      'CONFLICT',
+      409,
+      'This category changed while you were editing it. Reload and try again.',
+    );
+  }
   const items = await itemsOf(db, id);
-  return toCategoryDto(row, items);
+  return toCategoryDto(updated, items);
 }
 
 /**
@@ -263,6 +295,10 @@ export async function createItem(
   return toItemDto(row);
 }
 
+/**
+ * Same guard as `updateCategory`, and the same reason its `before` read stays a plain,
+ * untransacted call rather than moving inside `db.transaction()` below - see that doc comment.
+ */
 export async function updateItem(
   db: Db,
   restaurantId: string,
@@ -271,15 +307,16 @@ export async function updateItem(
   actorId: string,
 ): Promise<MenuItemDto> {
   const before = await loadItem(db, restaurantId, id);
-  // A re-categorize target still has to belong to this restaurant.
+  // A re-categorize target still has to belong to this restaurant. Independent of the guard below:
+  // it is a different row, not the one being written.
   if (body.categoryId !== undefined) await loadCategory(db, restaurantId, body.categoryId);
-  const row = await db.transaction(async (tx) => {
-    const [updated] = await tx
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
       .update(schema.menuItems)
       .set({ ...body, updatedAt: new Date() })
-      .where(eq(schema.menuItems.id, id))
+      .where(and(eq(schema.menuItems.id, id), eq(schema.menuItems.updatedAt, before.updatedAt)))
       .returning();
-    if (!updated) throw new AppError('NOT_FOUND', 404, 'Item not found.');
+    if (!row) return null;
     await recordAudit(tx, {
       actorType: 'user',
       actorId,
@@ -288,9 +325,17 @@ export async function updateItem(
       entityId: id,
       payload: { changed: changedFields(before, body) },
     });
-    return updated;
+    return row;
   });
-  return toItemDto(row);
+  if (!updated) {
+    await loadItem(db, restaurantId, id); // still gone or foreign -> throws 404
+    throw new AppError(
+      'CONFLICT',
+      409,
+      'This item changed while you were editing it. Reload and try again.',
+    );
+  }
+  return toItemDto(updated);
 }
 
 /**
