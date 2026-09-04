@@ -8,7 +8,7 @@ const T0 = Date.parse('2026-09-03T10:00:00Z');
 const order = (patch: Partial<OrderDto> = {}): OrderDto => ({
   id: 'o1',
   number: 42,
-  status: 'placed',
+  status: 'paid',
   tableId: 't',
   tableNumber: 7,
   items: [

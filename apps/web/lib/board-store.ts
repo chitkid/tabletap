@@ -64,9 +64,11 @@ export const clockOffsetOf = (snapshot: BoardSnapshot, clientNow: number): numbe
 export const ordersOf = (state: BoardState): OrderDto[] => Object.values(state.byId);
 
 export type Column = 'new' | 'cooking' | 'ready';
+// An order that is placed but not paid belongs to the guest's phone, not to the pass: the board
+// shows work the kitchen may start, and payment is what makes it startable (ADR 0010).
 export const COLUMNS: readonly { key: Column; title: string; statuses: readonly OrderStatus[] }[] =
   [
-    { key: 'new', title: 'New', statuses: ['placed', 'paid'] },
+    { key: 'new', title: 'New', statuses: ['paid'] },
     { key: 'cooking', title: 'Cooking', statuses: ['cooking'] },
     { key: 'ready', title: 'Ready', statuses: ['ready'] },
   ];
@@ -86,13 +88,11 @@ export function columnsOf(orders: OrderDto[]): Record<Column, OrderDto[]> {
 }
 
 export const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
-  placed: 'cooking',
   paid: 'cooking',
   cooking: 'ready',
   ready: 'served',
 };
 export const BUMP_LABEL: Partial<Record<OrderStatus, 'Start' | 'Ready' | 'Served'>> = {
-  placed: 'Start',
   paid: 'Start',
   cooking: 'Ready',
   ready: 'Served',

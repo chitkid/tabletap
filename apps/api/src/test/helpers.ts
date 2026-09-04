@@ -73,6 +73,17 @@ export async function signInAs(
   return res.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
 }
 
+/**
+ * Marks an order paid straight in the database. Only `settlePayment` may do this in the running
+ * app; tests that need a cookable ticket use this so they do not depend on a payment provider.
+ */
+export async function payOrder(db: Db, orderId: string, now = new Date()): Promise<void> {
+  await db
+    .update(schema.orders)
+    .set({ status: 'paid', paidAt: now, updatedAt: now })
+    .where(eq(schema.orders.id, orderId));
+}
+
 export async function claimTable(
   app: FastifyInstance,
   db: Db,

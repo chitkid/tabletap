@@ -110,29 +110,20 @@ describe('board store', () => {
     expect(clockOffsetOf(snapshot, Date.parse('2026-09-03T10:00:20Z'))).toBe(-15_000);
     expect(clockOffsetOf(snapshot, Date.parse('2026-09-03T10:00:05Z'))).toBe(0);
   });
-  it('columns are oldest first and follow the status', () => {
+  it('keeps unpaid tickets off the board and sorts the rest oldest first', () => {
     const cols = columnsOf([
-      at('2026-09-03T10:02:00Z', { id: 'b', number: 2 }),
+      at('2026-09-03T10:02:00Z', { id: 'b', number: 2, status: 'paid' }),
       at('2026-09-03T10:01:00Z', { id: 'a', number: 1, status: 'paid' }),
-      at('2026-09-03T10:00:00Z', { id: 'c', number: 3, status: 'cooking' }),
+      at('2026-09-03T10:00:00Z', { id: 'u', number: 9, status: 'placed' }),
+      at('2026-09-03T10:00:30Z', { id: 'c', number: 3, status: 'cooking' }),
       at('2026-09-03T10:03:00Z', { id: 'd', number: 4, status: 'ready' }),
     ]);
     expect(cols.new.map((o) => o.id)).toEqual(['a', 'b']);
     expect(cols.cooking.map((o) => o.id)).toEqual(['c']);
     expect(cols.ready.map((o) => o.id)).toEqual(['d']);
   });
-  it('knows the next step and its verb', () => {
-    expect(NEXT_STATUS).toEqual({
-      placed: 'cooking',
-      paid: 'cooking',
-      cooking: 'ready',
-      ready: 'served',
-    });
-    expect(BUMP_LABEL).toEqual({
-      placed: 'Start',
-      paid: 'Start',
-      cooking: 'Ready',
-      ready: 'Served',
-    });
+  it('knows the next step and its verb, and offers none for an unpaid ticket', () => {
+    expect(NEXT_STATUS).toEqual({ paid: 'cooking', cooking: 'ready', ready: 'served' });
+    expect(BUMP_LABEL).toEqual({ paid: 'Start', cooking: 'Ready', ready: 'Served' });
   });
 });

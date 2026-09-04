@@ -19,6 +19,7 @@ const links = {
     },
   ],
   resetsEveryMinutes: 60,
+  payments: { provider: 'demo' as const, testCard: null },
 };
 
 describe('LandingContent', () => {

@@ -182,6 +182,7 @@ describe('M2 contracts', () => {
           },
         ],
         resetsEveryMinutes: 60,
+        payments: { provider: 'demo', testCard: null },
       }).success,
     ).toBe(true);
   });
@@ -243,5 +244,40 @@ describe('M3 contracts', () => {
     expect(SOCKET_ROOMS.kitchen).toBe('kitchen');
     expect(SOCKET_ROOMS.session(U1)).toBe(`session:${U1}`);
     expect(SOCKET_ROOMS).not.toHaveProperty('table');
+  });
+});
+
+import {
+  DemoCompleteRequestSchema,
+  PaymentProviderNameSchema,
+  PaymentSessionResponseSchema,
+} from './index';
+
+describe('M4 contracts', () => {
+  it('adds the two payment error codes', () => {
+    expect(ERROR_CODES).toContain('PAYMENT_REQUIRED');
+    expect(ERROR_CODES).toContain('SIGNATURE_INVALID');
+  });
+  it('validates the payment shapes', () => {
+    expect(PaymentSessionResponseSchema.parse({ url: '/pay/abc' })).toEqual({ url: '/pay/abc' });
+    expect(PaymentSessionResponseSchema.safeParse({ url: '' }).success).toBe(false);
+    expect(DemoCompleteRequestSchema.safeParse({ outcome: 'paid' }).success).toBe(true);
+    expect(DemoCompleteRequestSchema.safeParse({ outcome: 'maybe' }).success).toBe(false);
+    expect(PaymentProviderNameSchema.options).toEqual(['stripe', 'demo']);
+  });
+  it('carries the payment block on the demo links', () => {
+    const links = {
+      guest: { tableNumber: 7, url: 'http://localhost:3000/t/x' },
+      staff: [{ role: 'kitchen', email: 'k@x.demo', name: 'K', password: 'p' }],
+      resetsEveryMinutes: 60,
+      payments: { provider: 'demo', testCard: null },
+    };
+    expect(DemoLinksResponseSchema.parse(links).payments).toEqual({
+      provider: 'demo',
+      testCard: null,
+    });
+    expect(DemoLinksResponseSchema.safeParse({ ...links, payments: undefined }).success).toBe(
+      false,
+    );
   });
 });

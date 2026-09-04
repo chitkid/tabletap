@@ -15,7 +15,7 @@ import { io, type Socket } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as ordersModule from '../lib/orders';
 import type { InternalOrderDto } from '../lib/orders';
-import { TEST_CONFIG, claimTable, createTestApp, signInAs } from '../test/helpers';
+import { TEST_CONFIG, claimTable, createTestApp, payOrder, signInAs } from '../test/helpers';
 import { SUBSCRIBE_MIN_INTERVAL_MS } from './server';
 
 type Client = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -223,6 +223,7 @@ describe('realtime', () => {
     expect((await subscribe(guest3))?.orders).toEqual([]);
     const on7 = nextEvent(guest7, 'order:updated');
     const on3 = nextEvent(guest3, 'order:updated', 500);
+    await payOrder(ctx.db, seven.order.id);
     const kitchen = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
     await ctx.app.inject({
       method: 'POST',

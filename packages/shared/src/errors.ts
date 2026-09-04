@@ -10,6 +10,8 @@ export const ERROR_CODES = [
   'ITEM_UNAVAILABLE',
   'CONFLICT',
   'INVALID_TRANSITION',
+  'PAYMENT_REQUIRED',
+  'SIGNATURE_INVALID',
   'INTERNAL',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];

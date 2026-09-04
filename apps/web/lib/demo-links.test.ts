@@ -6,6 +6,7 @@ const LINKS = {
     { role: 'admin', email: 'admin@littlefurnace.demo', name: 'Mara Quinn', password: 'demo' },
   ],
   resetsEveryMinutes: null,
+  payments: { provider: 'demo', testCard: null },
 };
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });

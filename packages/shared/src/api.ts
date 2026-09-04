@@ -123,6 +123,9 @@ export const RushResponseSchema = z.object({
 });
 export type RushResponse = z.infer<typeof RushResponseSchema>;
 
+export const PaymentProviderNameSchema = z.enum(['stripe', 'demo']);
+export type PaymentProviderName = z.infer<typeof PaymentProviderNameSchema>;
+
 export const DemoLinksResponseSchema = z.object({
   guest: z.object({ tableNumber: z.number().int().positive(), url: z.url() }),
   staff: z.array(
@@ -134,8 +137,19 @@ export const DemoLinksResponseSchema = z.object({
     }),
   ),
   resetsEveryMinutes: z.number().int().nonnegative().nullable(),
+  payments: z.object({
+    provider: PaymentProviderNameSchema,
+    /** The card to type on Stripe's page; null in demo mode, where there is nothing to type. */
+    testCard: z.string().nullable(),
+  }),
 });
 export type DemoLinksResponse = z.infer<typeof DemoLinksResponseSchema>;
 
 export const IDEMPOTENCY_KEY_HEADER = 'idempotency-key';
 export const IdempotencyKeySchema = z.uuid();
+
+/** A path for the demo terminal, an absolute URL for Stripe: the browser follows either. */
+export const PaymentSessionResponseSchema = z.object({ url: z.string().min(1) });
+export type PaymentSessionResponse = z.infer<typeof PaymentSessionResponseSchema>;
+export const DemoCompleteRequestSchema = z.object({ outcome: z.enum(['paid', 'declined']) });
+export type DemoCompleteRequest = z.infer<typeof DemoCompleteRequestSchema>;

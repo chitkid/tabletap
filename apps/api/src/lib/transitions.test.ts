@@ -3,7 +3,7 @@ import { schema } from '@tabletap/db';
 import { IDEMPOTENCY_KEY_HEADER, MenuResponseSchema, OrderResponseSchema } from '@tabletap/shared';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { claimTable, createTestApp } from '../test/helpers';
+import { claimTable, createTestApp, payOrder } from '../test/helpers';
 import { transitionOrder } from './transitions';
 
 describe('transitionOrder', () => {
@@ -44,6 +44,7 @@ describe('transitionOrder', () => {
 
   it('moves placed → cooking, stamps cookingAt and updatedAt, audits and emits', async () => {
     const orderId = await placeOrder(2);
+    await payOrder(ctx.db, orderId);
     const seen: string[] = [];
     ctx.app.orderEvents.once('order:updated', (o) => seen.push(o.status));
     const now = new Date('2026-09-03T12:00:00Z');
@@ -66,7 +67,7 @@ describe('transitionOrder', () => {
       actorType: 'user',
       actorId: 'u-kitchen',
       entityId: orderId,
-      payload: { from: 'placed', to: 'cooking' },
+      payload: { from: 'paid', to: 'cooking' },
     });
   });
   it('refuses a target the role may not set (403) and an edge the machine forbids (409)', async () => {
@@ -79,21 +80,23 @@ describe('transitionOrder', () => {
         restaurantId,
       }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN', statusCode: 403 });
+    // Without paying first: the interim placed → cooking edge (ADR 0009) is gone.
     await expect(
       transitionOrder(ctx.db, ctx.app.orderEvents, {
         orderId,
-        to: 'served',
+        to: 'cooking',
         actor: kitchen,
         restaurantId,
       }),
     ).rejects.toMatchObject({
       code: 'INVALID_TRANSITION',
       statusCode: 409,
-      details: { from: 'placed', to: 'served', current: 'placed' },
+      details: { from: 'placed', to: 'cooking', current: 'placed' },
     });
   });
   it('answers the loser of a concurrent bump with 409 and the current status', async () => {
     const orderId = await placeOrder(3);
+    await payOrder(ctx.db, orderId);
     const bump = () =>
       transitionOrder(ctx.db, ctx.app.orderEvents, {
         orderId,

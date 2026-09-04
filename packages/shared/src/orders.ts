@@ -15,9 +15,9 @@ export const OrderStatusSchema = z.enum(ORDER_STATUSES);
 
 export const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   draft: ['placed'],
-  // 'cooking' is the M3 interim edge (ADR 0009): until payments exist an order is cookable as
-  // soon as it is placed. M4 removes it together with the webhook that sets 'paid'.
-  placed: ['paid', 'cooking', 'cancelled'],
+  // ADR 0009's interim `placed → cooking` edge was removed in M4: an order reaches the kitchen
+  // only through `settlePayment`, and `paid` is the only status a role may cook from.
+  placed: ['paid', 'cancelled'],
   paid: ['cooking', 'cancelled'],
   cooking: ['ready'],
   ready: ['served'],

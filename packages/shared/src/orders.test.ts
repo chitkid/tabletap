@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ORDER_STATUSES, canTransition } from './orders';
+import { ORDER_STATUSES, ORDER_TRANSITIONS, canTransition } from './orders';
 import {
   ACTIVE_ORDER_STATUSES,
   TRANSITION_RIGHTS,
@@ -32,9 +32,11 @@ describe('canTransition()', () => {
 });
 
 describe('M3 state machine', () => {
-  it('allows placed → cooking while payments do not exist (ADR 0009)', () => {
-    expect(canTransition('placed', 'cooking')).toBe(true);
-    expect(canTransition('placed', 'ready')).toBe(false);
+  it('closes placed → cooking now that payments exist (ADR 0009 superseded by M4)', () => {
+    expect(ORDER_TRANSITIONS.placed).toEqual(['paid', 'cancelled']);
+    expect(canTransition('placed', 'cooking')).toBe(false);
+    expect(canTransition('placed', 'paid')).toBe(true);
+    expect(canTransition('paid', 'cooking')).toBe(true);
   });
   it('names the four active statuses', () => {
     expect(ACTIVE_ORDER_STATUSES).toEqual(['placed', 'paid', 'cooking', 'ready']);
@@ -48,7 +50,7 @@ describe('M3 state machine', () => {
       expect(TRANSITION_RIGHTS[role]).not.toContain('paid');
   });
   it.each([
-    ['kitchen', 'placed', 'cooking', true],
+    ['kitchen', 'placed', 'cooking', false],
     ['kitchen', 'cooking', 'ready', true],
     ['kitchen', 'ready', 'served', true],
     ['kitchen', 'placed', 'cancelled', true],

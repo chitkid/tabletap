@@ -54,6 +54,9 @@ export async function demoRoutes(app: FastifyInstance) {
         })),
         resetsEveryMinutes:
           config.DEMO_RESET_INTERVAL_MINUTES > 0 ? config.DEMO_RESET_INTERVAL_MINUTES : null,
+        // No provider selection exists yet (M4 Task 3): every deployment on this branch is the
+        // demo one, so there is never a card to type.
+        payments: { provider: 'demo' as const, testCard: null },
       };
     },
   );

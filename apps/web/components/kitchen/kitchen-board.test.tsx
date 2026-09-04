@@ -14,7 +14,7 @@ vi.mock('../../lib/chime', () => ({ createChime: vi.fn(() => ({ play: vi.fn() })
 const order = (id: string, patch: Partial<OrderDto> = {}): OrderDto => ({
   id,
   number: Number(id.replace('o', '')),
-  status: 'placed',
+  status: 'paid',
   tableId: 't',
   tableNumber: 7,
   items: [],
