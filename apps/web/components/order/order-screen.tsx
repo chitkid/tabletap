@@ -1,6 +1,7 @@
 import type { OrderDto } from '@tabletap/shared';
 import { StatusBadge } from '@tabletap/ui';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { formatCents } from '../../lib/money';
 import { ElapsedSince } from './elapsed-since';
 import { PayButton } from './pay-button';
@@ -32,7 +33,28 @@ export function headlineFor(order: OrderDto): string {
  * line — the order is with the kitchen — and then answers, in order, the questions that follow:
  * what state is it in, how long has it been, and what did I actually order.
  */
-export function OrderScreen({ order, currency }: { order: OrderDto; currency: string }) {
+export function OrderScreen({
+  order,
+  currency,
+  onPay,
+}: {
+  order: OrderDto;
+  currency: string;
+  /**
+   * The control offered while the order is waiting for payment. It defaults to the real
+   * `PayButton`, so the live receipt needs to say nothing; passing one in is the seam a test
+   * uses to drive Pay without a network, and passing `null` renders no control at all.
+   */
+  onPay?: ReactNode;
+}) {
+  // `undefined` rather than a nullish check, so a caller can pass `null` to mean "no control"
+  // and still get the default by leaving the prop off.
+  const pay =
+    onPay === undefined ? (
+      <PayButton orderId={order.id} totalCents={order.totalCents} currency={currency} />
+    ) : (
+      onPay
+    );
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6">
       <header className="flex flex-col gap-3">
@@ -46,9 +68,7 @@ export function OrderScreen({ order, currency }: { order: OrderDto; currency: st
 
       {/* Directly under the headline that says money is owed, and above the lines it is owed
           for: the answer to "waiting for payment" should not be below the fold. */}
-      {order.status === 'placed' ? (
-        <PayButton orderId={order.id} totalCents={order.totalCents} currency={currency} />
-      ) : null}
+      {order.status === 'placed' ? pay : null}
 
       <section
         aria-labelledby="order-lines-heading"

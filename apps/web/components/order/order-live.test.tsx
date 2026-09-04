@@ -111,6 +111,21 @@ describe('OrderLive', () => {
     expect(screen.getByText('Payment declined. Try again.')).toHaveAttribute('role', 'status');
     expect(screen.getByRole('button', { name: /^Pay/ })).toBeInTheDocument();
   });
+  it('drops the declined notice once the order turns out to be paid', () => {
+    const socket = fakeSocket();
+    render(
+      <OrderLive
+        initial={{ ...order, status: 'paid' }}
+        currency="USD"
+        paidStatus="declined"
+        socketFactory={() => socket as unknown as AppSocket}
+      />,
+    );
+    expect(screen.queryByText('Payment declined. Try again.')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      'Order #42 sent to the kitchen.',
+    );
+  });
   it('says so when a resync no longer contains the order', () => {
     const socket = fakeSocket();
     render(

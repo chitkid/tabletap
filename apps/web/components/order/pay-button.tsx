@@ -4,6 +4,7 @@ import { Button } from '@tabletap/ui';
 import { useState } from 'react';
 import { clientFetch } from '../../lib/api';
 import { formatCents } from '../../lib/money';
+import { usePageRestore } from '../../lib/use-page-restore';
 
 /** Both providers answer with something the browser can follow, so one helper covers both. */
 const goTo = (href: string) => window.location.assign(href);
@@ -29,6 +30,11 @@ export function PayButton({
 }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+
+  // Back from the terminal restores this page mid-navigation, still busy. The order is whatever
+  // it is — a guest who paid sees a receipt with no Pay button at all — but one who came back
+  // without paying must be able to press it again.
+  usePageRestore(() => setBusy(false));
 
   const start = async () => {
     setBusy(true);

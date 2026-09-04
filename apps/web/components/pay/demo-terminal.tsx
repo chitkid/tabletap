@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { z } from 'zod';
 import { ApiError, clientFetch } from '../../lib/api';
 import { formatCents } from '../../lib/money';
+import { usePageRestore } from '../../lib/use-page-restore';
 
 const CompleteResponseSchema = z.object({ ok: z.literal(true) });
 
@@ -40,6 +41,15 @@ export function DemoTerminal({
   const [busy, setBusy] = useState<'paid' | 'declined' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const amount = formatCents(order.totalCents, currency);
+
+  // Back from the receipt restores this terminal exactly as it left: both buttons quiet, and a
+  // line still claiming to be taking a payment that has long since finished. Both are stale.
+  // Pressing Pay again on a restored terminal is safe — an order that is already paid is told
+  // so by the API with a 200, and one that is not gets a fresh attempt.
+  usePageRestore(() => {
+    setBusy(null);
+    setMessage(null);
+  });
 
   const complete = (outcome: 'paid' | 'declined') =>
     fetcher('/api/payments/demo/complete', {

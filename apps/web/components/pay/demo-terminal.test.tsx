@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { OrderDto } from '@tabletap/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../lib/api';
+import { restoreFromBackForwardCache } from '../../test/bfcache';
 import { DemoTerminal } from './demo-terminal';
 
 const order: OrderDto = {
@@ -103,6 +104,21 @@ describe('DemoTerminal', () => {
     expect(await screen.findByText('Taking the payment…')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Pay $28.00' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Decline' })).toBeDisabled();
+  });
+
+  it('comes back usable when the browser hands the page back', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue({ ok: true });
+    const navigate = vi.fn();
+    render(<DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />);
+    await user.click(screen.getByRole('button', { name: 'Pay $28.00' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/orders/o1?paid=1'));
+    // Back from the receipt restores the terminal exactly as it left: quiet, and still claiming
+    // to be taking a payment that finished. Both are stale, and both have to go.
+    restoreFromBackForwardCache();
+    expect(screen.getByRole('button', { name: 'Pay $28.00' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Decline' })).toBeEnabled();
+    expect(screen.queryByText('Taking the payment…')).toBeNull();
   });
 
   it('does not offer a keypad key to anyone reading the page', () => {

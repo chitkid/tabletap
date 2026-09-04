@@ -42,12 +42,17 @@ export function OrderLive({
       socket.disconnect();
     };
   }, [initial.id, socketFactory]);
+  // Neither notice is about an order that has stopped waiting for payment. A guest who paid in
+  // one tab and declined in another would otherwise be told the payment failed, directly above a
+  // headline saying the kitchen has the order and a badge reading Paid.
   const notice =
-    paidStatus === 'declined'
-      ? 'Payment declined. Try again.'
-      : paidStatus === 'received' && order.status === 'placed'
-        ? 'Payment received. Confirming…'
-        : null;
+    order.status !== 'placed'
+      ? null
+      : paidStatus === 'declined'
+        ? 'Payment declined. Try again.'
+        : paidStatus === 'received'
+          ? 'Payment received. Confirming…'
+          : null;
   return (
     <>
       {!cleared && order.status === 'ready' ? (
