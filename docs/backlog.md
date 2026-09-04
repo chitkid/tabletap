@@ -29,7 +29,6 @@ Noticed while reviewing the M1 branch; none of it blocks the milestone.
 
 Noticed in the whole-branch review before merge. Everything here was judged out of scope for M1 and is written down so it is not rediscovered.
 
-- Kitchen `font-size` mechanism. `[data-surface="kitchen"]` sets `font-size: var(--kitchen-body-size)` on the surface root, but Tailwind's `text-*` utilities are rem-based and ignore it, so the kitchen type scale is not actually enforced. Override the `--text-*` scale under the surface before M3 builds the board.
 - Containers run as root. Add `USER node` to both Dockerfiles. Postgres also publishes 5432 with the default demo credentials. Both are scoped to the local demo; neither is acceptable on a deployed host.
 - The rate limiter uses the in-memory store, which is per process. A multi-instance deploy needs a shared store (Redis) or the limit is per instance. M6, with deployment.
 - `AuthClientLike` in `apps/web/components/login-form.tsx` mirrors the better-auth client shape by hand so the form can be tested without the real client. It will drift if better-auth changes; derive it from the client's own types if that becomes a problem.
@@ -39,7 +38,6 @@ Noticed in the whole-branch review before merge. Everything here was judged out 
 
 Not defects. Directions later milestones should take, decided while reviewing M1. The three M2 items on this list — `restaurantId` on `GuestPrincipal`, `requireAction` over explicit role lists, and no Server Actions for API calls — all landed in M2.
 
-- Extract the cookie-unsign plus `resolvePrincipal` pair into one reusable function before M3: the Socket.io handshake needs exactly that, and it must not re-implement it.
 - Register the Stripe webhook in its own encapsulated scope with a buffer content-type parser and `config.public`, so raw-body parsing cannot leak into the JSON routes (M4).
 - Audit staff sign-in and sign-out. The audit log exists and the guest claim already writes to it; the staff side is the obvious gap.
 
@@ -47,8 +45,7 @@ Not defects. Directions later milestones should take, decided while reviewing M1
 
 Noticed while building and reviewing the M2 branch. Ordered roughly by how much they would cost to leave.
 
-- `GET /api/orders/:id` declares `schema.params`, so a malformed id answers 400 before the guard answers 401. `POST /api/orders` deliberately does the opposite (ADR 0006). Pick one and make both routes agree.
-- `strip` in `apps/api/src/routes/orders.ts` runs `OrderDtoSchema.parse` per order, so a list response is parsed once by `strip` and again by the route's response schema. Correct, and measurable only on a long list; revisit if the kitchen board (M3) lists hundreds.
+- `strip` in `apps/api/src/routes/orders.ts` runs `OrderDtoSchema.parse` per order, so a list response is parsed once by `strip` and again by the route's response schema. Correct, and measurable only on a long list. The kitchen board's active-orders query caps at 200, which bounds it for now; revisit if a list ever runs longer.
 - `loadMenu` returns `{ restaurant: { id, name: '', currency: 'USD' }, categories: [] }` when the restaurant row is missing. `name` is `z.string().min(1)` in the contract, so that fallback would fail the response schema with a 500 rather than the empty menu it intends. Unreachable today — the id comes from a foreign key — but it should either throw `NOT_FOUND` or stop pretending.
 - `ElapsedSince` wraps its interval `setState` in `flushSync` so the test can assert synchronously after `vi.advanceTimersByTime`. An `act()` in the test would have done the same without pinning production code to a testing concern.
 - The checkout tests use `tableId="t1"`, which is not a uuid. Nothing validates it — it is only a `localStorage` key — but every other fixture in the repo uses a real uuid, and a reader is entitled to assume the fixture matches the contract.
@@ -58,7 +55,6 @@ Noticed while building and reviewing the M2 branch. Ordered roughly by how much 
 - `apps/web/lib/api.test.ts` puts an import between statements to keep a `vi.mock` above it. It works and it is the common workaround, but a short comment saying why would save the next reader the detour.
 - The landing's "Built with" list renders each tool as a `Badge`. Badges usually mean status; this is a list of nouns. A plain list styled the same way would say the same thing without borrowing the semantics.
 - `OrderDto` carries no currency, so `/orders/[id]` passes `currency="USD"` as a literal. One restaurant, priced in USD, makes that true today. M5 should put the currency on the DTO.
-- Light-surface `timer-ok` (3.87:1) and `timer-warn` (3.24:1) are still asserted on the kitchen surface only. M1 deferred this to M2 on the assumption that the guest order screen would render a timer; it renders an honest elapsed counter in body text instead, using no `timer-*` token. Add the assertions in M3, with the kitchen board.
 
 ## Resolved in the M2 fix wave
 
@@ -73,7 +69,7 @@ Found in the M2 reviews and fixed on the branch before merge. Listed so a reader
 
 ## Resolved in M3
 
-Items from the lists above that the kitchen display closed. Listed so a reader of those entries does not go looking for open work.
+Items carried on the M1 and M2 lists until the kitchen display closed them. Their old entries have been retired from the sections above, so this is the only place they are recorded.
 
 - The kitchen `font-size` mechanism (final M1 review). `[data-surface='kitchen']` in `packages/ui/theme.css` now overrides Tailwind's `--text-*` scale — `text-xs` 16 px through `text-2xl` 32 px — so the utilities the board actually uses render at the kitchen sizes instead of ignoring the surface's `font-size`.
 - `GET /api/orders/:id` answering 400 before 401 (M2 review). Both order routes now validate `params` inside the handler, behind the guard, so an unauthenticated caller gets 401 whether or not the id is well formed. `POST /api/orders/:id/transition` was written the same way.
@@ -124,7 +120,7 @@ Noticed while building and reviewing the M3 branch. Nothing here blocks the mile
 - The audit assertion in `apps/api/src/lib/transitions.test.ts` depends on test order.
 - The fake socket in the board tests has a no-op `removeAllListeners`, so a listener leak in the real component would go unnoticed; the `nextEvent` helper casts through `unknown` where two literal call sites would typecheck.
 - Small type debt in `apps/api/src`: a redundant `String()` in the transition `keyGenerator`, a computed-key spread in `lib/transitions.ts` that bypasses Drizzle's column typing, and a non-null assertion on the post-commit reload.
-- Light-surface `timer-ok` and `timer-warn` contrast is still unasserted (M2 review expected M3 to close it). It could not be: every `timer-*` token is consumed on the kitchen surface only, and the guest order page still shows an elapsed counter in body text. Either add a light-surface consumer or drop the light values.
+- Light-surface `timer-ok` (3.87:1) and `timer-warn` (3.24:1) are still asserted on the kitchen surface only. M1 deferred the light-surface assertions to M2, M2 deferred them to M3 expecting the board to need them, and M3 could not add them either: every `timer-*` token is consumed on the kitchen (dark) surface, and the guest order page shows an elapsed counter in body text using none of them. The gap is not a missing test but a missing consumer — either give a light surface a timer, or drop the light values from the token file. Deciding that is the actual task.
 
 ## Found on the first Compose run
 
