@@ -73,7 +73,9 @@ describe('WeekBars', () => {
     expect(quiet).toHaveAttribute('aria-label', 'Mon, Aug 31: 0 paid orders');
     expect(barIn(quiet).style.height).toBe('0%');
     // A baseline of its own, so the day reads as measured-and-empty rather than as missing.
-    expect(barIn(quiet).className).toMatch(/(?:^|\s)min-h-\d+(?:\s|$)/);
+    // `\d+` would also match `min-h-0`, which is the one value that makes the baseline invisible -
+    // a test that permits the bug it exists to prevent.
+    expect(barIn(quiet).className).toMatch(/(?:^|\s)min-h-[1-9]\d*(?:\s|$)/);
   });
 
   it('says the week is empty instead of drawing seven flat lines', () => {

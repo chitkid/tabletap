@@ -18,13 +18,18 @@ const TOKEN_IN_LINK = /\/t\/([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/;
  * The `v` claim out of a table token, read and never verified. The signature is the server's
  * business; this only has to say which code a link is carrying, and the version is the one field
  * a reissue moves.
+ *
+ * An absent `v` reads as 1, which is ADR 0013's central compatibility decision: every code minted
+ * before M5 carries no version and is still the table's first one. Failing on a versionless token
+ * would make this helper contradict the rule the feature is built on.
  */
 function qrVersionOf(token: string): number {
   const payload = token.split('.')[1];
   expect(payload, `no payload in ${token}`).toBeDefined();
   const claims = JSON.parse(Buffer.from(payload!, 'base64url').toString('utf8')) as { v?: unknown };
-  expect(typeof claims.v, `no version claim in ${token}`).toBe('number');
-  return claims.v as number;
+  const version = claims.v ?? 1;
+  expect(typeof version, `version claim is not a number in ${token}`).toBe('number');
+  return version as number;
 }
 
 /**
