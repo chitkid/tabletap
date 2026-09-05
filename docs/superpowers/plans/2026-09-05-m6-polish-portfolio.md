@@ -616,6 +616,7 @@ API first, then web. Then the smoke checks by hand: `/health` on the API, the la
 2. **The reset survives a sleep** — leave the demo altered, wait for the machines to stop, open the site, and confirm the data came back. Record how long the first request took.
 3. **The WebSocket connects** — open the kitchen board and a guest order in two browsers and watch a status change cross. Record the latency and compare it with the 34 ms measured locally.
 4. **Lighthouse against the live host** — one run, six pages. Record every number; these are the figures the case study will quote, and a shared CI runner's numbers are not the same claim.
+5. **A reset observed after the API wakes from sleep.** Leave the demo altered, wait for the free instance to stop, open the site, and confirm the data came back. Spec §7 lists this and the runbook states it only as an expectation. Record how long the first request took, because that number is the honest one for the cold-start line on the landing.
 
 - [ ] **Step 4: Record the outcome**
 
