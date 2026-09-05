@@ -5,6 +5,7 @@ import { DemoLinksResponseSchema, RushResponseSchema } from '@tabletap/shared';
 import { signTableToken } from '@tabletap/shared/server';
 import { schema } from '@tabletap/db';
 import { DEMO_RESTAURANT_SLUG, DEMO_STAFF } from '@tabletap/db/seed';
+import { clientKey } from '../lib/client-key';
 import { AppError } from '../lib/errors';
 
 export const DEMO_TABLE_NUMBER = 7;
@@ -16,9 +17,15 @@ export async function demoRoutes(app: FastifyInstance) {
     '/demo/links',
     {
       // The web tier calls this from the server on every landing render, so every visitor
-      // arrives as the same ip. The limit is here to stop a runaway loop, not to budget
-      // visitors; the web tier also caches the answer for 30 seconds (lib/demo-links.ts).
-      config: { public: true, principal: false, rateLimit: { max: 300, timeWindow: '1 minute' } },
+      // arrives as the web container's own address - the one caller `clientKey` cannot tell
+      // apart, and the reason this ceiling is 300 rather than a per-visitor budget. The limit is
+      // here to stop a runaway loop; the web tier also caches the answer for 30 seconds
+      // (lib/demo-links.ts).
+      config: {
+        public: true,
+        principal: false,
+        rateLimit: { max: 300, timeWindow: '1 minute', keyGenerator: clientKey },
+      },
       schema: { response: { 200: DemoLinksResponseSchema } },
     },
     async () => {
@@ -90,7 +97,13 @@ export async function demoRoutes(app: FastifyInstance) {
   r.post(
     '/demo/rush',
     {
-      config: { public: true, principal: false, rateLimit: { max: 2, timeWindow: '1 minute' } },
+      // Two a minute per visitor: a rush writes orders for everyone watching the kitchen board,
+      // so one person pressing it must not spend the whole demo's allowance.
+      config: {
+        public: true,
+        principal: false,
+        rateLimit: { max: 2, timeWindow: '1 minute', keyGenerator: clientKey },
+      },
       schema: { response: { 200: RushResponseSchema } },
     },
     async () => {

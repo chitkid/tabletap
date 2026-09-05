@@ -5,6 +5,7 @@ import { ClaimRequestSchema, ClaimResponseSchema } from '@tabletap/shared';
 import { TableTokenVerifyError, verifyTableToken } from '@tabletap/shared/server';
 import { schema } from '@tabletap/db';
 import { recordAudit } from '../lib/audit';
+import { clientKey } from '../lib/client-key';
 import { AppError } from '../lib/errors';
 import {
   GUEST_COOKIE,
@@ -17,7 +18,13 @@ export async function guestRoutes(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().post(
     '/guest/claim',
     {
-      config: { public: true, principal: false, rateLimit: { max: 20, timeWindow: '1 minute' } },
+      // The first thing a visitor does after scanning the QR, and the one it does before it has
+      // any cookie to be keyed on - so this bucket is per visitor address or it is per demo.
+      config: {
+        public: true,
+        principal: false,
+        rateLimit: { max: 20, timeWindow: '1 minute', keyGenerator: clientKey },
+      },
       schema: { body: ClaimRequestSchema, response: { 200: ClaimResponseSchema } },
     },
     async (request, reply) => {
