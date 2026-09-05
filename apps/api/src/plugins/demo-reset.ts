@@ -10,6 +10,8 @@ export const demoResetPlugin = fp(async (app: FastifyInstance) => {
   const runReset = async () => {
     // Drain any in-flight rush order before reseeding: an insert whose transaction is still
     // open when the reset deletes and reseeds would fail on now-missing foreign keys.
+    // `app.rush` only exists because demoRushPlugin registers before this plugin in
+    // server.ts - reordering those two registrations would make this throw.
     await app.rush.stop();
     const result = await seed(app.db, {
       mode: 'reset',
