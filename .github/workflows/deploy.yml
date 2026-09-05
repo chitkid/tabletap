@@ -9,6 +9,14 @@ on:
     branches: [main]
     types: [completed]
 
+# Two `ci` successes close together (a quick follow-up push, or a re-run) would otherwise start
+# two overlapping `api`+`web` deploy pairs. `cancel-in-progress: false` queues the second run
+# instead of cancelling the first mid-deploy, which - given the API-before-web ordering above -
+# could otherwise cancel an API deploy after web already started against it.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 jobs:
   # Deploy order is API, then web - and it is not a preference. OrderDtoSchema (packages/shared)
   # requires updatedAt and the per-status timestamps (paidAt among them, since M4), which an older

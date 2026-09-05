@@ -12,13 +12,31 @@ primary_region = 'fra'
 # committing this file) fine. See spec section 4.2 for the address layout this table encodes and
 # why getting one of these wrong produces a site that half-works.
 [build.args]
-  # The API's *internal* Fly address, not its public one: server components and the /api/:path*
+  # The API's *private* Fly address, not its public one: server components and the /api/:path*
   # rewrite (apps/web/next.config.ts) use it, so ordinary browser HTTP never leaves Fly's private
   # network and stays same-origin from the browser's point of view - cookies keep working with no
   # SameSite change and no CORS in the browser's path. Dockerfile.web's runner stage carries this
   # value forward into a runtime ENV of the same name, because next.config.ts reads
   # process.env.API_URL again when the standalone server starts, not only at build time.
-  API_URL = 'http://tabletap-api.internal:4000'
+  #
+  # A .flycast address, not a bare .internal one - deliberately, after checking both against Fly's
+  # own docs (fly.io/docs/networking/private-networking/ and fly.io/docs/networking/flycast/).
+  # tabletap-api sleeps when idle (min_machines_running = 0 below fly.api.toml's own), and the two
+  # private addressing schemes behave differently when it does:
+  #   - `tabletap-api.internal` resolves straight to a specific machine's 6PN address and connects
+  #     to it directly, bypassing Fly Proxy entirely. A stopped machine has nothing listening to
+  #     autostart it, so the very first private request after a quiet spell - which under
+  #     min_machines_running = 0 is most of them - would just fail to connect. It also requires the
+  #     API to bind `fly-local-6pn` (or `::`) instead of `0.0.0.0`; apps/api/src/main.ts:24 binds
+  #     `0.0.0.0`, so `.internal` would need a code change this deployment task does not make.
+  #   - `tabletap-api.flycast` is routed through Fly Proxy, the same proxy that already fronts the
+  #     public address below and already knows how to wake a stopped machine - Fly's own docs list
+  #     autostart/autostop as flycast's reason to exist. It also explicitly wants the app bound to
+  #     `0.0.0.0:port`, not `fly-local-6pn` - the opposite requirement from `.internal` - which is
+  #     exactly what apps/api/src/main.ts already does. No code change, and the machine wakes.
+  # Needs a private IPv6 allocated once (docs/deploy.md step 1): `fly ips allocate-v6 --private
+  # --app tabletap-api`. Without it this hostname does not resolve at all.
+  API_URL = 'http://tabletap-api.flycast:4000'
   # The API's *public* address, for the WebSocket alone (apps/web/lib/socket.ts). Cross-origin is
   # safe here specifically because the socket authenticates with the 60-second tt-socket token
   # fetched over the same-origin rewrite, never with a cookie - and fly.dev is on the Public Suffix
@@ -37,11 +55,16 @@ primary_region = 'fra'
 
 [env]
   # A build arg alone bakes NEXT_PUBLIC_APP_URL into the two routes Next prerenders at build time
-  # (/session-ended and /_not-found), but every dynamically rendered route - the rest of the site -
-  # reads process.env.NEXT_PUBLIC_APP_URL again when its module loads at request time
-  # (apps/web/app/layout.tsx), the same way next.config.ts re-reads API_URL. Both places have to
-  # carry the same value or half the site quietly falls back to http://localhost:3000 in its
-  # metadata; docker-compose.yml had exactly that bug (build arg missing) until this task fixed it.
+  # (/session-ended and /_not-found); the task brief that specified this fix states that every
+  # dynamically rendered route - the rest of the site - reads process.env.NEXT_PUBLIC_APP_URL
+  # again when its module loads at request time (apps/web/app/layout.tsx), the same way
+  # next.config.ts re-reads API_URL, which is why this runtime value is kept here as well.
+  # What I independently verified with the local Docker Compose rebuild (docs/deploy.md's task
+  # report) is only the build-arg half: a distinguishable value showed up baked into
+  # /session-ended. I did not independently re-derive the dynamic-route runtime-read behaviour
+  # from Next's own source, so treat that half as inherited reasoning, not something this task
+  # re-proved - it is still correct to keep both values here regardless, since dropping either one
+  # regresses exactly the half it covers.
   NEXT_PUBLIC_APP_URL = 'https://tabletap-web.fly.dev'
 
 [http_service]
@@ -57,6 +80,11 @@ primary_region = 'fra'
   # .github/workflows/ci.yml compensates by polling /login instead of waiting on a healthcheck for
   # the web container. Mirrored here for the same reason, not because /login is an arbitrary
   # choice: it is the one ordinary page guaranteed to render with no session and no table token.
+  #
+  # This check is observability, not a release gate: .github/workflows/deploy.yml deploys with
+  # `--strategy immediate` (one machine, so there is no second machine to roll onto), which does
+  # not wait on health checks before finishing. The workflow's own curl smoke check after the
+  # deploy is what actually gates the job.
   [[http_service.checks]]
     grace_period = '30s'
     interval = '15s'
