@@ -1,0 +1,65 @@
+# tabletap-web - Fly app configuration. Deployed by .github/workflows/deploy.yml, and by hand for
+# the very first deploy (docs/deploy.md). Region and topology: spec section 4.1.
+app = 'tabletap-web'
+primary_region = 'fra'
+
+[build]
+  dockerfile = 'Dockerfile.web'
+
+# Every NEXT_PUBLIC_* variable is inlined into the browser bundle by webpack at build time, so it
+# can never be a Fly secret - a secret only exists at runtime, and the bundle would still point at
+# localhost. They are ordinary public URLs, not credentials, which is what makes a build arg (and
+# committing this file) fine. See spec section 4.2 for the address layout this table encodes and
+# why getting one of these wrong produces a site that half-works.
+[build.args]
+  # The API's *internal* Fly address, not its public one: server components and the /api/:path*
+  # rewrite (apps/web/next.config.ts) use it, so ordinary browser HTTP never leaves Fly's private
+  # network and stays same-origin from the browser's point of view - cookies keep working with no
+  # SameSite change and no CORS in the browser's path. Dockerfile.web's runner stage carries this
+  # value forward into a runtime ENV of the same name, because next.config.ts reads
+  # process.env.API_URL again when the standalone server starts, not only at build time.
+  API_URL = 'http://tabletap-api.internal:4000'
+  # The API's *public* address, for the WebSocket alone (apps/web/lib/socket.ts). Cross-origin is
+  # safe here specifically because the socket authenticates with the 60-second tt-socket token
+  # fetched over the same-origin rewrite, never with a cookie - and fly.dev is on the Public Suffix
+  # List, so two *.fly.dev apps are cross-site and a cookie would not have travelled between them
+  # regardless.
+  NEXT_PUBLIC_API_ORIGIN = 'https://tabletap-api.fly.dev'
+  # The web app's own public address, for the absolute URLs a link preview needs
+  # (apps/web/app/layout.tsx's metadataBase). Also repeated under [env] below - see the comment
+  # there for why a build arg alone is not enough.
+  NEXT_PUBLIC_APP_URL = 'https://tabletap-web.fly.dev'
+  # The web's explanation of DEMO_UPLOADS_ENABLED in fly.api.toml, not the control - the API
+  # enforces the refusal on its own value regardless of what this was built with. False here to
+  # match the API's false, so a demo visitor sees a button that says why rather than one that just
+  # fails.
+  NEXT_PUBLIC_UPLOADS_ENABLED = 'false'
+
+[env]
+  # A build arg alone bakes NEXT_PUBLIC_APP_URL into the two routes Next prerenders at build time
+  # (/session-ended and /_not-found), but every dynamically rendered route - the rest of the site -
+  # reads process.env.NEXT_PUBLIC_APP_URL again when its module loads at request time
+  # (apps/web/app/layout.tsx), the same way next.config.ts re-reads API_URL. Both places have to
+  # carry the same value or half the site quietly falls back to http://localhost:3000 in its
+  # metadata; docker-compose.yml had exactly that bug (build arg missing) until this task fixed it.
+  NEXT_PUBLIC_APP_URL = 'https://tabletap-web.fly.dev'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # Stopped when idle, started on the next request, one machine: a demo nobody pays to keep warm
+  # (spec 4.1). The first request after a quiet spell is slower; that cost is accepted.
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+  # The web app has no /health route - docker-compose.yml says so explicitly, and
+  # .github/workflows/ci.yml compensates by polling /login instead of waiting on a healthcheck for
+  # the web container. Mirrored here for the same reason, not because /login is an arbitrary
+  # choice: it is the one ordinary page guaranteed to render with no session and no table token.
+  [[http_service.checks]]
+    grace_period = '30s'
+    interval = '15s'
+    timeout = '5s'
+    method = 'GET'
+    path = '/login'

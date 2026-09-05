@@ -1,0 +1,55 @@
+name: deploy
+
+# Fires when the `ci` workflow (.github/workflows/ci.yml) finishes running against `main`, not on
+# every push - so a red build can never reach `flyctl deploy`. The `if:` below is the actual gate;
+# `branches: [main]` here only limits which workflow_run *events* this workflow listens to.
+on:
+  workflow_run:
+    workflows: [ci]
+    branches: [main]
+    types: [completed]
+
+jobs:
+  # Deploy order is API, then web - and it is not a preference. OrderDtoSchema (packages/shared)
+  # requires updatedAt and the per-status timestamps (paidAt among them, since M4), which an older
+  # API build does not send. A newer web against that older API therefore fails to parse every
+  # order response: the menu still renders and nothing past it works. The reverse is safe, because
+  # an older web simply ignores response fields it does not recognise (docs/backlog.md). Reordering
+  # these two jobs, or dropping the `needs: api` below, reintroduces exactly that window.
+  api:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Deploy the exact commit CI validated, not whatever `main` has moved to since.
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy tabletap-api
+        run: flyctl deploy --config fly.api.toml --remote-only --strategy immediate
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Smoke check - /health
+        # auto_stop_machines means a quiet demo's machine may still be coming up even after
+        # `flyctl deploy` returns, so this retries rather than failing on the first slow beat.
+        run: curl -fsS --retry 10 --retry-delay 3 --retry-all-errors https://tabletap-api.fly.dev/health
+
+  web:
+    needs: api
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy tabletap-web
+        run: flyctl deploy --config fly.web.toml --remote-only --strategy immediate
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Smoke check - /login
+        # The web app has no /health route (docker-compose.yml, fly.web.toml); /login is the page
+        # CI already polls for the same reason, so the check here matches the one already trusted.
+        run: curl -fsS --retry 10 --retry-delay 3 --retry-all-errors -o /dev/null https://tabletap-web.fly.dev/login

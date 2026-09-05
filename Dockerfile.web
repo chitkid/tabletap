@@ -18,7 +18,19 @@ ARG API_URL=http://api:4000
 # on the host can reach, not the Compose network name — and NEXT_PUBLIC_* is inlined at build
 # time, so it has to be here rather than in the runner stage.
 ARG NEXT_PUBLIC_API_ORIGIN=http://localhost:4000
-ENV API_URL=$API_URL NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN NEXT_TELEMETRY_DISABLED=1
+# Absolute URLs in the link preview (metadataBase, apps/web/app/layout.tsx). Also read again at
+# runtime by dynamically rendered routes — the runner stage's own ENV covers that half; this one
+# is what the two routes Next prerenders here at build time (/session-ended, /_not-found) get
+# baked with. Missing this ARG was a real defect: docker-compose.yml passed the variable only as a
+# runtime value, so those two pages always rendered with http://localhost:3000 baked in.
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
+# The web's explanation of DEMO_UPLOADS_ENABLED, not the control — see
+# apps/web/components/admin/photo-field.tsx. Client-only, so unlike NEXT_PUBLIC_APP_URL it needs
+# no runtime counterpart in the runner stage below.
+ARG NEXT_PUBLIC_UPLOADS_ENABLED=true
+ENV API_URL=$API_URL NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN \
+  NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL NEXT_PUBLIC_UPLOADS_ENABLED=$NEXT_PUBLIC_UPLOADS_ENABLED \
+  NEXT_TELEMETRY_DISABLED=1
 COPY . .
 RUN pnpm tokens && pnpm --filter @tabletap/web build
 

@@ -98,7 +98,19 @@ services:
       args:
         API_URL: http://api:4000
         NEXT_PUBLIC_API_ORIGIN: ${NEXT_PUBLIC_API_ORIGIN:-http://localhost:4000}
+        # NEXT_PUBLIC_* is inlined at build time, so this has to be a build arg too, not only the
+        # runtime value below. Without it, the two routes Next prerenders at build time
+        # (/session-ended, /_not-found) always bake in http://localhost:3000 regardless of what
+        # environment: sets — a real defect this repository shipped until this line was added.
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        # Client-only (apps/web/components/admin/photo-field.tsx), so it needs a build arg and
+        # nothing under environment: below — unlike NEXT_PUBLIC_APP_URL, no server code reads it.
+        NEXT_PUBLIC_UPLOADS_ENABLED: ${NEXT_PUBLIC_UPLOADS_ENABLED:-true}
     environment:
+      # Still needed at runtime alongside the build arg above: dynamically rendered routes read
+      # process.env.NEXT_PUBLIC_APP_URL again when their module loads, the same way
+      # next.config.ts re-reads API_URL — only the two build-time-prerendered routes depend on
+      # the build arg alone.
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
     ports:
       - '3000:3000'
