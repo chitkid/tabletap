@@ -25,6 +25,16 @@ Nothing below has been executed against a live account by whoever wrote it. So:
 - A step that does not match what you see on screen is far more likely to be drift than a broken
   deployment. Read it that way.
 
+**One unverified thing is not like the others, and it is the reason check 5 in step 9 is not
+optional.** Every item above announces itself: a renamed Blueprint key is rejected, a moved CLI flag
+fails a build, an expired tier is a page that says so. Whether Vercel's middleware runtime delivers
+`FORWARD_SECRET` — a plain, non-`NEXT_PUBLIC_` project variable — to the edge function announces
+nothing at all. If it does not, the middleware finds no secret, signs nothing, sends neither header,
+and the API falls back to keying every visitor on the one address it sees. No error is raised
+anywhere, no log line appears, and the demo behaves correctly in every respect except that one
+person exploring it can lock out the next. Step 4 says why the property matters and step 6 checks
+what it can check from a dashboard; only check 5 observes the thing itself.
+
 The checks in step 9 are written to the opposite rule and to a stricter one: each states what a
 **correct** deployment returns, so that a healthy service is never reported as broken. Three
 separate checks in an earlier version of this document did exactly that, and a check you cannot
@@ -36,11 +46,11 @@ distinguish from a real fault is worse than no check at all.
 
 **(owner)** Five minutes of reading now, against the providers' own current pages:
 
-| Confirm                 | Where                                            | What this deployment assumes                                                                                                                                                |
-| ----------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Vercel Hobby            | vercel.com/pricing                               | A free personal project, no payment method, and it does not sleep.                                                                                                          |
-| Render free web service | render.com/pricing and the Docker/free-plan docs | A free web service that builds a Dockerfile, in a region you can pick, that sleeps after a period of inactivity and wakes on the next request. WebSockets on the free plan. |
-| Neon free project       | neon.com/pricing                                 | A free Postgres project that does not expire, with a connection string you can copy.                                                                                        |
+| Confirm                 | Where                                            | What this deployment assumes                                                                                                                                                                                                       |
+| ----------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vercel Hobby            | vercel.com/pricing                               | A free personal project, no payment method, and it does not sleep.                                                                                                                                                                 |
+| Render free web service | render.com/pricing and the Docker/free-plan docs | A free web service that builds a Dockerfile, in the region `render.yaml` names (`frankfurt` — step 3 is where you change it), that sleeps after a period of inactivity and wakes on the next request. WebSockets on the free plan. |
+| Neon free project       | neon.com/pricing                                 | A free Postgres project that does not expire, with a connection string you can copy.                                                                                                                                               |
 
 Two of those assumptions carry real weight. If **Render's free plan no longer builds Dockerfiles**,
 this deployment has no host — the whole point of Render here is that it runs `Dockerfile.api`
@@ -54,8 +64,10 @@ than improvising around it. Nothing further down is worth doing on a tier that w
 
 **(owner)**
 
-1. Create a Neon account and a project. Any region; keeping it near the Render region you pick in
-   step 3 saves a few milliseconds per query and nothing else.
+1. Create a Neon account and a project. Pick the region nearest the **Render** region, which is
+   `region: frankfurt` in `render.yaml` unless you change it — step 3 is where that choice is made,
+   so decide it there first if Frankfurt is not where you want the API. Every query the API makes
+   crosses whatever distance is left between the two.
 2. Copy the connection string. **Take the direct connection string, not the pooled one** — the
    pooled host has `-pooler` in it. The reason is in this repository: `packages/db/src/client.ts`
    creates the client with `postgres(url, { max: 10 })` and leaves prepared statements on, and
@@ -125,9 +137,18 @@ mysterious.
 check `/health`, `autoDeploy: false`, and every environment variable listed with the secrets marked
 `sync: false` so Render asks for them instead of reading them from a file in git.
 
+0. **Pick the region before you create anything.** `render.yaml` says `region: frankfurt`, which is
+   a guess about where you are, not a requirement of this project. If you are not in Europe, edit
+   that line to the Render region nearest you and commit the change first — Frankfurt is otherwise
+   where the API lives, and every query it makes to a Neon database on another continent pays for
+   the crossing twice. Render's region names are its own (`oregon`, `ohio`, `virginia`,
+   `frankfurt`, `singapore` at the time of writing); take the current list, and the free plan's
+   availability in the one you want, from Render's own region documentation. A region the free
+   plan does not serve is one of the ways the Blueprint below is rejected.
 1. In Render, create a **Blueprint** from this repository. Render reads `render.yaml` and prompts
-   for every `sync: false` value. Confirm the key names against Render's current Blueprint
-   reference if anything is rejected — the spec has renamed keys before.
+   for every `sync: false` value. If anything is rejected, the two things to check are that region
+   and the key names — confirm both against Render's current Blueprint reference, since the spec
+   has renamed keys before.
 2. Fill in what you already have: `DATABASE_URL` from step 1, `WEB_ORIGIN` = `https://<web>` from
    step 2.
    All six generated values come from step 4 — do that step now if you would rather not come back,
@@ -185,8 +206,20 @@ that sees it; step 6 compares the two values before any of that. A value that is
 shorter than 32 characters is the one case that does stop the boot.
 
 It is a plain runtime environment variable on both sides — unlike every `NEXT_PUBLIC_*` value it is
-not inlined into the web build, which was measured on a built image rather than inferred from
-`next dev`. Changing it is a restart on both sides, not a rebuild.
+not inlined into the web build. **That much was measured, and measured locally**: a standalone
+Docker image built with one value and run with another showed the running value, and the built edge
+bundle still contained the unsubstituted `process.env.FORWARD_SECRET`.
+
+**What that measurement cannot reach is Vercel.** Whether Vercel's middleware runtime hands a
+non-`NEXT_PUBLIC_` project variable to the edge function is a property of that platform, and no
+local image can establish it. It is also the one unverified thing in this document whose failure
+produces no error anywhere — the middleware simply finds nothing, sends neither header, and every
+visitor shares one bucket while the demo looks perfect. **Check 5 in step 9 is the only thing that
+settles it**, which is why that check is the one you may not skip.
+
+Changing the value afterwards is **a restart on Render and a redeploy on Vercel**. Vercel binds
+environment variables to a deployment: there is nothing to restart, and an edited value does not
+reach the deployment that is already serving until a new one is made.
 
 ### `DEMO_PASSWORD` gets its own line, for the opposite reason
 
@@ -257,8 +290,8 @@ replaced, a secret set on Preview instead of Production. Undetected, the mildest
 crash-looping service and the worst is a healthy demo with a published password. Check the exact
 sets now.
 
-**On Render — Environment.** `apps/api/src/config.ts` has exactly seven fields with no
-`.default(...)`, and the service does not boot without all seven:
+**On Render — Environment.** `apps/api/src/config.ts` has exactly seven **required** fields — seven
+that are neither optional nor defaulted — and the service does not boot without all seven:
 
 `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `WEB_ORIGIN`, `COOKIE_SECRET`,
 `TABLE_TOKEN_SECRET`, `SOCKET_TOKEN_SECRET`.
@@ -278,13 +311,18 @@ And two absences: no `STRIPE_*`, no `S3_*`.
 dashboard and hash it:
 
 ```sh
-printf '%s' 'the value from Render' | shasum -a 256
-printf '%s' 'the value from Vercel' | shasum -a 256
+# sha256sum on most Linux installs; shasum -a 256 on macOS and where sha256sum is absent.
+printf '%s' 'the value from Render' | sha256sum
+printf '%s' 'the value from Vercel' | sha256sum
 ```
 
 Identical digests, and only then move on. `printf` rather than `echo` because a trailing newline
 would change the digest of one and not the other. (This leaves the values in your shell history;
 clear it if that matters to you.)
+
+What this proves is that the two dashboards hold the same string. It does **not** prove the running
+middleware ever reads it — that is check 5's job, and step 4 says why nothing short of check 5 can
+do it.
 
 If a boot does fail later, `loadConfig`'s error names every missing or invalid variable, and
 Render's log tab is where it appears.
@@ -320,6 +358,16 @@ way `deploy.yml` calls it (`https://api.render.com/v1/services/{id}/deploys`, wi
 instead — almost always the same commit, because the workflow's `concurrency` group queues runs
 rather than overlapping them.
 
+**And confirm the deploy statuses while you are on that page.** After triggering the deploy the
+workflow polls it and waits for the status `live`, failing only on `build_failed`, `update_failed`,
+`pre_deploy_failed`, `canceled` or `deactivated`. That vocabulary is Render's, not this project's,
+and it is the part of the workflow most likely to have drifted. Anything the list does not
+recognise is treated as "still deploying" on purpose — a status name added since this was written
+should not fail a healthy deploy — so the symptom of drift is a job that waits out its
+twenty-five-minute deadline on a deploy the dashboard already shows as finished, not a red build
+you can read. If that happens, the status names in the `Wait for Render to report it live` step are
+what to correct.
+
 ## 8. The first deploy, by hand — API first, then web
 
 The workflow handles every deploy after this one. The first is manual because the Vercel project
@@ -352,6 +400,18 @@ vercel build --prod
 vercel deploy --prebuilt --prod
 ```
 
+**Then delete what `vercel pull` left behind.** It writes the project's whole production
+environment — `FORWARD_SECRET` and every other value you generated in step 4 — in plain text to
+`.vercel/.env.production.local`. `.gitignore` keeps that out of the repository; nothing keeps it
+off your disk:
+
+```sh
+rm -f .vercel/.env.production.local
+```
+
+The workflow does the same three commands on a runner that is destroyed afterwards, so this is a
+first-deploy chore, not a recurring one. It comes back every time you run `vercel pull` by hand.
+
 Then:
 
 ```sh
@@ -374,8 +434,12 @@ deploys in the same order.
 
 ## 9. The post-deploy checks
 
-Run all six once, after the first deploy. Each says what a **correct** deployment returns. Two of
-them interact, and the order below accounts for it — do them in order.
+Seven blocks — six checks, and 5b, which hangs off check 5 rather than standing on its own. Run
+them all once, after the first deploy, **in the order given**: three of them count against the same
+rate-limit bucket and would otherwise refuse each other for reasons that have nothing to do with
+what is being tested. Each says what a **correct** deployment returns.
+
+Check 5 is the one that cannot be skipped, for the reason given under it.
 
 Before you start, wake the API so nothing below is timing a cold start:
 
@@ -436,24 +500,49 @@ kitchen account and the `DEMO_PASSWORD` you set. Then open the browser's network
 the board. Leave the panel unfiltered, or turn on both WS and Fetch/XHR — a WS-only filter hides the
 polling half of what is described below.
 
-**Correct:** a Socket.io connection to `https://<api>` — `wss://<api>/socket.io/…`, and/or
+**Correct — and it takes two observations, not one.**
+
+**The address.** Socket.io traffic to `https://<api>` — `wss://<api>/socket.io/…`, and/or
 long-polling requests to `https://<api>/socket.io/…` before the upgrade. Either is correct;
 Socket.io starts on polling and upgrades, and a deployment that stays on polling still works.
+
+**And the connection settling.** Watch the band across the top of the board. It says **"Connecting
+to the kitchen feed…"**, and on a correct deployment it goes blank within a moment and stays blank
+(`apps/web/components/kitchen/connection-banner.tsx` keeps the empty band in the layout on purpose,
+so the board does not jump). Blank means the socket actually connected: the board only clears it on
+Socket.io's `connect` event.
+
+**Why the address alone is not enough.** `createSocket` fetches a 60-second token from
+`/api/socket-token` in its `auth` callback and calls back with an _empty_ object if that fetch
+fails; the server refuses an empty handshake, and Socket.io then retries with backoff, for ever.
+That loop produces exactly what the address observation calls correct — a steady stream of requests
+to `https://<api>/socket.io/…` — on a board that is receiving nothing. The band is what separates
+the two: in the retry loop it never goes blank, and the network panel shows a new handshake every
+few seconds rather than one connection that stays open. A `POST /api/socket-token` answering
+anything but **200** is the same fault seen from the other end.
 
 This is the one place in the app where a socket exists to look at. **The landing opens none** —
 `createSocket` is imported only by `apps/web/components/kitchen/kitchen-board.tsx` and
 `apps/web/components/order/order-live.tsx` — so watching the landing for one finds nothing and
 proves nothing.
 
-The failure to look for is an attempted connection to `localhost:4000`: that is
+The failure to look for on the address is an attempted connection to `localhost:4000`: that is
 `NEXT_PUBLIC_API_ORIGIN` missing at **build** time, and it is fixed by setting it and redeploying,
 not by restarting.
 
 ### 5. Two real clients, on two networks, do not share a rate-limit bucket
 
-This is the check that proves the per-visitor bucket on the real path — through the deployed site's
-own `/api/*` rewrite, which is the path every visitor uses. It is also the only thing that sees a
-`FORWARD_SECRET` mismatch between Vercel and Render.
+**This is the one check that cannot be skipped**, and it needs two networks and a phone, which is
+exactly what makes skipping it tempting. Everything else in this list has a failure that announces
+itself somewhere — a status code, an error page, a connection to `localhost`. This one does not.
+It is the only observation anywhere in this runbook that settles whether Vercel's middleware runtime
+actually delivers `FORWARD_SECRET` to the edge function (step 4), and a deployment where it does not
+looks entirely healthy while every visitor shares one rate-limit bucket. Step 6's digest comparison
+is not a substitute: it proves the two dashboards hold the same string, not that the running
+middleware ever reads it.
+
+It proves that property on the real path — through the deployed site's own `/api/*` rewrite, which
+is the path every visitor uses.
 
 **Two genuinely different networks.** Device A is a laptop on wifi; device B is a phone **on
 cellular data with wifi off**. Two devices behind the same router share one public address, and
@@ -492,8 +581,18 @@ invalid-token message. Its bucket is its own.
 
 **The defect:** device B shows "Can't reach the server…" on its very first load. The two clients
 shared a bucket, which means one person exploring the demo can lock everyone else out of claiming a
-table. The likeliest cause is `FORWARD_SECRET` differing between Vercel and Render (step 6 compares
-them), and the next likeliest is it missing on one side.
+table. Three causes, in the order worth trying:
+
+1. **The web deployment is not receiving the variable at all.** Vercel binds environment variables
+   to a deployment, so a `FORWARD_SECRET` added or edited after the current deployment was made has
+   not reached it — and if the value was added late, the running middleware has never seen one.
+   **Redeploy the web and run this check again**, and do that before concluding anything else.
+2. **The value differs between the two platforms, or is missing on one.** Step 6's digest comparison
+   rules this out if you did it; do it now if you did not.
+3. **Vercel's middleware runtime does not expose the variable to the edge function at all** — the
+   unverified platform fact this check exists to settle. If a redeploy with matching digests on both
+   sides still fails, this is what is left. It is a finding, not a misconfiguration: record it, and
+   do not hand out the link as a demo that limits per visitor, because it does not.
 
 #### 5b. And the hop this check does not cover, which needs its own fresh minute
 

@@ -107,7 +107,9 @@ jobs:
           while [ "${SECONDS}" -lt "${deadline}" ]; do
             # `|| true` on the poll itself, for the same reason: one refused request to Render's
             # API is a blip to wait out, not a failed deployment.
-            body=$(curl -fsS -H "authorization: Bearer ${RENDER_API_KEY}" \
+            # --max-time so one hung connection is bounded by this loop's own deadline rather than
+            # by the job timeout twenty-five minutes later.
+            body=$(curl -fsS --max-time 30 -H "authorization: Bearer ${RENDER_API_KEY}" \
               "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys/${DEPLOY_ID}" || true)
             status=$(printf '%s' "${body}" | jq -r '.status // empty' 2>/dev/null || true)
             case "${status}" in

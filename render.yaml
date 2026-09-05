@@ -21,6 +21,10 @@ services:
     # The build needs the whole workspace (pnpm-lock.yaml, packages/*), not just apps/api.
     dockerContext: .
     plan: free
+    # A guess about where the owner is, not a requirement of this project - edit it before creating
+    # the Blueprint if another region is nearer, and pick the Neon region to match (docs/deploy.md
+    # steps 0 and 3). Render's region names are its own, and the free plan does not necessarily
+    # serve all of them; its region documentation is the current list.
     region: frankfurt
     # 200 from GET /health (apps/api/src/routes/health.ts). It answers 503 when the database is
     # unreachable, which is the state worth restarting for.

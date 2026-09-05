@@ -1,7 +1,7 @@
 # ADR 0004: The API sits behind a Next.js rewrite; sockets connect directly
 
 Date: 2026-09-03
-Status: accepted
+Status: accepted. The container host named in Context ("Railway or Fly") is superseded in part by M6 section 4.1 — the API runs on **Render** and the web on Vercel (M6, 2026-09-05, `docs/deploy.md`). The decision below is unchanged: it never depended on which container host, only on the origins being split.
 
 ## Context
 

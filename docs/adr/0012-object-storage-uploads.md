@@ -1,7 +1,7 @@
 # ADR 0012: Photographs live in object storage, uploaded by the browser
 
 Date: 2026-09-05
-Status: accepted
+Status: accepted. The deployment targets named in Context ("Vercel's serverless functions … Railway's edge proxy") are superseded in part by M6 section 4.1 — the web runs on Vercel and the API on **Render** (M6, 2026-09-05, `docs/deploy.md`). The body-size argument that motivated presigned uploads is unchanged, and so is the decision. Worth knowing alongside it: the deployed demo configures no object storage at all and refuses uploads (`DEMO_UPLOADS_ENABLED=false`), so what follows governs the local stack and any future deployment that turns storage back on.
 
 ## Context
 
