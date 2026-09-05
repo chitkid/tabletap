@@ -103,7 +103,7 @@ _Density: 4/10 — Standard_
 | `--primitive-space-8`  | `2rem`    |
 | `--primitive-space-12` | `3rem`    |
 
-**2. Tailwind's spacing utilities** (`p-4`, `gap-6`, `px-3`), which multiply the step number by `--spacing`. That multiplier is the surface density dial: the guest and kitchen surfaces take Tailwind's default, and `packages/ui/theme.css` sets `--spacing: 0.2rem` under `[data-surface="admin"]`, which is the whole of the admin surface's density — one declaration, not a parallel set of classes. See `design-system/tabletap/pages/admin.md`.
+**2. Tailwind's spacing utilities** (`p-4`, `gap-6`, `px-3`), which multiply the step number by `--spacing`. Every surface takes Tailwind's default: **no surface overrides `--spacing`, and none should.** An earlier admin build set `--spacing: 0.2rem` under `[data-surface="admin"]` as a density dial, and M5 removed it — the multiplier also scales the size utilities, so an `h-11` button came out around 35px, under the 44px target, on the surface with the densest controls. Density on the admin surface comes from the grid and the type scale instead. The `[data-surface='admin']` block in `packages/ui/theme.css` is deliberately left empty with a comment saying so, and `packages/ui/tokens.test.ts` anchors on the selector. See `design-system/tabletap/pages/admin.md`.
 
 ### Radii
 

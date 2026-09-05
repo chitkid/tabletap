@@ -103,6 +103,14 @@ async function weekLabels(db: Db, restaurantId: string, tz: string, now: Date): 
  * average, not yesterday's (and, symmetrically, an order paid today that only reaches ready after
  * tomorrow's local midnight does not). These two filters are written out separately below (never
  * shared) precisely so a later reader cannot assume they pick out the same orders.
+ *
+ * Every query in this file stays on drizzle's typed `.select()` with `sql` fragments inside it,
+ * rather than dropping to a raw `db.execute()`. That is a deliberate choice, not an oversight: the
+ * two drivers this project runs on disagree about what `execute` returns - `postgres-js` in the
+ * app, PGlite in the tests - so raw execution would need a shim per driver, and would return
+ * `unknown` columns that nothing typechecks. `.select()` costs a few round trips here - the
+ * timezone, the day's aggregates, then the week's counts and labels in parallel - and is portable
+ * across both.
  */
 export async function loadDashboard(
   db: Db,

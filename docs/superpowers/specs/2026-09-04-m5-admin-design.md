@@ -1,6 +1,6 @@
 # M5 Admin — Design Spec
 
-Date: 2026-09-04. Status: implemented on branch `feat/m5-admin` (2026-09-05); merge pending final review.
+Date: 2026-09-04. Status: implemented on branch `feat/m5-admin` (2026-09-05); the final fix wave has run, and one scoped re-review stands between it and the merge.
 Project: TableTap — QR table ordering with a real-time kitchen display (portfolio full-stack project).
 Milestone: M5 of six. Builds on M1 Foundation, M2 Guest flow + Demo landing, M3 Kitchen display and M4 Payments (all merged into `main`). The master brief remains the permanent context; this spec covers M5 only.
 
@@ -51,7 +51,7 @@ Out of scope: a waiter surface (it stays on the backlog with `TRANSITION_RIGHTS.
 
 ```ts
 OrderDto += currency: string                     // three letters, from the restaurant
-MenuCategoryWriteRequest = { name, sortOrder?, isActive? }
+MenuCategoryWriteRequest = { name, sortOrder? }        // no isActive: see the note below
 MenuItemWriteRequest     = { categoryId, name, description?, priceCents, allergens?, isAvailable?, sortOrder? }
 TableWriteRequest        = { number, label, seats?, isActive? }
 PhotoUploadResponse      = { url, key, expiresInSeconds }
@@ -62,6 +62,8 @@ DashboardResponse        = {
 }
 ```
 New error code: `IN_USE` (409 — a category with items, or a table with orders).
+
+**Deactivating a category is specified in §2 and deliberately not implemented.** Tables got both halves of that decision; categories got only the write half, and the read half is what makes it reversible — `MenuCategoryDto` carries no `isActive` and `loadMenu` filters on it, so a `PATCH {"isActive": false}` would take a category off the only surface that could restore it. The field was withdrawn from the write schema at the final fix wave rather than left as a one-way door. What it would take to build is in `docs/backlog.md`.
 
 ### 4.3 API
 

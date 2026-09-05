@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Lighthouse over the guest surface, the kitchen board and the admin. Needs the stack running
- * (docker compose up, or pnpm dev for api+web with a database). Claims table 7 and signs in as the
- * demo kitchen and admin accounts through the web origin, so /menu is audited as a real guest,
- * /kitchen as real kitchen staff and /admin as a real operator.
+ * Lighthouse over the guest surface, the kitchen board and all three admin screens. Needs the
+ * stack running (docker compose up, or pnpm dev for api+web with a database). Claims table 7 and
+ * signs in as the demo kitchen and admin accounts through the web origin, so /menu is audited as a
+ * real guest, /kitchen as real kitchen staff and the admin screens as a real operator.
  * Usage: node scripts/lighthouse-audit.mjs [--base http://localhost:3000] [--min-a11y 95] [--out docs/lighthouse-results.json]
  * CHROME_PATH overrides the browser binary (chrome-launcher's own convention), e.g. when the
  * Playwright chrome.exe cannot start on a host but chrome-headless-shell.exe or Edge can.
@@ -65,15 +65,18 @@ async function staffCookieFor(role) {
 const kitchenCookie = await staffCookieFor('kitchen');
 const adminCookie = await staffCookieFor('admin');
 
-// The admin entry points at the dashboard rather than at `/admin`, which is a bare redirect onto
-// it and has no content of its own to score. It also cannot be audited through: the Cookie header
-// Lighthouse injects does not survive the redirect hop, so asking for `/admin` scores the sign-in
-// page instead. A browser carrying the same session in its own jar follows it perfectly well.
+// `/admin` is not in this list because it is a redirect, and the guard below fails any page whose
+// final path differs from the one asked for - so `/admin` would be reported as redirected whatever
+// happened to the Cookie header on the hop. It is also a bare redirect onto the dashboard with no
+// content of its own to score. The three admin screens are audited directly, which is where the
+// in-place editors and the reissue confirmation actually live.
 const PAGES = [
   { slug: 'landing', path: '/', headers: undefined },
   { slug: 'menu', path: '/menu', headers: { Cookie: cookie } },
   { slug: 'kitchen', path: '/kitchen', headers: { Cookie: kitchenCookie } },
-  { slug: 'admin', path: '/admin/dashboard', headers: { Cookie: adminCookie } },
+  { slug: 'admin-dashboard', path: '/admin/dashboard', headers: { Cookie: adminCookie } },
+  { slug: 'admin-menu', path: '/admin/menu', headers: { Cookie: adminCookie } },
+  { slug: 'admin-tables', path: '/admin/tables', headers: { Cookie: adminCookie } },
 ];
 const chrome = await launch({
   chromePath: process.env.CHROME_PATH ?? chromium.executablePath(),
