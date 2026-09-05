@@ -30,7 +30,7 @@ Noticed in the whole-branch review before merge. Everything here was judged out 
 - Containers run as root. Add `USER node` to both Dockerfiles. Postgres also publishes 5432 with the default demo credentials. Both are scoped to the local demo; neither is acceptable on a deployed host.
 - The rate limiter uses the in-memory store, which is per process. A multi-instance deploy needs a shared store (Redis) or the limit is per instance. M6, with deployment.
 - `AuthClientLike` in `apps/web/components/login-form.tsx` mirrors the better-auth client shape by hand so the form can be tested without the real client. It will drift if better-auth changes; derive it from the client's own types if that becomes a problem.
-- In the local demo the API port is published on the host, so a host-side client can set `x-forwarded-for` itself. `TRUST_PROXY` believes loopback, so a caller on the host can pick its own rate-limit bucket. Not a concern behind a real proxy, where only the proxy reaches the API.
+- ~~In the local demo the API port is published on the host, so a host-side client can set `x-forwarded-for` itself. `TRUST_PROXY` believes loopback, so a caller on the host can pick its own rate-limit bucket.~~ Closed in M6: the web signs the address it forwards and the API honours a forwarded address only when the signature verifies (`FORWARD_SECRET`; spec §4.4), so a host-side caller with no secret is keyed on its own connection address. `.env.example` sets the secret, so a stack brought up from it is defended; one whose `.env` predates the variable still is not.
 
 ## Recommendations carried past M2
 

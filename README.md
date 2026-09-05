@@ -176,6 +176,8 @@ The API container applies the migrations and runs `seed --if-empty` before start
 
 **Behind a proxy or load balancer:** `TRUST_PROXY` (default `loopback,uniquelocal`) lists the peers whose `x-forwarded-for` the API believes. The rate limiter keys on the client IP it derives from that header, so a value that is too permissive lets a caller spoof its own address and slip the limit.
 
+**Across two hosts:** since M6 the rate limiter no longer rests on that alone, because the web and the API are deployed to different platforms and the web's call reaches the API from an ordinary public address. `FORWARD_SECRET` is held by both: the web signs the visitor address it forwards over the `/api/*` rewrite, and the API honours a forwarded address only when that signature verifies, keying on the connection's own address otherwise. It is a plain runtime environment variable on both sides — unlike every `NEXT_PUBLIC_*` value, it is not inlined into the web build. Leave it unset and the API verifies nothing and every visitor shares one bucket; it never means "believe anyone".
+
 ## Environment
 
 `.env.example` documents every variable, and `cp .env.example .env` is a working local configuration. Four of them decide whether the real-time layer works at all (the payment pair is in the Payments section above):
