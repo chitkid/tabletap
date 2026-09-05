@@ -127,11 +127,13 @@ describe('PhotoField', () => {
     expect(input).toBeDisabled();
     const button = screen.getByRole('button', { name: 'Add a photo' });
     expect(button).toBeDisabled();
-    expect(
-      screen.getByText(
-        'Photo upload is off in this demo. Everything else here is real, and it resets every hour.',
-      ),
-    ).toBeInTheDocument();
+    const explanation = screen.getByText(
+      'Photo upload is off in this demo. Everything else here is real, and it resets every hour.',
+    );
+    expect(explanation).toBeInTheDocument();
+    // The reason has to be part of the disabled control's own description, not loose text on the
+    // page, or a screen reader announces "disabled" with no explanation of why.
+    expect(input.getAttribute('aria-describedby')?.split(' ')).toContain(explanation.id);
 
     // A disabled control cannot be reached: choosing a file and pressing the button does nothing.
     await user.upload(input, file('plate.jpg', 'image/jpeg', 2048));

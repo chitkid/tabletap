@@ -70,6 +70,7 @@ export function PhotoField({
 }) {
   const fieldId = useId();
   const hintId = useId();
+  const offHintId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [chosen, setChosen] = useState<File | null>(null);
   const [uploaded, setUploaded] = useState<string | null>(null);
@@ -133,7 +134,7 @@ export function PhotoField({
             ref={inputRef}
             type="file"
             accept={PHOTO_TYPES.join(',')}
-            aria-describedby={hintId}
+            aria-describedby={uploadsEnabled ? hintId : `${hintId} ${offHintId}`}
             className="max-w-xs"
             disabled={!uploadsEnabled}
             onChange={(event) => {
@@ -155,7 +156,9 @@ export function PhotoField({
           {HINT}
         </p>
         {uploadsEnabled ? null : (
-          <p className="text-sm text-muted-foreground">{UPLOADS_OFF_HINT}</p>
+          <p id={offHintId} className="text-sm text-muted-foreground">
+            {UPLOADS_OFF_HINT}
+          </p>
         )}
         {/* Always in the layout, empty when there is nothing to say, so the panel never jumps.
             The busy state lives on the button itself, where the press was. */}

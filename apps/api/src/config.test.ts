@@ -66,6 +66,29 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...valid, DEMO_MODE: 'yes' })).toThrow(/DEMO_MODE/);
   });
 
+  describe('demoUploadsEnabled', () => {
+    it('defaults to enabled when unset', () => {
+      expect(loadConfig(valid).demoUploadsEnabled).toBe(true);
+    });
+    it('derives true from DEMO_UPLOADS_ENABLED=true', () => {
+      expect(loadConfig({ ...valid, DEMO_UPLOADS_ENABLED: 'true' })).toMatchObject({
+        demoUploadsEnabled: true,
+      });
+    });
+    // The one assertion that matters: under z.coerce.boolean(), Boolean('false') is true, so this
+    // is exactly the case a reverted schema would get backwards and still ship looking green.
+    it('derives false from DEMO_UPLOADS_ENABLED=false', () => {
+      expect(loadConfig({ ...valid, DEMO_UPLOADS_ENABLED: 'false' })).toMatchObject({
+        demoUploadsEnabled: false,
+      });
+    });
+    it('rejects anything but true or false rather than defaulting', () => {
+      expect(() => loadConfig({ ...valid, DEMO_UPLOADS_ENABLED: 'yes' })).toThrow(
+        /DEMO_UPLOADS_ENABLED/,
+      );
+    });
+  });
+
   describe('paymentProvider', () => {
     it('derives demo when both Stripe keys are unset', () => {
       expect(loadConfig(valid).paymentProvider).toBe('demo');
