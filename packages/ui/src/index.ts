@@ -9,4 +9,5 @@ export * from './components/sheet';
 export * from './components/textarea';
 export * from './components/status-badge';
 export * from './components/plate';
+export * from './components/mark';
 export * from './lib/plate-plan';

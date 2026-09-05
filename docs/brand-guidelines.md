@@ -1,7 +1,7 @@
-# Little Furnace — Brand Guidelines v1.1
+# Little Furnace — Brand Guidelines v1.2
 
-> Last updated: 2026-09-03 (v1.1)
-> Status: Active for M1
+> Last updated: 2026-09-05 (v1.2)
+> Status: Active for M1–M6
 
 TableTap is the product: QR table ordering with a real-time kitchen display. Little Furnace is the seeded demo tenant that TableTap ships with — a neighbourhood wood-fired place serving flatbreads, grain bowls and a short list of sides and drinks. You order from the table and the food comes when it is ready; fast-casual pace, warm room. The name and the furnace image set the two surfaces: the kitchen surface takes the dark back-of-house character, the guest surface takes the warmth. The guest surface wears the restaurant brand; kitchen and admin wear neutral TableTap chrome — dark for kitchen, light and dense for admin — with ember as the single accent. All three come from the token base defined here. This document is the source of truth: the design system, `assets/design-tokens.json` and every UI string derive from it.
 
@@ -251,7 +251,7 @@ Kitchen surface. A cook reads this from roughly a metre away, often at an angle,
 
 ## 3. Logo Usage
 
-Little Furnace has a wordmark and nothing else in M1. There is no SVG logo, no icon mark and no favicon artwork yet; the SVG logo arrives in M6. Do not reference a logo file that does not exist, and do not substitute a stand-in mark.
+Little Furnace has a wordmark and nothing else in M1. The wordmark now ships as an SVG file, `assets/little-furnace-wordmark.svg`. A favicon and an icon mark exist too, as of M6, but they belong to TableTap, not to Little Furnace — see **The TableTap mark**, below. Do not reference a logo file that does not exist, and do not substitute a stand-in mark.
 
 ### Wordmark
 
@@ -274,6 +274,16 @@ Clear space around the wordmark is the cap height of the L on all four sides.
 - Don't add a flame, a furnace, a chef hat or any other picture beside it as a stand-in mark.
 - Don't place it over a photograph or any background that drops its contrast below 4.5:1.
 - Don't put the TableTap product name and the Little Furnace wordmark in the same lockup. The guest surface is the restaurant; TableTap chrome is the kitchen and admin.
+
+### The TableTap mark
+
+TableTap's mark is an open ring, its gap at the lower right, with a solid ember dot at the centre — a tabletop seen from above, and the tap. It belongs to the product, not to the restaurant, and it is drawn once as a design-system component, `packages/ui/src/components/mark.tsx`: the ring takes `currentColor`, the dot takes Ember `var(--primary)`. The same geometry is duplicated as literal values in two more files, because neither has a CSS context to resolve a token against — `apps/web/app/icon.svg` (the favicon: Ink #1C1917 and Ember #C23E18) and `apps/web/app/apple-icon.tsx` (180×180, the mark on an ember field).
+
+**Where it appears.** Kitchen and admin chrome, beside the product name. The browser tab and a shared link's preview card, on every page — guest pages included, because the tab and the card are the product's chrome, not the restaurant's room.
+
+**Where it does not appear.** Inside the guest surface's own content. The guest surface wears Little Furnace; it does not also wear TableTap.
+
+**It never shares a lockup with the wordmark above.** The rule runs both ways: the wordmark never sits beside the mark, and the mark never sits beside the wordmark. One screen, one brand.
 
 ---
 
@@ -339,7 +349,8 @@ Sentence case everywhere. No terminal full stop on a button or a single-line lab
 
 ## Changelog
 
-| Version | Date       | Changes                                                                                                                                                                                           |
-| ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0     | 2026-09-03 | Initial guidelines: ember, olive and ink palette with measured WCAG ratios; Bricolage Grotesque with IBM Plex Sans and IBM Plex Mono; wordmark-only logo policy; voice principles and vocabulary. |
-| 1.1     | 2026-09-03 | Guest border #E0D8CB → #918269 and kitchen border #3D3631 → #7A6C62, so both clear the WCAG 1.4.11 3:1 non-text bar on every surface they are drawn on. Added the non-text contrast block.        |
+| Version | Date       | Changes                                                                                                                                                                                                        |
+| ------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0     | 2026-09-03 | Initial guidelines: ember, olive and ink palette with measured WCAG ratios; Bricolage Grotesque with IBM Plex Sans and IBM Plex Mono; wordmark-only logo policy; voice principles and vocabulary.              |
+| 1.1     | 2026-09-03 | Guest border #E0D8CB → #918269 and kitchen border #3D3631 → #7A6C62, so both clear the WCAG 1.4.11 3:1 non-text bar on every surface they are drawn on. Added the non-text contrast block.                     |
+| 1.2     | 2026-09-05 | The M1 debt: `assets/little-furnace-wordmark.svg` now exists. Added the TableTap mark (§3), a separate identity from the wordmark, with its own usage rules and its own component, favicon and app icon files. |

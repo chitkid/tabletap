@@ -5,6 +5,7 @@ import {
   type OrderDto,
   type OrderStatus,
 } from '@tabletap/shared';
+import { Mark } from '@tabletap/ui';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError, clientFetch } from '../../lib/api';
 import {
@@ -286,7 +287,10 @@ export function KitchenBoard({
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-3">
-        <h1 className="font-display text-xl font-semibold">Kitchen</h1>
+        <h1 className="flex items-center gap-2 font-display text-xl font-semibold">
+          <Mark className="size-5" />
+          Kitchen
+        </h1>
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-muted-foreground">{staffName}</span>
           {demoMode ? <RushButton fetcher={fetcher} /> : null}

@@ -1,5 +1,5 @@
 'use client';
-import { Button, cn } from '@tabletap/ui';
+import { Button, Mark, cn } from '@tabletap/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -50,7 +50,10 @@ export function AdminShell({
         aria-label="Admin sections"
         className="shrink-0 border-b border-border/60 bg-secondary px-3 py-3 md:w-56 md:border-r md:border-b-0 md:py-4"
       >
-        <p className="px-2 font-display text-lg font-semibold tracking-tight">TableTap</p>
+        <p className="flex items-center gap-2 px-2 font-display text-lg font-semibold tracking-tight">
+          <Mark className="size-5" />
+          TableTap
+        </p>
         <ul className="mt-3 flex flex-row gap-1 overflow-x-auto md:mt-6 md:flex-col md:overflow-visible">
           {SECTIONS.map((section) => {
             const current = pathname === section.href;
