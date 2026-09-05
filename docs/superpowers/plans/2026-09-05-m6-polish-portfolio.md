@@ -4,9 +4,9 @@
 
 **Goal:** Put TableTap on a public address a stranger can open, give it a face, add motion where motion earns its keep, and write down what was built.
 
-**Architecture:** Two Fly.io apps built from the Dockerfiles already in the repository — `tabletap-api` and `tabletap-web` — with managed Postgres and a Tigris bucket behind the `S3_*` variables the code already reads. Ordinary browser HTTP keeps going through the existing `/api/:path*` rewrite so it stays same-origin and cookies are untouched; only the WebSocket talks to the API's public address, and it authenticates with the short-lived socket token rather than a cookie. Identity and motion both live in the design system as tokens and components, so the existing `validate-tokens` gate keeps them honest.
+**Architecture:** Three free tiers — the web on Vercel, the API on Render from the `Dockerfile.api` this repository already builds, Postgres on Neon — and no object storage at all, because the demo refuses uploads and the seed sets no image. Ordinary browser HTTP keeps going through the existing `/api/:path*` rewrite so it stays same-origin and cookies are untouched; only the WebSocket talks to the API's public address, and it authenticates with the short-lived socket token rather than a cookie. Because the web and the API now sit on different platforms, the web signs the visitor address it forwards and the API honours it only on a valid signature. Identity and motion both live in the design system as tokens and components, so the existing `validate-tokens` gate keeps them honest.
 
-**Tech Stack:** Fly.io (apps, Managed Postgres, Tigris), GitHub Actions, Next.js 16 App Router (`ImageResponse` for generated images), Tailwind 4 tokens, Drizzle migrations, Vitest, Playwright, Lighthouse.
+**Tech Stack:** Vercel, Render, Neon, GitHub Actions, Next.js 16 App Router (`ImageResponse` for generated images), Tailwind 4 tokens, Drizzle migrations, Vitest, Playwright, Lighthouse.
 
 **Spec:** `docs/superpowers/specs/2026-09-05-m6-polish-portfolio-design.md`. Read the section a task names before starting it.
 
@@ -55,7 +55,8 @@ apps/api/src/config.ts                            + DEMO_UPLOADS_ENABLED
 apps/web/components/admin/photo-field.tsx        + the disabled state and its reason
 packages/db/migrations/0006_orders-restaurant-idx.sql
 Dockerfile.api, Dockerfile.web                   + USER node
-fly.api.toml, fly.web.toml
+render.yaml                                      the API service, declared in the repo
+apps/web/lib/forward-signature.ts (+ test)       the signed visitor address
 .github/workflows/deploy.yml
 docs/adr/0014-the-demo-is-public.md
 docs/case-study.md;  README.md;  docs/backlog.md
@@ -470,85 +471,139 @@ git commit -m "feat: the deployed demo explains why it takes no uploads, and ref
 
 ---
 
-### Task 9: Everything Fly needs, and a runbook precise enough to follow
+### Task 9: The web signs the address it forwards
 
-**REQUIRED SUB-SKILLS:** none beyond the global constraints. **This task writes configuration and documentation only — it deploys nothing.** No step here requires an account, and no step may attempt to create one.
+**REQUIRED SUB-SKILLS:** superpowers:test-driven-development; superpowers:systematic-debugging if a measurement disagrees with what you expected
 
 **Files:**
 
-- Create: `fly.api.toml`, `fly.web.toml`, `.github/workflows/deploy.yml`, `docs/deploy.md`
-- Modify: `.dockerignore` if it excludes something a Fly build needs
+- Create: `apps/web/lib/forward-signature.ts` and its test
+- Modify: `apps/api/src/lib/client-key.ts` and its test, `apps/api/src/config.ts`, `apps/web/middleware.ts` and its test, `.env.example`
 
-- [ ] **Step 1: The two app configurations**
+**Interfaces (produced):**
 
-`fly.api.toml` for `tabletap-api` and `fly.web.toml` for `tabletap-web`, both in region `fra`, each building from its existing Dockerfile. Both apps stop when idle and start on demand — one machine each:
-
-```toml
-[http_service]
-  internal_port = 4000            # 3000 in fly.web.toml
-  force_https = true
-  auto_stop_machines = "stop"
-  auto_start_machines = true
-  min_machines_running = 0
+```ts
+// apps/web/lib/forward-signature.ts — Web Crypto, so it runs in the edge runtime
+export async function signVisitor(address: string, secret: string): Promise<string>
+export const VISITOR_HEADER = 'x-tt-visitor';
+export const VISITOR_SIG_HEADER = 'x-tt-visitor-signature';
 ```
 
-Give the API an `[[http_service.checks]]` against `/health`. The web app has no health endpoint — `docker-compose.yml` says so and CI compensates by polling `/login` — so point its check at `/login` and note why in a comment, so the next reader does not think it is arbitrary.
+**Why this exists.** An earlier task gave three public routes a rate-limit bucket per visitor, and its security argument rested on every hop between the visitor and the API sitting inside a private range the API could trust. The deployment now spans two providers (spec §4.1), so the web's call to the API leaves one network and arrives as ordinary internet traffic from an ordinary public address. Trusting a forwarded address from an untrusted peer lets anyone forge one; refusing to trust it collapses every visitor onto a single bucket. Neither is acceptable, so the web proves the address came from it.
 
-- [ ] **Step 2: The address layout**
+Read spec §4.4 before starting. It is short and it states the property.
 
-Spec §4.2 decides this and the runbook must state it as a table, because getting one of them wrong produces a site that half-works:
+- [ ] **Step 1: Establish how the secret reaches the middleware, before designing around it**
 
-| Variable | App | Value | Why |
-|---|---|---|---|
-| `API_URL` | web | the API's **internal** Fly address | Server components and the `/api/*` rewrite; keeps ordinary HTTP same-origin for the browser, so cookies are untouched |
-| `NEXT_PUBLIC_API_ORIGIN` | web (build **and** runtime) | the API's **public** address | The WebSocket only. It authenticates with the short-lived socket token, not a cookie, which is why cross-origin is safe |
-| `NEXT_PUBLIC_APP_URL` | web | the web app's public address | Absolute URLs in the link preview |
-| `WEB_ORIGIN` | api | the web app's public address | CORS, and better-auth's origin check |
-| `BETTER_AUTH_URL` | api | the API's public address | |
+Next middleware is bundled at build time, and this milestone has already been bitten twice by a value that is inlined at build being supplied only at runtime. **Do not assume either way.** Determine whether a plain (non-`NEXT_PUBLIC_`) environment variable read inside `middleware.ts` is inlined at build or read at runtime, by building the web image and observing what a changed value does — the same method the link-preview task used, and the only one that distinguishes them, because `next dev` behaves like a runtime read regardless.
 
-`NEXT_PUBLIC_API_ORIGIN` is inlined at build time, so it is a build argument as well as a runtime value — `Dockerfile.web` already has the `ARG`/`ENV` pair for `API_URL`; check whether it needs the same for this one and add it if so.
+Write what you established in your report. If it is build-time, the secret is a build argument and the runbook must say so; if runtime, it is an ordinary environment variable. Getting this wrong ships a demo whose forwarding silently never verifies.
 
-- [ ] **Step 3: The deploy workflow**
+- [ ] **Step 2: Failing tests**
 
-`.github/workflows/deploy.yml`, triggered by `workflow_run` on the `ci` workflow completing for `main`, and running **only** when `github.event.workflow_run.conclusion == 'success'`. It needs a `FLY_API_TOKEN` repository secret, which the owner adds in Task 10.
+`forward-signature.test.ts`: the same address and secret give the same signature; a different address gives a different one; a different secret gives a different one; the function uses Web Crypto rather than `node:crypto`, so it can run in the edge runtime.
 
-Two jobs, and the order is not a preference:
+`client-key.test.ts`, extending the existing file: a request carrying a valid address and signature keys on that address; a request carrying an address with a **wrong** signature keys on the connection's own address, not the claimed one; a request carrying an address and **no** signature likewise; a request with neither behaves exactly as it does today. Assert the wrong-signature case explicitly — it is the whole property, and a test that only checks the happy path would pass against a version that never verifies at all.
 
-```yaml
-jobs:
-  api:
-    # deploy tabletap-api, then curl its /health
-  web:
-    needs: api
-    # deploy tabletap-web, then curl its landing page
-```
+`middleware.test.ts`: with a secret configured the middleware sets both headers; with no secret configured it sets neither and does not throw, so a misconfigured deployment degrades to one shared bucket rather than to a crash.
 
-`docs/backlog.md` records why: `OrderDtoSchema` requires fields older API builds do not send, so a **newer web against an older API fails to parse every order response** — the menu renders and nothing past it works. The reverse order is safe, because an older web ignores fields it does not know. Put that sentence in the workflow as a comment; a future maintainer reordering two jobs deserves to know what it costs.
+- [ ] **Step 3: Run, expect failures, then implement**
 
-Each job ends with a smoke check, and a failed smoke check fails the workflow.
+Sign with HMAC-SHA256 over the address, hex-encoded, using Web Crypto's `crypto.subtle` in the web and `node:crypto`'s `createHmac` in the API. Compare with a timing-safe comparison in the API. Do not invent a scheme with a timestamp or a nonce: replaying another visitor's address only shares their bucket, which gains an attacker nothing, and every extra moving part is one more thing to get wrong.
 
-- [ ] **Step 4: The runbook**
+Add `FORWARD_SECRET` to the API's config as an optional value — the local Compose demo does not need it, and an unset secret must mean "verify nothing, key on the connection address", never "accept anything".
 
-`docs/deploy.md`, written for the owner to follow without improvising. Every step that needs an account, a card or a password is the owner's, and the runbook says so plainly. Cover, in order: installing `flyctl` and signing in; `fly launch --no-deploy` for each app with the config files already in the repository; creating and attaching Managed Postgres; `fly storage create` for the Tigris bucket and mapping its credentials onto the seven `S3_*` variables; generating fresh values for `BETTER_AUTH_SECRET`, `COOKIE_SECRET`, `TABLE_TOKEN_SECRET`, `SOCKET_TOKEN_SECRET` and `DEMO_PASSWORD` and setting them with `fly secrets set`; leaving `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` unset so the provider stays `demo`; adding `FLY_API_TOKEN` to the repository; and the first manual deploy, API before web.
+**`clientKey` keeps `normalizeIP`.** An earlier round established that dropping the plugin's own normalisation reopens bucket-minting through IPv6 /64s; the signature check goes in front of it, not instead of it.
 
-State once, in bold, that **no value from `.env.example` may be used** — those are local demo values and they are published in the repository.
+- [ ] **Step 4: Prove it against the Compose stack**
+
+Bring the stack up with a secret configured. Confirm two clients with different addresses get their own buckets through the rewrite, and that a request sent **directly** to the API with a forged `x-tt-visitor` header and no valid signature is keyed on its own connection address rather than the claimed one. Report both.
+
+This also closes something the earlier task had to leave open: the local demo was spoofable from the host because the API's port is published. With signature verification it is not.
 
 - [ ] **Step 5: Full gate and commit**
 
 ```bash
-git add fly.api.toml fly.web.toml .github/workflows/deploy.yml docs/deploy.md
-git commit -m "feat(deploy): Fly configuration, a gated workflow, and a runbook"
+corepack pnpm lint --force && corepack pnpm typecheck --force && corepack pnpm test --force && corepack pnpm validate-tokens && corepack pnpm exec prettier --check .
+git add apps/api apps/web .env.example
+git commit -m "feat(api): honour a forwarded address only when the web signed it"
 ```
 
 ---
 
-### Task 10: The deploy itself — the owner's task, not a subagent's
+### Task 10: Three free tiers, and a runbook precise enough to follow
+
+**REQUIRED SUB-SKILLS:** none beyond the global constraints. **This task writes configuration and documentation only — it deploys nothing.** No step requires an account, and no step may attempt to create one.
+
+**Files:**
+
+- Create: `render.yaml`, `docs/deploy.md`
+- Modify: `.github/workflows/deploy.yml`, `Dockerfile.web`, `docker-compose.yml` if the build arguments need it
+- Delete: `fly.api.toml`, `fly.web.toml` — the previous platform's configuration, now dead
+
+**Read spec §4 first.** It decides the topology, the address layout, and why there is no object storage.
+
+- [ ] **Step 1: Retire the Fly configuration**
+
+Delete `fly.api.toml` and `fly.web.toml`, and remove every reference to Fly, flycast and Tigris from the workflow and any document that names them. A dead configuration file for a platform the project does not use is a trap for the next reader, who cannot tell it from a live one.
+
+- [ ] **Step 2: The three services**
+
+**Web on Vercel.** No file is required — Vercel reads `apps/web` from the repository. What the runbook must pin down is the root directory, the build command for a pnpm workspace, and that **every `NEXT_PUBLIC_*` value is a build-time environment variable**, because Next inlines them. There are four: `NEXT_PUBLIC_API_ORIGIN`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_UPLOADS_ENABLED`, and whatever Task 9 established for the forwarding secret. Getting one of them supplied only at runtime produces a browser bundle still pointing at localhost — a socket that never connects and a link preview nobody outside can load.
+
+**API on Render**, as a Docker web service built from `Dockerfile.api`. Write `render.yaml` so the service is declared in the repository rather than clicked together, with the free plan, the health check path `/health`, and every environment variable listed — secrets marked as such rather than given values.
+
+**Postgres on Neon.** The runbook captures the connection string into `DATABASE_URL` and notes that the API runs its own migrations and seed at boot, so there is no separate migration step.
+
+- [ ] **Step 3: The deploy workflow**
+
+Keep the existing `workflow_run` gate on `ci` succeeding for `main`, the `concurrency` group, and `ref: ${{ github.event.workflow_run.head_sha }}` so the deployed commit is the one CI validated. Replace the Fly deploy steps.
+
+**The order is API first, then web, and it is not a preference** — `OrderDtoSchema` requires fields older API builds do not send, so a newer web against an older API fails to parse every order response: the menu renders and nothing past it works. Keep that reason as a comment.
+
+Each stage ends with a smoke check carrying `--retry 10 --retry-delay 3 --retry-all-errors`, because the API's entrypoint runs migrations and the seed before it listens, and because a free instance may be waking.
+
+- [ ] **Step 4: The runbook**
+
+`docs/deploy.md`, written for the owner to follow without improvising. Every step needing a login is marked as theirs.
+
+**The rule that governs every check you write, because three separate instances of its violation were found in the previous version of this document: for each check, state what a _correct_ deployment returns, and make sure the instruction would not call that a failure.** A check that reports a healthy deployment as broken is worse than no check, because the reader cannot tell it from a real failure and will go looking for a fault that is not there. Two specific traps already found and not to be repeated: `GET /api/menu` requires `menu.read`, so an anonymous curl correctly answers 401 — use `/api/demo/links`, which is public and touches the database; and the landing page opens **no** Socket.io connection at all, since `createSocket` is imported only by the kitchen board and the order screen, so an instruction to watch for one there finds nothing.
+
+Cover, in order: confirming each service's current free-tier terms before relying on them, because they change and this document cannot verify them; creating the Neon database; creating the Render service from `render.yaml`; generating the six secrets fresh — `BETTER_AUTH_SECRET`, `COOKIE_SECRET`, `TABLE_TOKEN_SECRET`, `SOCKET_TOKEN_SECRET`, `DEMO_PASSWORD` and the forwarding secret — with **`DEMO_PASSWORD` called out separately, because its default equals the published `.env.example` value, so forgetting it does not fail the boot: it ships a working public demo whose staff password is in this repository**; setting `DEMO_UPLOADS_ENABLED=false` and leaving both Stripe variables unset; creating the Vercel project with the four build-time variables; adding the deploy tokens to the repository; and a verification gate before the first deploy that lists the configured variables and checks them against the set with no default in `apps/api/src/config.ts`.
+
+State once, in bold, that **no value from `.env.example` may be used** — those are local demo values and they are published.
+
+- [ ] **Step 5: The post-deploy checks**
+
+Six, each stating what a correct deployment returns:
+
+1. The landing loads on the Vercel address.
+2. `curl -fsS <web>/api/demo/links` returns seeded data — this proves the rewrite reaches the API, which `/login` rendering does not, because that page only calls the API when `?demo=` names a staff role.
+3. A guest claims table 7 from the landing and reaches the menu.
+4. The kitchen board opens and its Socket.io connection is against the public API origin — **this** is where a socket exists to observe.
+5. **Two genuinely different clients, on two different networks, through the deployed site's own `/api/*` rewrite**, do not share a rate-limit bucket. State the positive control: confirm the first client is actually refused before touching the second, and that a refusal renders as `Can't reach the server. Check the connection and try again.`, because `claim-table.tsx` has no case for the rate-limited code. The limit is twenty per minute, so the refusal lands on the twenty-first request counting the page's own first attempt, and the loop must finish inside a minute.
+6. A forged `x-tt-visitor` header sent **directly** to the public API is ignored — the caller is keyed on its own address. This is the check that proves Task 9's property on the real deployment.
+
+Then: the first request after the API has slept takes tens of seconds, and the demo data comes back reset. Both are expected; say so.
+
+- [ ] **Step 6: Full gate and commit**
+
+```bash
+corepack pnpm lint --force && corepack pnpm typecheck --force && corepack pnpm test --force && corepack pnpm validate-tokens && corepack pnpm exec prettier --check .
+git add render.yaml docs/deploy.md .github/workflows/deploy.yml Dockerfile.web docker-compose.yml
+git rm fly.api.toml fly.web.toml
+git commit -m "feat(deploy): three free tiers, a gated workflow, and a runbook"
+```
+
+---
+
+### Task 11: The deploy itself — the owner's task, not a subagent's
 
 **This task is run by the controller together with the owner. Do not dispatch it to a subagent.** Every step needing a login, a card or a secret belongs to the owner; the agent's part is the runbook, the commands and the measurements.
 
 - [ ] **Step 1: The owner's steps**
 
-The owner follows `docs/deploy.md`: signs in to Fly, creates the two apps, attaches Postgres and the Tigris bucket, sets the secrets, adds `FLY_API_TOKEN` to the repository. The controller answers questions and reads output, and does not ask for a credential.
+The owner follows `docs/deploy.md`: confirms each service's current free-tier terms, creates the Neon database, the Render service and the Vercel project, generates and sets the six secrets, and adds the deploy tokens to the repository. The controller answers questions and reads output, and does not ask for a credential.
 
 - [ ] **Step 2: The first deploy, in order**
 
@@ -556,18 +611,18 @@ API first, then web. Then the smoke checks by hand: `/health` on the API, the la
 
 - [ ] **Step 3: The four measurements that decide whether this is done**
 
-1. **Two visitors, two buckets** — repeat Task 6's measurement against the live host. Task 6 proved it in Compose; Fly's proxy is a different hop chain, and the deployed answer is the one that matters. Record both lines of status codes.
+1. **Two visitors, two buckets** — repeat Task 9's measurement against the live host. Task 6 proved it in Compose; Fly's proxy is a different hop chain, and the deployed answer is the one that matters. Record both lines of status codes.
 2. **The reset survives a sleep** — leave the demo altered, wait for the machines to stop, open the site, and confirm the data came back. Record how long the first request took.
 3. **The WebSocket connects** — open the kitchen board and a guest order in two browsers and watch a status change cross. Record the latency and compare it with the 34 ms measured locally.
 4. **Lighthouse against the live host** — one run, six pages. Record every number; these are the figures the case study will quote, and a shared CI runner's numbers are not the same claim.
 
 - [ ] **Step 4: Record the outcome**
 
-Put the live URL, the four measurements and anything that surprised you into the ledger, and hand them to Task 11. If a measurement fails, that is a defect to fix before Task 11, not a number to soften.
+Put the live URL, the four measurements and anything that surprised you into the ledger, and hand them to Task 12. If a measurement fails, that is a defect to fix before Task 12, not a number to soften.
 
 ---
 
-### Task 11: The case study, and the documents
+### Task 12: The case study, and the documents
 
 **REQUIRED SUB-SKILLS:** none beyond the global constraints
 
@@ -587,7 +642,7 @@ Put the live URL, the four measurements and anything that surprised you into the
 
 Then a short, honest section on process: milestones, reviews per task, and a few things reviews caught that tests could not — including the two the browser found only when somebody looked at the screen.
 
-Quote the numbers from Task 10's live run, not the local ones, and say which host they came from.
+Quote the numbers from Task 11's live run, not the local ones, and say which host they came from.
 
 - [ ] **Step 2: The README opening**
 
