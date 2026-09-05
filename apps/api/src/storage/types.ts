@@ -41,17 +41,23 @@ export interface PresignedUpload {
   key: string;
   expiresInSeconds: number;
 }
-/** What a HeadObject tells us about an object that is there. */
+/**
+ * What a HeadObject tells us about an object that is there. `size` is null when the store answered
+ * without a `ContentLength`: the 5 MB ceiling is checked against nothing else, so an absent size
+ * has to stay absent all the way to `checkUpload` rather than being read as a zero-byte object,
+ * which would sail through the one comparison that bounds an unbounded upload.
+ */
 export interface StoredObject {
-  size: number;
+  size: number | null;
   contentType: string | null;
 }
 
 /**
- * Why an upload was refused. `missing` means the browser never completed the PUT; the other two
- * mean it completed with something we will not serve, and the object has been deleted.
+ * Why an upload was refused. `missing` means the browser never completed the PUT; the other three
+ * mean it completed with something we will not serve - too big, the wrong type, or a size the
+ * store would not state - and the object has been deleted.
  */
-export type UploadRejection = 'missing' | 'too-large' | 'unsupported-type';
+export type UploadRejection = 'missing' | 'too-large' | 'unsupported-type' | 'unknown-size';
 export type UploadCheck =
   { ok: true; object: StoredObject } | { ok: false; reason: UploadRejection };
 
@@ -70,7 +76,6 @@ export interface ObjectStorage {
    * unbounded file sitting in a world-readable prefix. Anything it refuses, it deletes.
    */
   checkUpload(key: string): Promise<UploadCheck>;
-  exists(key: string): Promise<boolean>;
   publicUrl(key: string): string;
   remove(key: string): Promise<void>;
 }

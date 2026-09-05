@@ -23,7 +23,6 @@ function fakeStorage(): ObjectStorage & { remove: ReturnType<typeof vi.fn> } {
     presignPut: vi.fn(),
     head: vi.fn(),
     checkUpload: vi.fn(),
-    exists: vi.fn(),
     publicUrl: vi.fn(),
     remove: vi.fn(async () => {}),
   };

@@ -19,6 +19,7 @@ import { guestKey } from '../lib/guest-sessions';
 import { createOrder, listOrders, loadOrder, type InternalOrderDto } from '../lib/orders';
 import { startPayment } from '../lib/payments';
 import { restaurantIdFor } from '../lib/restaurant';
+import { staffKey } from '../lib/staff-key';
 import { transitionOrder } from '../lib/transitions';
 import { requireAction, requireAuthenticated, requireGuest } from '../plugins/rbac';
 
@@ -77,17 +78,7 @@ export async function ordersRoutes(app: FastifyInstance) {
     '/orders/:id/transition',
     {
       preHandler: requireAction('orders.transition'),
-      config: {
-        rateLimit: {
-          max: 60,
-          timeWindow: '1 minute',
-          // One bucket per signed-in browser: the cookie jar is opaque and already parsed.
-          keyGenerator: (request) =>
-            request.headers.cookie
-              ? `session:${String(request.headers.cookie)}`
-              : `ip:${request.ip}`,
-        },
-      },
+      config: { rateLimit: { max: 60, timeWindow: '1 minute', keyGenerator: staffKey } },
       schema: { response: { 200: OrderResponseSchema } },
     },
     async (request) => {

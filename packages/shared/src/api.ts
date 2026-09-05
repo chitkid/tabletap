@@ -157,12 +157,20 @@ export type PaymentSessionResponse = z.infer<typeof PaymentSessionResponseSchema
 export const DemoCompleteRequestSchema = z.object({ outcome: z.enum(['paid', 'declined']) });
 export type DemoCompleteRequest = z.infer<typeof DemoCompleteRequestSchema>;
 
-/** M5: staff writes to a menu category. Both fields beyond `name` are optional so a create can
- * omit them and take the server's default, and a rename need not repeat them. */
+/**
+ * M5: staff writes to a menu category. `sortOrder` is optional so a create can omit it and take
+ * the server's default, and a rename need not repeat it.
+ *
+ * There is deliberately no `isActive` here. The column exists and defaults to true, but nothing
+ * reads an inactive category back: `loadMenu` is the only route that lists categories and it
+ * filters on `isActive`, and `MenuCategoryDtoSchema` does not carry the field. Accepting the write
+ * would let one PATCH remove a category from the only surface that could restore it, with no route
+ * anywhere that lists it again - a state the API has no way out of. Deactivating a category is a
+ * spec decision that is not implemented; see `docs/backlog.md` for what building it would take.
+ */
 export const MenuCategoryWriteSchema = z.object({
   name: z.string().min(1).max(60),
   sortOrder: z.number().int().optional(),
-  isActive: z.boolean().optional(),
 });
 export type MenuCategoryWrite = z.infer<typeof MenuCategoryWriteSchema>;
 

@@ -119,7 +119,9 @@ export async function createCategory(
   const row = await db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(schema.menuCategories)
-      .values({ restaurantId, name: body.name, sortOrder, isActive: body.isActive ?? true })
+      // `isActive` is the column's own default. It is not writable through the contract: nothing
+      // lists an inactive category, so a category that could be deactivated could never come back.
+      .values({ restaurantId, name: body.name, sortOrder })
       .returning();
     if (!inserted) throw new Error('category insert returned nothing');
     await recordAudit(tx, {
@@ -358,6 +360,7 @@ const UPLOAD_REFUSALS: Record<UploadRejection, string> = {
   missing: 'The upload did not arrive. Try again.',
   'too-large': 'That photograph is larger than 5 MB. Try again with a smaller one.',
   'unsupported-type': 'That file is not a JPEG, PNG or WebP. Try again with one of those.',
+  'unknown-size': 'The storage service did not report a size for that upload. Try again.',
 };
 
 /**

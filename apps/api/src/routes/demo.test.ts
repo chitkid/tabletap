@@ -1,8 +1,11 @@
+import { eq } from 'drizzle-orm';
 import { verifyTableToken } from '@tabletap/shared/server';
 import { DemoLinksResponseSchema, RushResponseSchema } from '@tabletap/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { schema } from '@tabletap/db';
 import { createTestDb } from '@tabletap/db/testing';
 import { seed } from '@tabletap/db/seed';
+import { DEMO_TABLE_NUMBER } from './demo';
 import { buildApp } from '../server';
 import { TEST_CONFIG, TEST_DEMO_PASSWORD, createTestApp } from '../test/helpers';
 
@@ -53,6 +56,30 @@ describe('GET /api/demo/links', () => {
     await app.close();
     await close();
   });
+  /**
+   * The landing reads "demo mode is off" out of a 404 and degrades to a plain product page. Since
+   * M5 an admin can renumber or deactivate table 7 in two presses, and answering the same 404 for
+   * that would blank the landing with no way of telling the two apart.
+   */
+  it.each([
+    ['renumbered away', { number: 99 }],
+    ['deactivated', { isActive: false }],
+  ])('says the demo table is missing rather than 404 when table 7 is %s', async (_name, patch) => {
+    const own = await createTestApp();
+    try {
+      await own.db
+        .update(schema.tables)
+        .set(patch)
+        .where(eq(schema.tables.number, DEMO_TABLE_NUMBER));
+      const res = await own.app.inject({ method: 'GET', url: '/api/demo/links' });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('CONFLICT');
+      expect(res.json().error.message).toMatch(/table 7/i);
+    } finally {
+      await own.close();
+    }
+  });
+
   // Every landing render asks for these links from the web container, so one ip is every
   // visitor. The limit is a runaway guard, not a per-visitor budget.
   // Own app, so the bucket starts full and the count is exact.

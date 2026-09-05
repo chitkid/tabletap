@@ -40,10 +40,26 @@ export async function demoRoutes(app: FastifyInstance) {
               and(
                 eq(schema.tables.restaurantId, restaurant.id),
                 eq(schema.tables.number, DEMO_TABLE_NUMBER),
+                // A deactivated table has no guests to seat, and its code answers "This table is
+                // not available" to anyone who scans it - so handing its link to the landing would
+                // publish a card that is already dead.
+                eq(schema.tables.isActive, true),
               ),
             )
         : [];
-      if (!restaurant || !table) throw new AppError('NOT_FOUND', 404, 'Demo data is not seeded.');
+      // Two different failures, and the landing acts on the difference (apps/web/lib/demo-links.ts).
+      // No restaurant means the demo data was never seeded, which is the same thing to a visitor as
+      // demo mode being off: the landing degrades to a plain product page. A restaurant with no
+      // active table 7 means an admin renumbered or deactivated it - the deployment is fine and the
+      // landing should say what is missing rather than quietly losing its cards, its QR and its
+      // sign-in buttons.
+      if (!restaurant) throw new AppError('NOT_FOUND', 404, 'Demo data is not seeded.');
+      if (!table)
+        throw new AppError(
+          'CONFLICT',
+          409,
+          `The demo landing needs an active table ${DEMO_TABLE_NUMBER}. Restore it in the admin.`,
+        );
       const token = await signTableToken(
         {
           tableId: table.id,

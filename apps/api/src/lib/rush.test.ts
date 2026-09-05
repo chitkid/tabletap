@@ -60,6 +60,36 @@ describe('rush', () => {
       .from(schema.auditLog)
       .where(eq(schema.auditLog.entityId, dto.id));
     expect(audit.map((a) => a.action)).toContain('payment.succeeded');
+    expect(payment?.currency).toBe(dto.currency);
+  });
+  it('writes the payment in the restaurant’s own currency, not a literal', async () => {
+    // The seeded demo restaurant charges in USD, which is also what the literal used to say, so
+    // the only way to see the difference is to move the restaurant off it.
+    const [restaurant] = await ctx.db.select().from(schema.restaurants);
+    await ctx.db
+      .update(schema.restaurants)
+      .set({ currency: 'EUR' })
+      .where(eq(schema.restaurants.id, restaurant!.id));
+    try {
+      const dto = await placeRushOrder({
+        db: ctx.db,
+        events: ctx.app.orderEvents,
+        random: () => 0.2,
+      });
+      expect(dto.currency).toBe('EUR');
+      const [payment] = await ctx.db
+        .select()
+        .from(schema.payments)
+        .where(eq(schema.payments.orderId, dto.id));
+      // A payments row whose currency contradicts its own order is worse than a wrong currency:
+      // it is two different answers to one question about the same money.
+      expect(payment?.currency).toBe('EUR');
+    } finally {
+      await ctx.db
+        .update(schema.restaurants)
+        .set({ currency: restaurant!.currency })
+        .where(eq(schema.restaurants.id, restaurant!.id));
+    }
   });
   it('spreads `count` orders over `durationMs`, runs once at a time, and stops on demand', async () => {
     const rush = createRush({

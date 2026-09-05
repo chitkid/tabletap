@@ -85,14 +85,14 @@ export function createS3Storage(opts: {
         const out = await opts.client.send(
           new HeadObjectCommand({ Bucket: opts.bucket, Key: key }),
         );
-        return { size: out.ContentLength ?? 0, contentType: out.ContentType ?? null };
+        // Never `?? 0`. The 5 MB ceiling is checked against this one number, so a store that
+        // answered without a `ContentLength` has to be reported as unmeasured: read as zero it
+        // would pass the only comparison that bounds an upload the server never saw.
+        return { size: out.ContentLength ?? null, contentType: out.ContentType ?? null };
       } catch (err) {
         if (isMissing(err)) return null;
         throw err;
       }
-    },
-    async exists(key) {
-      return (await this.head(key)) !== null;
     },
     async checkUpload(key): Promise<UploadCheck> {
       const object = await this.head(key);
@@ -100,11 +100,13 @@ export function createS3Storage(opts: {
       // The order matters only for the message: either way the object goes. A refusal that left it
       // behind would leave an unreferenced, world-readable file of any size in the bucket.
       const reason =
-        object.size > PHOTO_MAX_BYTES
-          ? 'too-large'
-          : !PHOTO_CONTENT_TYPES.some((type) => type === object.contentType)
-            ? 'unsupported-type'
-            : null;
+        object.size === null
+          ? 'unknown-size'
+          : object.size > PHOTO_MAX_BYTES
+            ? 'too-large'
+            : !PHOTO_CONTENT_TYPES.some((type) => type === object.contentType)
+              ? 'unsupported-type'
+              : null;
       if (reason === null) return { ok: true, object };
       await this.remove(key);
       return { ok: false, reason };

@@ -122,6 +122,31 @@ describe('payments routes', () => {
       expect(await auditFor(order.id, 'payment.succeeded')).toHaveLength(1);
     });
 
+    it('settles the newest attempt when two share a createdAt to the millisecond', async () => {
+      const { order, cookie } = await placeOrder(9);
+      expect((await startPayment(order.id, { cookie })).statusCode).toBe(200);
+      expect((await startPayment(order.id, { cookie })).statusCode).toBe(200);
+      // Migration 0005 coarsened these columns to millisecond precision, so two attempts opened in
+      // the same millisecond are indistinguishable by `createdAt` alone. Forced here rather than
+      // raced, so the tie is the thing under test instead of the scheduler.
+      const opened = await paymentRows(order.id);
+      expect(opened).toHaveLength(2);
+      const tied = new Date('2026-09-05T12:00:00.000Z');
+      await ctx.db
+        .update(schema.payments)
+        .set({ createdAt: tied })
+        .where(eq(schema.payments.orderId, order.id));
+      // uuidv7 sorts by the instant it was minted, so the greater id is the later attempt.
+      const [older, newer] = [...opened].sort((a, b) => a.id.localeCompare(b.id));
+
+      expect((await complete({ orderId: order.id, outcome: 'paid' }, { cookie })).statusCode).toBe(
+        200,
+      );
+      const settled = await paymentRows(order.id);
+      expect(settled.find((p) => p.id === newer!.id)).toMatchObject({ status: 'succeeded' });
+      expect(settled.find((p) => p.id === older!.id)).toMatchObject({ status: 'pending' });
+    });
+
     it('refuses an order that was never paid and is no longer waiting', async () => {
       const { order, cookie } = await placeOrder(3);
       expect((await startPayment(order.id, { cookie })).statusCode).toBe(200);

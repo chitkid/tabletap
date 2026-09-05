@@ -266,7 +266,6 @@ describe('menu photographs', () => {
         if (gate) await gate();
         return check;
       }),
-      exists: vi.fn(async () => check.ok),
       publicUrl: vi.fn((key: string) => `${PUBLIC_BASE}/${key}`),
       remove: vi.fn(async () => {}),
     } satisfies ObjectStorage;

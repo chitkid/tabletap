@@ -94,7 +94,12 @@ export async function demoPaymentRoutes(app: FastifyInstance) {
         .select()
         .from(schema.payments)
         .where(and(eq(schema.payments.orderId, order.id), eq(schema.payments.status, 'pending')))
-        .orderBy(desc(schema.payments.createdAt))
+        // `createdAt` alone is not an ordering: migration 0005 coarsened it to millisecond
+        // precision, and two attempts opened inside one millisecond tie - after which the row
+        // that comes back is whatever the planner happened to hand over, so "the newest pending
+        // attempt" could be the older one. uuidv7 ids break the tie in insertion order, the same
+        // way `lib/orders.ts` breaks it for an order's items.
+        .orderBy(desc(schema.payments.createdAt), desc(schema.payments.id))
         .limit(1);
       if (!payment)
         throw new AppError('PAYMENT_REQUIRED', 409, 'This order has no payment to complete.');

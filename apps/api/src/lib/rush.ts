@@ -28,7 +28,7 @@ export async function placeRushOrder(input: {
   const random = input.random ?? Math.random;
   const now = input.now ?? new Date();
   const [restaurant] = await input.db
-    .select({ id: schema.restaurants.id })
+    .select({ id: schema.restaurants.id, currency: schema.restaurants.currency })
     .from(schema.restaurants)
     .where(eq(schema.restaurants.slug, DEMO_RESTAURANT_SLUG));
   if (!restaurant) throw new Error('demo restaurant is not seeded');
@@ -96,7 +96,10 @@ export async function placeRushOrder(input: {
         orderId: order.id,
         provider: 'demo',
         amountCents: order.totalCents,
-        currency: 'USD',
+        // Read from the restaurant, like every other write path: `startPayment` takes it off the
+        // order, and the order takes it from here. A literal would write a payments row whose
+        // currency contradicts its own order's the moment a restaurant charges in anything else.
+        currency: restaurant.currency,
         status: 'succeeded',
         providerSessionId: `demo:rush:${order.id}`,
         createdAt: now,

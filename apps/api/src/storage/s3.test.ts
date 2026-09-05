@@ -116,26 +116,25 @@ describe('head', () => {
   it('answers null for an object that is not there', async () => {
     const { storage } = storageWith({ send: sendFn().mockRejectedValue(notFound()) });
     await expect(storage.head('menu/a/b.png')).resolves.toBeNull();
-  });
-});
-
-describe('exists', () => {
-  it('is true when the HeadObject resolves', async () => {
-    const send = sendFn().mockResolvedValue({ ContentLength: 10 });
-    const { storage } = storageWith({ send });
-    await expect(storage.exists('menu/a/b.jpg')).resolves.toBe(true);
-    const command = send.mock.calls[0]?.[0];
-    expect(command).toBeInstanceOf(HeadObjectCommand);
-    expect(command?.input).toEqual({ Bucket: BUCKET, Key: 'menu/a/b.jpg' });
-  });
-  it('is false when the HeadObject rejects with NotFound', async () => {
-    const { storage } = storageWith({ send: sendFn().mockRejectedValue(notFound()) });
-    await expect(storage.exists('menu/a/b.jpg')).resolves.toBe(false);
+    const { storage: byStatus } = storageWith({
+      send: sendFn().mockRejectedValue(
+        Object.assign(new Error('nope'), { $metadata: { httpStatusCode: 404 } }),
+      ),
+    });
+    await expect(byStatus.head('menu/a/b.png')).resolves.toBeNull();
   });
   it('rethrows anything that is not a missing object', async () => {
     const boom = new Error('connection refused');
     const { storage } = storageWith({ send: sendFn().mockRejectedValue(boom) });
-    await expect(storage.exists('menu/a/b.jpg')).rejects.toThrow('connection refused');
+    await expect(storage.head('menu/a/b.jpg')).rejects.toThrow('connection refused');
+  });
+  it('reports an unmeasured object as an unknown size rather than as an empty one', async () => {
+    const send = sendFn().mockResolvedValue({ ContentType: 'image/jpeg' });
+    const { storage } = storageWith({ send });
+    await expect(storage.head('menu/a/b.jpg')).resolves.toEqual({
+      size: null,
+      contentType: 'image/jpeg',
+    });
   });
 });
 
@@ -222,6 +221,16 @@ describe('checkUpload', () => {
       reason: 'unsupported-type',
     });
     expect(send.mock.calls[1]?.[0]).toBeInstanceOf(DeleteObjectCommand);
+  });
+  it('deletes an object whose size the store did not report, rather than reading it as zero', async () => {
+    // The ceiling is the only thing standing between a presigned PUT and an unbounded file, and
+    // `ContentLength` is the single value it is checked against: absent has to mean refused.
+    const send = headThenDelete({ ContentType: 'image/jpeg' });
+    const { storage } = storageWith({ send });
+    await expect(storage.checkUpload(KEY)).resolves.toEqual({ ok: false, reason: 'unknown-size' });
+    const deletion = send.mock.calls[1]?.[0];
+    expect(deletion).toBeInstanceOf(DeleteObjectCommand);
+    expect(deletion?.input).toEqual({ Bucket: BUCKET, Key: KEY });
   });
   it('reports a key the browser never uploaded to, with nothing to delete', async () => {
     const send = sendFn().mockRejectedValue(notFound());

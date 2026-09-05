@@ -356,6 +356,12 @@ describe('M5 contracts', () => {
   it('validates a menu category write', () => {
     expect(MenuCategoryWriteSchema.safeParse({ name: 'Drinks' }).success).toBe(true);
     expect(MenuCategoryWriteSchema.safeParse({ name: '' }).success).toBe(false);
+    // Withdrawn on purpose: no route lists an inactive category, so accepting the write would
+    // create a state the API has no way out of. Zod strips the unknown key rather than refusing
+    // the body, so the assertion is that it never reaches the parsed value.
+    expect(MenuCategoryWriteSchema.parse({ name: 'Drinks', isActive: false })).toEqual({
+      name: 'Drinks',
+    });
   });
 
   it('validates a menu item write', () => {

@@ -26,6 +26,7 @@ import {
   updateItem,
 } from '../lib/menu-admin';
 import { restaurantIdFor } from '../lib/restaurant';
+import { staffKey } from '../lib/staff-key';
 import { requireAction } from '../plugins/rbac';
 import { PHOTO_CONTENT_TYPES, type ObjectStorage } from '../storage/types';
 
@@ -211,6 +212,12 @@ export async function menuRoutes(app: FastifyInstance) {
     '/menu/items/:id/photo-url',
     {
       preHandler: requireAction('menu.write'),
+      // `server.ts` sets `global: false`, so a limit here is the only limit. This route is the one
+      // that mints a bucket-write capability, and nothing sweeps what an unconfirmed upload leaves
+      // behind: without a ceiling, one admin session - or one stolen cookie - can fill a
+      // world-readable prefix at 5 MB a call. Twenty a minute is well above what editing a menu by
+      // hand costs (one URL per photograph, and a retry after a refusal) and far below a loop.
+      config: { rateLimit: { max: 20, timeWindow: '1 minute', keyGenerator: staffKey } },
       schema: { response: { 200: PhotoUploadResponseSchema } },
     },
     async (request) => {
