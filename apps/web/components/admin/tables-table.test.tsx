@@ -107,6 +107,45 @@ describe('TablesTable', () => {
     expect(within(rowFor('Terrace 7')).getByText('Active')).toBeInTheDocument();
   });
 
+  it('keeps a refused state change in view even while the reissue question stands', async () => {
+    const user = userEvent.setup();
+    let refuse: (error: unknown) => void = () => {};
+    const inFlight = new Promise((_resolve, reject) => {
+      refuse = reject;
+    });
+    const fetcher = vi.fn().mockReturnValueOnce(inFlight);
+    render(<TablesTable initial={tables} fetcher={fetcher} />);
+
+    await user.click(within(rowFor('Terrace 7')).getByRole('button', { name: 'Deactivate' }));
+    // The question takes the row's controls away with it. The refusal is about the press before
+    // it, so it has to survive that swap rather than land in a paragraph nothing is showing.
+    await user.click(within(rowFor('Terrace 7')).getByRole('button', { name: 'Reissue QR' }));
+    refuse(new ApiError(409, 'CONFLICT', 'Someone else changed this table.'));
+
+    const notice = await within(rowFor('Terrace 7')).findByText(
+      "Couldn't save. Someone else changed this table.",
+    );
+    expect(notice).toHaveAttribute('role', 'status');
+    expect(
+      within(rowFor('Terrace 7')).getByText(
+        'Reissue the QR for table 7? Every printed code for this table stops working immediately.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('leaves focus on the toggle so a run of tables can be worked through', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue({ table: table(7, 'Terrace 7', false) });
+    render(<TablesTable initial={tables} fetcher={fetcher} />);
+
+    await user.click(within(rowFor('Terrace 7')).getByRole('button', { name: 'Deactivate' }));
+
+    // The same control under the hand that pressed it: a second press re-toggles the table
+    // rather than opening the editor, which is what a keyboard hand would get if focus moved.
+    const toggle = await within(rowFor('Terrace 7')).findByRole('button', { name: 'Activate' });
+    expect(toggle).toHaveFocus();
+  });
+
   it('holds the row shut while a state change is still in flight', async () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockReturnValue(new Promise(() => {}));

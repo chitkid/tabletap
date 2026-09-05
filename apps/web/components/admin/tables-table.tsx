@@ -4,7 +4,7 @@ import { Badge, Button, Input, Label, cn } from '@tabletap/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { clientFetch } from '../../lib/api';
 import { randomUuid } from '../../lib/uuid';
-import { ROW_LINE } from './menu-row';
+import { ROW_HEAD, ROW_LINE } from './menu-row';
 import { QrActions } from './qr-actions';
 import {
   OkResponseSchema,
@@ -16,8 +16,6 @@ import {
 } from './row-editor';
 
 const TABLE_COLUMNS = 4;
-/** The same accent-and-no-shift first cell the menu row uses, so both screens read as one tool. */
-const ROW_HEAD = 'relative max-w-0 border-l-2 px-3 text-left font-normal';
 
 const IN_USE = 'This table has orders. Deactivate it instead.';
 const INCOMPLETE = "Couldn't save. Give the table a number and a label.";
@@ -144,6 +142,11 @@ export function TablesTable({
                 focusOnRead={closed === table.id}
                 onEdit={() => open(table.id)}
                 onCancel={close}
+                onToggled={(saved) =>
+                  setTables((list) =>
+                    list.map((current) => (current.id === table.id ? saved : current)),
+                  )
+                }
                 onSaved={(saved) => {
                   setTables((list) =>
                     list.map((current) => (current.id === table.id ? saved : current)),
@@ -182,7 +185,10 @@ type RowProps = {
   focusOnRead: boolean;
   onEdit: () => void;
   onCancel: () => void;
+  /** A row closed on what the server answered: replace it, and give its focus back. */
   onSaved: (table: TableDto) => void;
+  /** A one-press state change: replace the row and leave the hand where it was. */
+  onToggled: (table: TableDto) => void;
   onDeleted: () => void;
 };
 
@@ -193,7 +199,7 @@ function TableRow(props: RowProps) {
   return <EditRow {...props} />;
 }
 
-function ReadRow({ table, fetcher, focusOnRead, onEdit, onSaved }: RowProps) {
+function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const edit = useRef<HTMLButtonElement>(null);
@@ -203,6 +209,11 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onSaved }: RowProps) {
 
   // One press, no draft: taking a table out of service is what an operator does when a table is
   // being repaired or pushed together with another, and it is entirely reversible.
+  //
+  // It reports through `onToggled`, not through the `onSaved` that closes an editor: this press
+  // opened no row, so there is no focus to hand back. Borrowing `onSaved` would move the hand to
+  // `Edit` after every press, and a second Space — meant to put the table back — would open the
+  // editor instead of re-toggling. The control stays where it was and only its word changes.
   const setActive = async (isActive: boolean) => {
     setBusy(true);
     setNotice('');
@@ -211,7 +222,7 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onSaved }: RowProps) {
         schema: TableResponseSchema,
         init: asJson('PATCH', { isActive }),
       });
-      onSaved(saved);
+      onToggled(saved);
     } catch (error) {
       setNotice(refusal(error));
     } finally {
@@ -239,16 +250,23 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onSaved }: RowProps) {
           <Badge variant="secondary">Inactive</Badge>
         )}
       </td>
-      <td className="px-3 text-right">
+      {/* A minimum the three controls fit on one line in. The first column is `w-full` and takes
+          everything it is allowed to, so without this the controls column collapses to the width
+          of its widest button, `Reissue QR` wraps under the other two in every row, and the
+          confirmation's sentence wraps four times in a column too narrow to read it in. */}
+      <td className="min-w-80 px-3 text-right">
+        {/* Mounted by the press, before there is anything to say: the refusal belongs beside the
+            control that was refused, and a live region that appears with its text already in it may
+            never be announced. It sits outside `QrActions` rather than among the controls it hands
+            over, because the reissue question takes those controls away — and a refusal that
+            arrives while the question stands would otherwise be written into an unmounted
+            paragraph, then re-appear later with its text already in it. */}
+        {busy || notice !== '' ? (
+          <p role="status" aria-live="polite" className="mb-1 text-sm text-destructive">
+            {notice}
+          </p>
+        ) : null}
         <QrActions table={table} fetcher={fetcher}>
-          {/* Mounted by the press, before there is anything to say: the refusal belongs beside the
-              control that was refused, and a live region that appears with its text already in it
-              may never be announced. */}
-          {busy || notice !== '' ? (
-            <p role="status" aria-live="polite" className="basis-full text-sm text-destructive">
-              {notice}
-            </p>
-          ) : null}
           <Button type="button" ref={edit} variant="outline" disabled={busy} onClick={onEdit}>
             Edit
           </Button>

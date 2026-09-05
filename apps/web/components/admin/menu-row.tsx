@@ -31,8 +31,10 @@ export const MENU_COLUMNS = 4;
  */
 export const ROW_LINE = 'h-14 border-b border-border/50';
 /** The first cell carries the accent that marks the open row, transparent when it is closed, so
- * the text in every row starts at the same x whichever mode the row is in. */
-const ROW_HEAD = 'relative max-w-0 border-l-2 px-3 text-left font-normal';
+ * the text in every row starts at the same x whichever mode the row is in. Exported beside
+ * `ROW_LINE` for the same reason: the tables screen has to be able to match it rather than keep a
+ * copy that nothing stops from drifting. */
+export const ROW_HEAD = 'relative max-w-0 border-l-2 px-3 text-left font-normal';
 
 const IN_USE = 'This dish is on an order. Mark it sold out instead.';
 const INCOMPLETE = "Couldn't save. Give the dish a name and a price.";

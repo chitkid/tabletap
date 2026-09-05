@@ -47,7 +47,7 @@ export function WeekBars({ week }: { week: DashboardResponse['week'] }) {
       {busiest === 0 ? (
         <p className="text-sm text-muted-foreground">{EMPTY}</p>
       ) : (
-        <ol className="flex items-end gap-2 rounded-lg border border-border/60 bg-card p-4 shadow-sm">
+        <ol className="flex items-end gap-2 rounded-lg border border-border/60 bg-card p-4 pt-6 shadow-sm">
           {days.map((day) => {
             const { full, weekday } = labelsFor(day.date);
             return (
@@ -56,18 +56,24 @@ export function WeekBars({ week }: { week: DashboardResponse['week'] }) {
                 aria-label={`${full}: ${counted(day.orders)}`}
                 className="flex min-w-0 flex-1 flex-col gap-2"
               >
-                {/* Seven numbers do not need a y axis to be read against: each count is written
-                    where it belongs, so nothing has to be estimated from a height. */}
-                <span aria-hidden="true" className="text-center text-xs font-semibold tabular-nums">
-                  {day.orders}
-                </span>
                 {/* The track is the definite height the bar's percentage resolves against. */}
                 <div className="flex h-40 items-end">
                   <div
                     data-slot="bar"
                     style={{ height: `${Math.round((day.orders / busiest) * 100)}%` }}
-                    className="min-h-1 w-full rounded-t-sm bg-primary"
-                  />
+                    className="relative min-h-1 w-full rounded-t-sm bg-primary"
+                  >
+                    {/* Seven numbers do not need a y axis to be read against: each count rides on
+                        top of its own bar, so nothing has to be estimated from a height and a
+                        quiet day's zero is not left floating where a busy day's number would be.
+                        The list's extra top padding is the room the tallest bar's count sits in. */}
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-0 -top-4 text-center text-xs font-semibold tabular-nums"
+                    >
+                      {day.orders}
+                    </span>
+                  </div>
                 </div>
                 <span
                   aria-hidden="true"
