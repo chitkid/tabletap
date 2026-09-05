@@ -161,9 +161,15 @@ chosen per status by measured contrast against the fill, not by taste:
 | `--status-cancelled` | `--primary-foreground`     | 6.43:1   | `--primary-foreground` | 7.76:1   |
 
 Every status is filled on every surface — there is no outline treatment and no per-status exception.
-`--primary-foreground` carries the label on five of the six; `--status-cooking` is the one that takes
-`--foreground`, because its amber is too light for the pale label. `packages/ui/src/tokens.test.ts`
-gates both of those pairs at 4.5:1, so a status colour cannot drift back under AA unnoticed.
+`--primary-foreground` carries the label on five of the six, on both surfaces, because it inverts
+with the surface in the same direction the status fills do. `--status-cooking` is the one that does
+not: its amber is mid-dark on the guest surface, where the pale label reaches only 3.58:1, and light
+on the kitchen board, where the pale label reaches 1.60:1. It needs dark ink in both places, and the
+token that is dark differs by surface — so it, and only it, carries a `dark:` override in
+`STATUS_STYLE`. `packages/ui/src/tokens.test.ts` reads that table and measures every pairing in it
+against its own fill on **both** surfaces, so a status colour cannot drift back under AA unnoticed.
+It measures the classes rather than a copy of this table, which is what M6 added after the kitchen
+board shipped a 1.60:1 label that no test was looking at.
 
 On the kitchen surface `--primary-foreground` resolves to the night background, so every kitchen badge
 is dark text on a light status fill.

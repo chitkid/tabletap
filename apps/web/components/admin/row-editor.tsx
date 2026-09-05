@@ -14,6 +14,19 @@ import { ApiError } from '../../lib/api';
 export const OkResponseSchema = z.object({ ok: z.literal(true) });
 
 /**
+ * How an expanded panel opens — and only the panel. The row above it keeps `ROW_LINE`'s height in
+ * both modes, which is what stops the table jumping under the hand that pressed Edit. `starting:`
+ * is `@starting-style`, so the faded state exists only for the instant the panel is inserted, and
+ * only opacity and transform move: the rows below end up exactly where they would have anyway.
+ *
+ * It lives here beside `RowActions` and `RowNotice` because all three in-place editors on the admin
+ * surface use it. A screen where one panel fades in while the one beside it appears reads as
+ * unfinished, and three copies of this string is how that happens.
+ */
+export const PANEL_OPENS =
+  'transition-[opacity,translate] duration-[var(--motion-base)] ease-[var(--motion-ease)] starting:-translate-y-1 starting:opacity-0';
+
+/**
  * One convention for the whole admin surface: a field that is fine carries no `aria-invalid` at
  * all, rather than `aria-invalid="false"`. Both are correct to a screen reader; having two of them
  * across five inputs in three files is the drift this module exists to stop.

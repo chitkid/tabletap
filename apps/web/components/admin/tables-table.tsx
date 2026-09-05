@@ -8,6 +8,7 @@ import { ROW_HEAD, ROW_LINE } from './menu-row';
 import { QrActions } from './qr-actions';
 import {
   OkResponseSchema,
+  PANEL_OPENS,
   RowActions,
   RowNotice,
   asJson,
@@ -428,9 +429,16 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
           <RowNotice notice={notice} />
           {/* Out of the row line, as on the menu: Edit is the deliberate act that unlocks it, and
               nothing destructive sits beside Save where a hand aiming for Save can reach it. */}
-          <Button type="button" variant="destructive" disabled={busy} onClick={() => void remove()}>
-            Delete
-          </Button>
+          <div data-panel className={PANEL_OPENS}>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void remove()}
+            >
+              Delete
+            </Button>
+          </div>
         </td>
       </tr>
     </>

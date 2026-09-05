@@ -81,6 +81,28 @@ describe('MenuTable', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('Olives');
   });
 
+  it('opens the category panel with the motion the dish panel has, and the row keeps its height', async () => {
+    const user = userEvent.setup();
+    render(<MenuTable initial={menu} fetcher={vi.fn()} />);
+    // The first row of the category's own rowgroup is the category line itself.
+    const line = () => within(group('Small plates')).getAllByRole('row')[0]!;
+    const heightOf = (row: Element) => row.className.match(/(?:^|\s)h-\d+(?:\s|$)/)?.[0];
+    const height = heightOf(line());
+    expect(height).toBeDefined();
+
+    await user.click(within(line()).getByRole('button', { name: 'Edit' }));
+
+    // The two editors on this screen open the same way. One that faded while its neighbour
+    // appeared read as unfinished. (class-level: jsdom does no layout.)
+    const panel = screen.getByLabelText('Sort order').closest('[data-panel]');
+    expect(panel?.className).toContain('starting:opacity-0');
+    expect(panel?.className).toContain('transition-[opacity,translate]');
+    expect(panel?.className).toContain('duration-[var(--motion-base)]');
+    expect(panel?.className).not.toMatch(/\d+(?:ms|s)\b/);
+    // M5's fixed line, untouched: the panel moves, the row it hangs from does not.
+    expect(heightOf(line())).toBe(height);
+  });
+
   it('carries focus into the open row and hands it back when the row closes', async () => {
     const user = userEvent.setup();
     render(<MenuTable initial={menu} fetcher={vi.fn()} />);

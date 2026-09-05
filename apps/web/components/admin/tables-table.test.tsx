@@ -231,6 +231,25 @@ describe('TablesTable', () => {
     expect(await screen.findByText('Terrace 8')).toBeInTheDocument();
   });
 
+  it('opens its panel the way the menu row does, and the row keeps its height', async () => {
+    const user = userEvent.setup();
+    render(<TablesTable initial={tables} fetcher={vi.fn()} />);
+    const heightOf = (row: Element) => row.className.match(/(?:^|\s)h-\d+(?:\s|$)/)?.[0];
+    const height = heightOf(rowFor('Terrace 7'));
+    expect(height).toBeDefined();
+
+    await user.click(within(rowFor('Terrace 7')).getByRole('button', { name: 'Edit' }));
+
+    // Every in-place editor in the admin opens the same way; one that appeared while its
+    // neighbours faded read as unfinished. (class-level: jsdom does no layout.)
+    const panel = screen.getByRole('button', { name: 'Delete' }).closest('[data-panel]');
+    expect(panel?.className).toContain('starting:opacity-0');
+    expect(panel?.className).toContain('transition-[opacity,translate]');
+    expect(panel?.className).toContain('duration-[var(--motion-base)]');
+    expect(panel?.className).not.toMatch(/\d+(?:ms|s)\b/);
+    expect(heightOf(screen.getByLabelText('Label').closest('tr')!)).toBe(height);
+  });
+
   it('sends only what an edit changed and closes the row on what came back', async () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockResolvedValue({ table: table(7, 'Terrace west') });

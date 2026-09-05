@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { STATUS_STYLE } from './components/status-badge';
 import { contrastRatio } from './lib/contrast';
 
 type Token = { $value: string };
@@ -49,12 +50,38 @@ describe('design tokens', () => {
     expect(contrastRatio(sem('card-foreground'), sem('card'))).toBeGreaterThanOrEqual(4.5);
     for (const s of ['placed', 'paid', 'cooking', 'ready', 'served', 'cancelled'])
       expect(contrastRatio(sem(`status-${s}`), sem('background')), s).toBeGreaterThanOrEqual(3);
-    // Every guest status badge is filled, so its label owes AA against its own fill, not just
-    // the 3:1 non-text bar against the page.
-    expect(contrastRatio(sem('primary-foreground'), sem('status-ready'))).toBeGreaterThanOrEqual(
-      4.5,
-    );
-    expect(contrastRatio(sem('foreground'), sem('status-cooking'))).toBeGreaterThanOrEqual(4.5);
+    // A badge label owes AA against its own fill, not just the 3:1 non-text bar against the page.
+    // That gate is the whole-table one below, which reads the component's own classes.
+  });
+  /**
+   * The bug this exists to stop: `status-cooking` took its label from `--foreground`, which follows
+   * the surface, while its fill follows the status. On the guest surface that is a dark label on a
+   * mid amber and reads; on the kitchen board both turned light and the label all but vanished, at
+   * 1.60:1. Nothing measured a label against its own fill on the dark surface, so nothing caught it.
+   *
+   * The pairings are read out of `STATUS_STYLE` rather than copied here, so a class that changes
+   * without the contrast being re-measured fails this test rather than drifting past it.
+   */
+  it('every status badge label clears AA against its own fill, on both surfaces', () => {
+    const fillOf = (classes: string) => /(?:^|\s)bg-([a-z-]+)/.exec(classes)?.[1];
+    const inkOf = (classes: string) => /(?:^|\s)text-([a-z-]+)/.exec(classes)?.[1];
+    const kitchenInkOf = (classes: string) => /(?:^|\s)dark:text-([a-z-]+)/.exec(classes)?.[1];
+    for (const [status, classes] of Object.entries(STATUS_STYLE)) {
+      const fill = fillOf(classes);
+      const ink = inkOf(classes);
+      expect(fill, `${status} names a fill`).toBeDefined();
+      expect(ink, `${status} names a label colour`).toBeDefined();
+      expect(
+        contrastRatio(sem(ink!), sem(fill!)),
+        `${status}, guest and admin`,
+      ).toBeGreaterThanOrEqual(4.5);
+      // A status may need a different label colour on the kitchen board, because its fill is a
+      // different colour there. If it does not say so, it keeps the one it has.
+      expect(
+        contrastRatio(dark(kitchenInkOf(classes) ?? ink!), dark(fill!)),
+        `${status}, kitchen`,
+      ).toBeGreaterThanOrEqual(4.5);
+    }
   });
   it('kitchen surface passes WCAG AA', () => {
     expect(contrastRatio(dark('foreground'), dark('background'))).toBeGreaterThanOrEqual(4.5);

@@ -14,6 +14,7 @@ import { randomUuid } from '../../lib/uuid';
 import { MENU_COLUMNS, MenuRow, ROW_LINE } from './menu-row';
 import {
   OkResponseSchema,
+  PANEL_OPENS,
   RowActions,
   RowNotice,
   asJson,
@@ -422,7 +423,7 @@ function CategoryEditor({
       <tr className="border-b border-border/50 bg-secondary/60">
         <td colSpan={MENU_COLUMNS} className="px-3 pb-4">
           <RowNotice notice={notice} />
-          <div className="flex flex-wrap items-end gap-4">
+          <div data-panel className={cn('flex flex-wrap items-end gap-4', PANEL_OPENS)}>
             <div className="flex max-w-xs flex-col gap-2">
               <Label htmlFor={sortId}>Sort order</Label>
               <Input

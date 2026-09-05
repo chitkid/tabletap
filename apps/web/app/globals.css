@@ -14,14 +14,21 @@ body:has([data-surface='kitchen']) {
 /* One collapse for the whole product: every animation and transition folds to an instant
    substitution when the user has asked the OS for reduced motion. This is why no component
    under apps/web/components/ writes its own prefers-reduced-motion branch — it would either be
-   redundant with this rule or, worse, drift from it. */
+   redundant with this rule or, worse, drift from it.
+
+   The delays collapse with the durations, and that is not a detail: a staggered entrance whose
+   durations are instant but whose delays are not still arrives in pieces, one block after
+   another, for exactly the person who asked it not to. apps/web/app/globals.test.ts holds every
+   line of this block. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: var(--motion-instant) !important;
+    animation-delay: var(--motion-instant) !important;
     animation-iteration-count: 1 !important;
     transition-duration: var(--motion-instant) !important;
+    transition-delay: var(--motion-instant) !important;
     scroll-behavior: auto !important;
   }
 }

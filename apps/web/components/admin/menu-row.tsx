@@ -14,6 +14,7 @@ import { formatCents } from '../../lib/money';
 import { PhotoField } from './photo-field';
 import {
   OkResponseSchema,
+  PANEL_OPENS,
   RowActions,
   RowNotice,
   asJson,
@@ -36,15 +37,6 @@ export const ROW_LINE = 'h-14 border-b border-border/50';
  * `ROW_LINE` for the same reason: the tables screen has to be able to match it rather than keep a
  * copy that nothing stops from drifting. */
 export const ROW_HEAD = 'relative max-w-0 border-l-2 px-3 text-left font-normal';
-
-/**
- * The panel opening, and only the panel: the row above it keeps `ROW_LINE`'s height in both modes,
- * which is what stops the table jumping under the hand that pressed Edit. `starting:` is
- * `@starting-style`, so the faded state exists only for the instant the panel is inserted, and
- * only opacity and transform move — the row below it is where it would have been either way.
- */
-const OPENS =
-  'transition-[opacity,translate] duration-[var(--motion-base)] ease-[var(--motion-ease)] starting:-translate-y-1 starting:opacity-0';
 
 const IN_USE = 'This dish is on an order. Mark it sold out instead.';
 const INCOMPLETE = "Couldn't save. Give the dish a name and a price.";
@@ -284,7 +276,7 @@ function EditRow({
       <tr className="border-b border-border/50 bg-secondary/60">
         <td colSpan={MENU_COLUMNS} className="px-3 pb-4">
           <RowNotice notice={notice} />
-          <div data-panel className={cn('grid gap-4 md:grid-cols-2', OPENS)}>
+          <div data-panel className={cn('grid gap-4 md:grid-cols-2', PANEL_OPENS)}>
             <div className="flex flex-col gap-2">
               <Label htmlFor={descriptionId}>Description</Label>
               <Textarea
