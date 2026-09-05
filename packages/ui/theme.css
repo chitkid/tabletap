@@ -85,10 +85,16 @@ body {
 
 /* Motion tokens (packages/ui/src/components/motion.ts). The easing is asymmetric on purpose: it
    leaves fast and settles slow, which is what makes an arrival read as arriving rather than
-   sliding. */
+   sliding.
+
+   --motion-instant is not a design duration: it is the collapse-to-instant sentinel the global
+   prefers-reduced-motion override (apps/web/app/globals.css) applies to every animation and
+   transition. It is 0.01ms rather than 0ms because a zero-length animation/transition does not
+   reliably fire the events some code relies on. Nobody should tune this value for feel. */
 :root {
   --motion-fast: 180ms;
   --motion-base: 280ms;
   --motion-stagger: 60ms;
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  --motion-instant: 0.01ms;
 }

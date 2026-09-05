@@ -99,10 +99,6 @@ const patterns = {
     regex: /(?<![\w.#-])\d*\.?\d+(?:ms|s)\b/g,
     message: 'Hardcoded duration',
     suggestion: 'Use var(--motion-fast), var(--motion-base) or var(--motion-stagger) token',
-    // 0.01ms is the standard "collapse to instant" sentinel inside the global
-    // prefers-reduced-motion override (apps/web/app/globals.css) - it isn't a choice about
-    // timing the way a real duration is, so it doesn't belong behind a --motion-* token.
-    allow: (match, ext) => STYLESHEET_EXTENSIONS.has(ext) && match === '0.01ms',
   },
   easingValue: {
     regex: /\bcubic-bezier\s*\(/gi,
