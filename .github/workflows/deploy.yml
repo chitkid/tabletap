@@ -1,8 +1,14 @@
 name: deploy
 
 # Fires when the `ci` workflow (.github/workflows/ci.yml) finishes running against `main`, not on
-# every push - so a red build can never reach `flyctl deploy`. The `if:` below is the actual gate;
+# every push - so a red build can never reach a deploy. The `if:` below is the actual gate;
 # `branches: [main]` here only limits which workflow_run *events* this workflow listens to.
+#
+# Both platforms can also deploy from GitHub on their own, and neither may: their Git integrations
+# fire on the push itself, before CI has said anything about the commit. `autoDeploy: false` in
+# render.yaml turns Render's off, and docs/deploy.md creates the Vercel project with no Git
+# connection at all. This workflow is then the only route to production, which is what makes the
+# gate above mean something.
 on:
   workflow_run:
     workflows: [ci]
@@ -11,7 +17,7 @@ on:
 
 # Two `ci` successes close together (a quick follow-up push, or a re-run) would otherwise start
 # two overlapping `api`+`web` deploy pairs. `cancel-in-progress: false` queues the second run
-# instead of cancelling the first mid-deploy, which - given the API-before-web ordering above -
+# instead of cancelling the first mid-deploy, which - given the API-before-web ordering below -
 # could otherwise cancel an API deploy after web already started against it.
 concurrency:
   group: deploy
@@ -23,41 +29,201 @@ jobs:
   # API build does not send. A newer web against that older API therefore fails to parse every
   # order response: the menu still renders and nothing past it works. The reverse is safe, because
   # an older web simply ignores response fields it does not recognise (docs/backlog.md). Reordering
-  # these two jobs, or dropping the `needs: api` below, reintroduces exactly that window.
+  # these two jobs, or dropping the `needs: api` below, reintroduces exactly that window - and so
+  # would triggering the Render deploy without waiting for it to go live, which is why this job
+  # polls rather than firing and forgetting.
   api:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
-          # Deploy the exact commit CI validated, not whatever `main` has moved to since.
+          # Deploy the exact commit CI validated, not whatever `main` has moved to since. The
+          # checkout is not what Render builds - Render builds from its own clone at the commit id
+          # sent below - but this keeps the two in step and gives the smoke check the repository it
+          # is checking.
           ref: ${{ github.event.workflow_run.head_sha }}
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy tabletap-api
-        run: flyctl deploy --config fly.api.toml --remote-only --strategy immediate
+
+      - name: Check the deploy inputs are configured
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          API_ORIGIN: ${{ vars.API_ORIGIN }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -eu
+          missing=''
+          [ -n "${API_ORIGIN}" ] || missing="${missing} vars.API_ORIGIN"
+          [ -n "${RENDER_SERVICE_ID}" ] || missing="${missing} secrets.RENDER_SERVICE_ID"
+          [ -n "${RENDER_API_KEY}" ] || missing="${missing} secrets.RENDER_API_KEY"
+          if [ -n "${missing}" ]; then
+            echo "Not configured:${missing}. See docs/deploy.md, 'Tell the workflow where to deploy'."
+            exit 1
+          fi
+
+      - name: Ask Render to deploy this commit
+        id: trigger
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -eu
+          # `commitId` is what makes this deploy the commit CI validated rather than whatever the
+          # branch head happens to be by now. If a future Render API rejects the field, dropping it
+          # deploys the branch head instead - almost always the same commit, since the concurrency
+          # group above queues runs rather than overlapping them.
+          response=$(curl -fsS -X POST \
+            -H "authorization: Bearer ${RENDER_API_KEY}" \
+            -H 'content-type: application/json' \
+            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"${SHA}\"}" \
+            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys")
+          id=$(printf '%s' "${response}" | jq -r '.id // empty')
+          if [ -z "${id}" ]; then
+            echo "Render did not return a deploy id. Response was:"
+            printf '%s\n' "${response}"
+            exit 1
+          fi
+          echo "deploy_id=${id}" >> "${GITHUB_OUTPUT}"
+          echo "Render deploy ${id} started for ${SHA}."
+
+      - name: Wait for Render to report it live
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          DEPLOY_ID: ${{ steps.trigger.outputs.deploy_id }}
+        run: |
+          set -eu
+          # A free-plan Docker build is minutes, not seconds, and the smoke check below cannot tell
+          # the new build from the old one - `/health` answers the same either way. Without this
+          # wait the web job would start against an API that is still building, which is the exact
+          # window the job ordering exists to close.
+          #
+          # Only `live` passes and only a KNOWN terminal failure fails; anything else is treated as
+          # "still going" and waited on until the deadline. That asymmetry is deliberate: a status
+          # name this list has never heard of is far more likely to be Render adding a state than a
+          # broken deploy, and failing the job on it would report a healthy deployment as broken.
+          deadline=$((SECONDS + 1500))
+          while [ "${SECONDS}" -lt "${deadline}" ]; do
+            # `|| true` on the poll itself, for the same reason: one refused request to Render's
+            # API is a blip to wait out, not a failed deployment.
+            body=$(curl -fsS -H "authorization: Bearer ${RENDER_API_KEY}" \
+              "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys/${DEPLOY_ID}" || true)
+            status=$(printf '%s' "${body}" | jq -r '.status // empty' 2>/dev/null || true)
+            case "${status}" in
+              live)
+                echo "Render reports the deploy is live."
+                exit 0
+                ;;
+              build_failed | update_failed | pre_deploy_failed | canceled | deactivated)
+                echo "Render reports the deploy ended as '${status}'. Its build log has the reason."
+                exit 1
+                ;;
+              *)
+                echo "still deploying (${status:-no status yet})"
+                sleep 10
+                ;;
+            esac
+          done
+          echo "Render had not reported the deploy live after 25 minutes; check the dashboard."
+          exit 1
+
       - name: Smoke check - /health
-        # auto_stop_machines means a quiet demo's machine may still be coming up even after
-        # `flyctl deploy` returns, so this retries rather than failing on the first slow beat.
-        run: curl -fsS --retry 10 --retry-delay 3 --retry-all-errors https://tabletap-api.fly.dev/health
+        env:
+          API_ORIGIN: ${{ vars.API_ORIGIN }}
+        # A correct deployment answers 200 with {"status":"ok",...}. It answers 503 when the
+        # database is unreachable, which `-f` turns into a failed job, and that is a real fault
+        # rather than a slow start. The retry is for the slow start: the entrypoint runs the
+        # migrations and the seed before the process listens, and a free instance may also be
+        # waking up.
+        run: curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "${API_ORIGIN}/health"
 
   web:
     needs: api
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
+          # This checkout *is* what gets deployed: `vercel build` builds the working tree and
+          # `vercel deploy --prebuilt` uploads that output, so the deployed bundle is the commit CI
+          # validated and not a branch head that has moved on.
           ref: ${{ github.event.workflow_run.head_sha }}
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy tabletap-web
-        run: flyctl deploy --config fly.web.toml --remote-only --strategy immediate
+
+      - name: Check the deploy inputs are configured
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      - name: Smoke check - /login
-        # The web app has no /health route (docker-compose.yml, fly.web.toml); /login is the page
-        # CI already polls for the same reason, so the check here matches the one already trusted.
-        run: curl -fsS --retry 10 --retry-delay 3 --retry-all-errors -o /dev/null https://tabletap-web.fly.dev/login
+          WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -eu
+          missing=''
+          [ -n "${WEB_ORIGIN}" ] || missing="${missing} vars.WEB_ORIGIN"
+          [ -n "${VERCEL_TOKEN}" ] || missing="${missing} secrets.VERCEL_TOKEN"
+          [ -n "${VERCEL_ORG_ID}" ] || missing="${missing} secrets.VERCEL_ORG_ID"
+          [ -n "${VERCEL_PROJECT_ID}" ] || missing="${missing} secrets.VERCEL_PROJECT_ID"
+          if [ -n "${missing}" ]; then
+            echo "Not configured:${missing}. See docs/deploy.md, 'Tell the workflow where to deploy'."
+            exit 1
+          fi
+
+      # pnpm has to be on PATH before the Vercel CLI runs the project's install command, and the
+      # versions come from the repository (packageManager, engines.node) exactly as in `ci`.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install the Vercel CLI
+        # Deliberately unpinned: the CLI talks to a hosted API that moves with it, and pinning a
+        # version here is what goes stale first. The cost is that a CLI release can break this
+        # step; the symptom is a red job with the CLI's own error, not a bad deployment.
+        run: npm install --global vercel@latest
+
+      - name: Pull the project's production settings and environment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        # This is what brings the three build-time NEXT_PUBLIC_* values (and API_URL) into the
+        # build below. They are inlined by Next at build time, so a value that exists only at run
+        # time produces a browser bundle still pointing at localhost - see docs/deploy.md.
+        run: vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
+
+      - name: Build
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        # Run from the repository root: the project's Root Directory (apps/web) is part of the
+        # settings `vercel pull` just fetched, and the build needs the workspace above it
+        # (packages/ui and packages/shared are consumed as TypeScript source, transpilePackages in
+        # apps/web/next.config.ts). If a future CLI resolves the root directory differently, run
+        # these three steps from apps/web instead - docs/deploy.md says so too.
+        run: vercel build --prod --token="${VERCEL_TOKEN}"
+
+      - name: Deploy the prebuilt output
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}"
+
+      - name: Smoke check - the web app, and the rewrite behind it
+        env:
+          WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
+        # Two checks, because the first alone would pass on a deployment whose /api/* rewrite is
+        # broken.
+        #
+        # /login: a correct deployment answers 200. It is the page CI already polls, chosen for the
+        # same reason - it renders with no session and no table token. What it does NOT prove is
+        # that the API is reachable: it only calls the API when `?demo=` names a staff role
+        # (apps/web/app/login/page.tsx), and this request carries no query string.
+        #
+        # /api/demo/links: a correct deployment answers 200 with the seeded guest link and staff
+        # accounts. It goes through the rewrite and it queries the database, so it is the check
+        # that proves the whole path. It is `public: true` (apps/api/src/routes/demo.ts), which is
+        # why an anonymous curl is the right caller for it - /api/menu would answer 401 here, from
+        # a perfectly healthy deployment, because it requires `menu.read`.
+        run: |
+          set -eu
+          curl -fsS --retry 10 --retry-delay 3 --retry-all-errors -o /dev/null "${WEB_ORIGIN}/login"
+          curl -fsS --retry 10 --retry-delay 3 --retry-all-errors -o /dev/null "${WEB_ORIGIN}/api/demo/links"

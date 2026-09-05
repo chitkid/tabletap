@@ -1,0 +1,116 @@
+# tabletap-api - Render Blueprint. The API is declared here rather than clicked together in the
+# dashboard, so the service a reader sees in this repository is the service that is running.
+# Topology and the reasons behind it: section 4 of
+# docs/superpowers/specs/2026-09-05-m6-polish-portfolio-design.md. The runbook that turns this
+# file into a running service is docs/deploy.md.
+#
+# Render's Blueprint reference is the authority on every key below and it has moved before -
+# `runtime:` was `env:` in an earlier version of the spec, and free-plan availability differs by
+# region. Confirm the current shape at https://render.com/docs/blueprint-spec before relying on
+# this file, and read a rejected key as "Render renamed it", not as "the deployment is wrong".
+services:
+  - type: web
+    name: tabletap-api
+    # Render builds Dockerfile.api unchanged, which is the whole reason the API is here: no code
+    # moves to suit a host. That image's entrypoint (apps/api/docker-entrypoint.sh) runs the
+    # migrations and `seed.js --if-empty` itself before the process listens, so there is no
+    # separate migration step anywhere in this deployment - and it is why every smoke check
+    # against this service has to retry rather than fire once.
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api
+    # The build needs the whole workspace (pnpm-lock.yaml, packages/*), not just apps/api.
+    dockerContext: .
+    plan: free
+    region: frankfurt
+    # 200 from GET /health (apps/api/src/routes/health.ts). It answers 503 when the database is
+    # unreachable, which is the state worth restarting for.
+    healthCheckPath: /health
+    # Render's own Git integration must not deploy: it fires on a push, before CI has said
+    # anything about the commit. .github/workflows/deploy.yml is the only route to production and
+    # it runs after `ci` has gone green. Turning this back on reintroduces exactly the ungated
+    # deploy the workflow exists to prevent.
+    autoDeploy: false
+    envVars:
+      # --- values that are not secrets, and are visible here on purpose ---
+      - key: NODE_ENV
+        value: production
+      # Dockerfile.api EXPOSEs 4000 and apps/api/src/main.ts binds 0.0.0.0 on config.PORT. Stated
+      # explicitly rather than left to Render's port detection, which is one fewer thing to guess
+      # at if the service ever comes up unreachable.
+      - key: PORT
+        value: '4000'
+      - key: LOG_LEVEL
+        value: info
+      # The code default (apps/api/src/config.ts), spelled out because spec section 4.4 turns on
+      # what is trusted and a reader should not have to go and find a default to know it. It is
+      # what makes `request.ip` right for everything that is not the signed forwarding path below.
+      - key: TRUST_PROXY
+        value: loopback,uniquelocal
+      # A portfolio demo: exposes GET /api/demo/links, and resets the seeded data on an interval
+      # and again on every boot, so a service Render stopped while idle does not wake up showing
+      # whatever the last visitor left behind.
+      - key: DEMO_MODE
+        value: 'true'
+      # The public demo refuses new menu photo uploads and leaves every other admin action alone
+      # (spec section 2): an uploaded object outlives the reset, and there is no object storage in
+      # this deployment to hold it. This value is the control and the API enforces it;
+      # NEXT_PUBLIC_UPLOADS_ENABLED on Vercel is only the web's matching explanation.
+      - key: DEMO_UPLOADS_ENABLED
+        value: 'false'
+      - key: DEMO_RESET_INTERVAL_MINUTES
+        value: '60'
+      # --- values entered by hand, in Render's own environment editor ---
+      # `sync: false` means Render asks for the value when the Blueprint is created and never
+      # reads one from this file. None of these may be copied from .env.example: every value in
+      # that file is a local demo default published in this repository. docs/deploy.md step 5.
+      #
+      # The Neon connection string. Use the direct endpoint, not the `-pooler` one: the API's
+      # driver is postgres.js with prepared statements left on (packages/db/src/client.ts), which
+      # transaction-mode pooling does not support.
+      - key: DATABASE_URL
+        sync: false
+      # This service's own public address, e.g. https://tabletap-api.onrender.com - better-auth's
+      # cookie prefix and callback base. Read the real one off the Render dashboard rather than
+      # assuming the name below produced it.
+      - key: BETTER_AUTH_URL
+        sync: false
+      # The web app's public Vercel address. CORS and better-auth's origin check both use it, so
+      # a stale value here is a demo where sign-in fails and nothing says why.
+      - key: WEB_ORIGIN
+        sync: false
+      # Generated fresh for this deployment. Each is at least 32 characters or the API refuses to
+      # boot, and TABLE_TOKEN_SECRET and SOCKET_TOKEN_SECRET must differ from each other.
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: COOKIE_SECRET
+        sync: false
+      - key: TABLE_TOKEN_SECRET
+        sync: false
+      - key: SOCKET_TOKEN_SECRET
+        sync: false
+      # Held by both apps and it must be the *same value on Vercel and here*. The web signs the
+      # visitor address it forwards over the /api/* rewrite and this API honours a forwarded
+      # address only when that signature verifies (apps/web/lib/forward-signature.ts,
+      # apps/api/src/lib/client-key.ts) - which is what gives each visitor its own rate-limit
+      # bucket now the two apps sit on different platforms. A mismatch between the two sides
+      # raises no error at all: every signature simply fails to verify and every visitor shares
+      # one bucket. At least 32 characters, or the API refuses to boot.
+      - key: FORWARD_SECRET
+        sync: false
+      # The one secret whose absence does not stop the boot, which is exactly what makes it
+      # dangerous: it has a default, and that default is the value published in .env.example. Left
+      # unset this ships a healthy-looking public demo whose staff password is in this repository.
+      - key: DEMO_PASSWORD
+        sync: false
+# Deliberately absent, and each absence is a decision rather than an omission:
+#
+#   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET - unset, so apps/api/src/config.ts resolves the
+#   payment provider to `demo`: the in-app terminal, no card and no money. Setting either turns on
+#   real Stripe Checkout, which this demo is not for.
+#
+#   S3_* - there is no object storage in this deployment and none to create (spec section 4.1).
+#   Uploads are refused above, the seed sets no image_url and every dish draws its own plate, so a
+#   bucket would hold nothing. `storageConfigured` is simply false.
+#
+#   A `databases:` block - Postgres is Neon's, not Render's. Render's own free database has
+#   historically expired after a fixed period, which would kill this demo silently months later.

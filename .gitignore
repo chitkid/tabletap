@@ -22,6 +22,10 @@ playwright-report/
 # tooling
 .claude/worktrees/
 .superpowers/
+# Written by `vercel link` and `vercel pull` (docs/deploy.md). project.json is only ids, but
+# `vercel pull` also writes the project's whole production environment - secrets included - into
+# .vercel/.env.production.local, and that must never be committed.
+.vercel/
 *.log
 .DS_Store
 
