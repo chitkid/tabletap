@@ -112,6 +112,12 @@ services:
       # next.config.ts re-reads API_URL — only the two build-time-prerendered routes depend on
       # the build arg alone.
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      # The same secret the api service reads from .env: the middleware signs the visitor address
+      # it forwards and the API honours it only when the signature verifies. A runtime value and
+      # not a build arg — middleware is bundled for the edge runtime, but a plain (non-NEXT_PUBLIC_)
+      # environment variable read inside it is NOT inlined at build; measured on this image in M6
+      # task 9. Empty when unset, which both sides read as "no signing, no verifying".
+      FORWARD_SECRET: ${FORWARD_SECRET:-}
     ports:
       - '3000:3000'
     depends_on:

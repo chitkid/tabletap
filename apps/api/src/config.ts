@@ -31,6 +31,20 @@ const EnvSchema = z.object({
   /** Fastify `trustProxy`: only these peers may set the client ip the rate limiter keys on. */
   TRUST_PROXY: z.string().default('loopback,uniquelocal'),
   /**
+   * Shared with the web, which signs the visitor address it forwards over the `/api/*` rewrite
+   * (`apps/web/lib/forward-signature.ts`). The two apps are deployed to different platforms
+   * (spec section 4.4), so the web's call arrives from a public address this API has no reason to
+   * trust; the signature is what replaces that trust.
+   *
+   * Optional, and unset means **verify nothing** - `lib/client-key.ts` then ignores both headers
+   * and keys on the address of the connection it actually received, exactly as it did before this
+   * existed. It must never come to mean "accept anything": a deployment that forgets the secret
+   * should degrade to one shared bucket, not to a bucket every caller can choose. The local
+   * Compose stack sets it anyway, which is what closes the spoofability a published API port
+   * would otherwise leave open there.
+   */
+  FORWARD_SECRET: optionalNonEmpty,
+  /**
    * Overrides the `Secure` flag on the tt_guest and better-auth cookies. Left unset, it
    * follows NODE_ENV so containers running a production build over plain HTTP (the local
    * Docker Compose demo) still get non-secure cookies without forcing NODE_ENV=development

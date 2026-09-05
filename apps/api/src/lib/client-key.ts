@@ -1,5 +1,34 @@
 import { normalizeIP } from '@fastify/rate-limit';
 import type { FastifyRequest } from 'fastify';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+/** The address the web observed. Ignored unless the next header proves the web wrote it. */
+export const VISITOR_HEADER = 'x-tt-visitor';
+/** Hex HMAC-SHA256 of that address, keyed by FORWARD_SECRET. */
+export const VISITOR_SIG_HEADER = 'x-tt-visitor-signature';
+
+/** SHA-256 is 32 bytes, hex-encoded. Checked before decoding: see `signedVisitor`. */
+const SIGNATURE_LENGTH = 64;
+
+/**
+ * The address the web signed, or null - which covers a forgery, a replay onto another address, a
+ * missing half of the pair, and a signature that is not a signature at all.
+ *
+ * Two guards stand in front of `timingSafeEqual`, and both are load-bearing: it throws outright on
+ * a length mismatch, and `Buffer.from(_, 'hex')` silently drops anything that is not a hex pair
+ * rather than rejecting it, so an unchecked garbage header would become a 500 rather than a
+ * fallback. A duplicated header arrives as an array and is refused by the same `typeof` check.
+ */
+function signedVisitor(request: FastifyRequest, secret: string): string | null {
+  const claimed = request.headers[VISITOR_HEADER];
+  const offered = request.headers[VISITOR_SIG_HEADER];
+  if (typeof claimed !== 'string' || typeof offered !== 'string') return null;
+  if (offered.length !== SIGNATURE_LENGTH) return null;
+  const given = Buffer.from(offered, 'hex');
+  const expected = createHmac('sha256', secret).update(claimed).digest();
+  if (given.length !== expected.length) return null;
+  return timingSafeEqual(given, expected) ? claimed : null;
+}
 
 /**
  * One rate-limit bucket per visitor, for the routes no session reaches: the QR claim a visitor
@@ -16,38 +45,51 @@ import type { FastifyRequest } from 'fastify';
  * `ipv6Subnet` to the default one), so this takes `normalizeIP`'s own default of /64; setting
  * `ipv6Subnet` in the plugin options would not reach here, and would have to be passed by hand.
  *
- * **Can a caller reaching the public API directly pick its own bucket? No - but read why, because
- * it is not the reason it first appears to be.** `request.ip` is `@fastify/proxy-addr`: `alladdrs`
- * walks the socket address and the forwarded chain from the right, truncating at the first entry
- * that is not a trusted peer, and `request.ip` is the last entry left standing.
+ * **Where the address comes from, and why a caller cannot choose it.** The web and the API are
+ * deployed to two different platforms (spec section 4.4), so a request that came through the
+ * `/api/*` rewrite reaches this process from an ordinary public address, indistinguishable from
+ * any stranger's. An earlier design walked the forwarded chain back to the visitor and rested on
+ * every hop sitting inside a private range `TRUST_PROXY` could name; across providers there is no
+ * such hop left, and believing `x-forwarded-for` from an untrusted peer would let anyone forge an
+ * address and mint buckets without limit.
  *
- * It is tempting to say a direct caller's header is never read at all. On Fly that is false: all
- * public ingress terminates at fly-proxy, whose address is `fdaa::` - inside `fc00::/7`, inside
- * `uniquelocal`, and therefore trusted. The header *is* read. The property rests on where the
- * walk stops instead: fly-proxy appends the caller's real address as the last hop, that address is
- * public and so is not trusted, the walk stops there, and everything the caller wrote to its left
- * is discarded. Padding the chain with private addresses does not help - they sit to the left of
- * the appended one. So the bucket is the address the platform observed, never the one the caller
- * typed. That single leg is what this stands on, which is why spec §7 verifies it on the live
- * stack: it holds exactly as long as the platform's proxy appends rather than relays. (Where a
- * peer genuinely is untrusted - an API exposed with no proxy in front of it - the chain is
- * discarded entirely and the socket address is the key. True, but not this deployment's shape.)
+ * So the address arrives signed. The web holds the same `FORWARD_SECRET` and sends the visitor's
+ * address with an HMAC over it (`apps/web/lib/forward-signature.ts`); this honours the address
+ * exactly when that HMAC verifies, and otherwise keys on the connection it actually received. A
+ * forger has the address, the header names and the algorithm, and still cannot produce the
+ * signature. That property depends on no platform's proxy behaviour at all, which is what makes it
+ * stronger than what it replaces rather than merely different - it survives this move and the next
+ * one, and with the secret set it closes the local Compose hole where the API's published port let
+ * a host-side caller write its own `x-forwarded-for` and be believed.
+ *
+ * **Unset means verify nothing, never accept anything.** With no secret both headers are ignored
+ * outright - not waved through - so a deployment that forgets to set it degrades to the fallback
+ * below, which is a worse demo and not a hole.
+ *
+ * **The fallback, which is still what an unsigned request is keyed on.** `request.ip` is
+ * `@fastify/proxy-addr`: it walks the socket address and the forwarded chain from the right,
+ * truncating at the first entry that is not a trusted peer, and `request.ip` is the last entry left
+ * standing. Where the peer is untrusted - a public caller reaching this API directly - the whole
+ * chain is discarded and the socket address is the key. Where the peer is a proxy inside
+ * `TRUST_PROXY`, the property instead rests on that proxy *appending* the caller's real address as
+ * the last hop, so everything the caller wrote to its left is discarded; padding the chain with
+ * private addresses does not help, because they sit to the left of the appended one.
  *
  * This is why `TRUST_PROXY` has to be a list of addresses. `true` trusts every peer, so any
  * caller's header would be believed. A number is worse than it looks: Fastify 5.12.1's
  * `getTrustProxyFn` returns `() => false` for one, failing closed - it trusts nobody, the walk
  * stops at the socket, and every request through the rewrite is keyed on the web container again,
- * which is the defect this task closed. Both are wrong, in opposite directions.
+ * which is the defect an earlier task closed. Both are wrong, in opposite directions.
  *
- * `Fly-Client-IP` was considered and rejected: believing it would still require the peer to be
- * trusted, so it adds no safety, and it would open a second forgery path anywhere the platform
- * does not overwrite it.
+ * A platform's own client-address header (`Fly-Client-IP` and its equivalents) was considered and
+ * rejected: believing it would still require the peer to be trusted, so it adds no safety, and it
+ * would open a second forgery path anywhere the platform does not overwrite it.
  *
- * Two things this does not do. It does not defend the *local* Compose demo, where the API's port
- * is published straight onto the developer's host with no proxy in front of it, so a host-side
- * caller is a trusted peer whose header is read and believed (docs/backlog.md). And it is per
- * process: the in-memory store means the limit is per instance until a shared store exists.
+ * One thing this still does not do: it is per process. The in-memory store means the limit is per
+ * instance until a shared store exists (docs/backlog.md).
  */
 export function clientKey(request: FastifyRequest): string {
-  return `ip:${normalizeIP(request.ip)}`;
+  const secret = request.server.config.FORWARD_SECRET;
+  const visitor = secret === undefined ? null : signedVisitor(request, secret);
+  return `ip:${normalizeIP(visitor ?? request.ip)}`;
 }

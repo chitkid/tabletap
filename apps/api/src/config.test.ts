@@ -89,6 +89,24 @@ describe('loadConfig', () => {
     });
   });
 
+  describe('FORWARD_SECRET', () => {
+    // Optional on purpose: `lib/client-key.ts` reads "unset" as "verify nothing, key on the
+    // connection address". A blank value has to reach it as unset rather than as an empty secret,
+    // or a platform that hands over `FORWARD_SECRET=` would have the API verifying signatures
+    // against the empty string - which the web, seeing the same blank value, never sends.
+    it('is unset when it is absent', () => {
+      expect(loadConfig(valid).FORWARD_SECRET).toBeUndefined();
+    });
+    it('is unset when it is blank, as a deployment platform or .env hands it over', () => {
+      expect(loadConfig({ ...valid, FORWARD_SECRET: '' }).FORWARD_SECRET).toBeUndefined();
+    });
+    it('is the value when it is set', () => {
+      expect(loadConfig({ ...valid, FORWARD_SECRET: 's'.repeat(32) }).FORWARD_SECRET).toBe(
+        's'.repeat(32),
+      );
+    });
+  });
+
   describe('paymentProvider', () => {
     it('derives demo when both Stripe keys are unset', () => {
       expect(loadConfig(valid).paymentProvider).toBe('demo');
