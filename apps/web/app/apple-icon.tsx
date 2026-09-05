@@ -18,6 +18,11 @@ const MARK = designTokens.primitive.color.oat.surface.$value; // --primary-foreg
  * light tone here — on a field that is itself the ember the dot is normally drawn
  * in (packages/ui/src/components/mark.tsx), the dot needs a different colour from
  * the field to read at all. No text, so no font is needed here.
+ *
+ * The ring and dot geometry below (radii, stroke width, dasharray, rotation) is a
+ * third copy of what packages/ui/src/components/mark.tsx defines, hardcoded as
+ * numeric JSX props because Satori has no CSS context either. mark.tsx is the
+ * source of truth for the shape — change the ring or dot there, change it here too.
  */
 export default function AppleIcon() {
   return new ImageResponse(

@@ -11,9 +11,11 @@ export interface MarkProps extends SVGProps<SVGSVGElement> {
  * right — with a solid ember dot at the centre. Kitchen and admin chrome only; the
  * guest surface wears Little Furnace and nothing else (docs/brand-guidelines.md §3).
  *
- * The geometry is duplicated as literal values in `apps/web/app/icon.svg`, because a
- * favicon has no CSS context to resolve `currentColor` or `var(--primary)` against.
- * Change the ring or dot here, change it there too.
+ * The geometry is duplicated as literal values in two more files, because neither has
+ * a CSS context to resolve `currentColor` or `var(--primary)` against:
+ * `apps/web/app/icon.svg` (the favicon) and `apps/web/app/apple-icon.tsx` (the app
+ * icon, as numeric JSX props). Change the ring or dot here, change it in both of
+ * those too.
  */
 export function Mark({ title, className, ...rest }: MarkProps) {
   return (

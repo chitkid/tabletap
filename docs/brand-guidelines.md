@@ -279,7 +279,7 @@ Clear space around the wordmark is the cap height of the L on all four sides.
 
 TableTap's mark is an open ring, its gap at the lower right, with a solid ember dot at the centre — a tabletop seen from above, and the tap. It belongs to the product, not to the restaurant, and it is drawn once as a design-system component, `packages/ui/src/components/mark.tsx`: the ring takes `currentColor`, the dot takes Ember `var(--primary)`. The same geometry is duplicated as literal values in two more files, because neither has a CSS context to resolve a token against — `apps/web/app/icon.svg` (the favicon: Ink #1C1917 and Ember #C23E18) and `apps/web/app/apple-icon.tsx` (180×180, the mark on an ember field).
 
-**Where it appears.** Kitchen and admin chrome, beside the product name. The browser tab and a shared link's preview card, on every page — guest pages included, because the tab and the card are the product's chrome, not the restaurant's room.
+**Where it appears.** Kitchen and admin chrome, beside the product name. The browser tab and the home-screen icon, on every page — guest pages included, because the tab and the icon are the product's chrome, not the restaurant's room.
 
 **Where it does not appear.** Inside the guest surface's own content. The guest surface wears Little Furnace; it does not also wear TableTap.
 
