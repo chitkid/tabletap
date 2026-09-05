@@ -84,6 +84,11 @@ function OrderProgress({ status }: { status: OrderStatus }) {
             <span className={cn('text-xs', done ? 'text-foreground' : 'text-muted-foreground')}>
               {stage.label}
             </span>
+            {/* On screen a stage says where it stands with a filled dot and a lit label. Colour is
+                not an answer on its own, so the same fact is here in a word as well. */}
+            <span className="sr-only">
+              {index < reached ? 'Done' : index === reached ? 'Now' : 'To come'}
+            </span>
           </li>
         );
       })}

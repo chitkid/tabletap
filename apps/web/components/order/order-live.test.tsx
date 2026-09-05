@@ -161,12 +161,14 @@ describe('the order timeline', () => {
       />,
     );
     const stages = stagesOf();
+    // Each stage reads as its label followed by a word only a screen reader gets: on screen the
+    // same fact is a filled dot and a lit label, and colour on its own is not an answer.
     expect(stages.map((stage) => stage.textContent)).toEqual([
-      'Placed',
-      'Paid',
-      'Cooking',
-      'Ready',
-      'Served',
+      'PlacedDone',
+      'PaidNow',
+      'CookingTo come',
+      'ReadyTo come',
+      'ServedTo come',
     ]);
     expect(stages[1]).toHaveAttribute('aria-current', 'step');
     expect(lineIn(stages[1]!)?.className).toContain('scale-x-100');
