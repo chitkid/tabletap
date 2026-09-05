@@ -46,6 +46,7 @@ export const orders = pgTable(
     index('orders_status_idx').on(t.status),
     uniqueIndex('orders_number_uidx').on(t.number),
     index('orders_paid_at_idx').on(t.paidAt),
+    index('orders_restaurant_id_idx').on(t.restaurantId),
   ],
 );
 

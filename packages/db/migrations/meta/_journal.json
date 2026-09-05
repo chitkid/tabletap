@@ -43,6 +43,13 @@
       "when": 1788557634373,
       "tag": "0005_timestamp-precision",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788617748361,
+      "tag": "0006_orders-restaurant-idx",
+      "breakpoints": true
     }
   ]
 }

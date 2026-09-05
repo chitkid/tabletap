@@ -35,4 +35,5 @@ COPY packages/db/migrations ./migrations
 COPY apps/api/docker-entrypoint.sh ./docker-entrypoint.sh
 EXPOSE 4000
 HEALTHCHECK --interval=5s --timeout=3s --start-period=60s --retries=20 CMD wget -qO- http://127.0.0.1:4000/health || exit 1
+USER node
 ENTRYPOINT ["sh", "./docker-entrypoint.sh"]
