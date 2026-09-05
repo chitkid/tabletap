@@ -117,7 +117,7 @@ describe('QrActions', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
-        "Couldn't save. Someone else changed this table.",
+        "Couldn't reissue the code. Someone else changed this table.",
       ),
     );
     expect(screen.queryByText(REISSUED)).toBeNull();

@@ -32,9 +32,11 @@ const STAFF_CARDS = [
   },
   {
     title: 'Admin',
-    product: 'Menu, tables, QR codes and a dashboard. Arrives later.',
-    demo: 'Menu, tables, QR codes and a dashboard. Arrives later; today it opens the kitchen board as an admin.',
-    href: '/login?demo=admin',
+    product: 'Edit the menu, manage the tables, reissue a QR code and read the day.',
+    demo: 'Edit the menu, the tables and the codes, and read the day. Opens the dashboard signed in as an admin.',
+    // With `next`, because `/login` defaults to `/kitchen`: without it the card signs an admin in
+    // and leaves them on the kitchen board, one door short of the surface it names.
+    href: '/login?demo=admin&next=/admin',
     cta: 'Open the admin',
   },
 ];
@@ -72,9 +74,16 @@ function resetNotice(links: DemoLinksResponse): string {
 export function LandingContent({
   links,
   qrSvg,
+  notice = null,
 }: {
   links: DemoLinksResponse | null;
   qrSvg: string | null;
+  /**
+   * Set when demo mode is on and the links could not be built anyway - see `lib/demo-links.ts`.
+   * Null both when the links are here and when there is nothing to say, so the plain product page
+   * stays plain.
+   */
+  notice?: string | null;
 }) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-10 p-6 sm:p-10">
@@ -100,6 +109,13 @@ export function LandingContent({
 
       <main className="flex flex-col gap-10">
         <div className="flex flex-col gap-4">
+          {/* Rendered only when there is something to say, and the page is server-rendered, so
+              this is read on arrival rather than announced as a change. */}
+          {links === null && notice !== null ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              {notice}
+            </p>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-3">
             <Card>
               <CardHeader>

@@ -101,7 +101,7 @@ describe('TablesTable', () => {
     await user.click(within(rowFor('Terrace 7')).getByRole('button', { name: 'Deactivate' }));
 
     const notice = await within(rowFor('Terrace 7')).findByText(
-      "Couldn't save. Someone else changed this table.",
+      "Couldn't deactivate the table. Someone else changed this table.",
     );
     expect(notice).toHaveAttribute('role', 'status');
     expect(within(rowFor('Terrace 7')).getByText('Active')).toBeInTheDocument();
@@ -123,7 +123,7 @@ describe('TablesTable', () => {
     refuse(new ApiError(409, 'CONFLICT', 'Someone else changed this table.'));
 
     const notice = await within(rowFor('Terrace 7')).findByText(
-      "Couldn't save. Someone else changed this table.",
+      "Couldn't deactivate the table. Someone else changed this table.",
     );
     expect(notice).toHaveAttribute('role', 'status');
     expect(
@@ -131,6 +131,37 @@ describe('TablesTable', () => {
         'Reissue the QR for table 7? Every printed code for this table stops working immediately.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('marks an emptied Number or Seats invalid, which is the case that raises the message', async () => {
+    const user = userEvent.setup();
+    render(<TablesTable initial={tables} fetcher={vi.fn()} />);
+
+    await user.click(within(rowFor('Terrace 7')).getByRole('button', { name: 'Edit' }));
+    await user.clear(screen.getByLabelText('Number'));
+    await user.clear(screen.getByLabelText('Seats'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    // `Number('')` is `0` - finite, an integer - so a check that only asks whether the text parses
+    // marks the emptied field valid at the exact moment the save is refused for it.
+    expect(screen.getByLabelText('Number')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Seats')).toHaveAttribute('aria-invalid', 'true');
+    // One convention across both admin screens: valid is the attribute being absent.
+    expect(screen.getByLabelText('Label')).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('names seats in the incomplete-save message, since seats can raise it', async () => {
+    const user = userEvent.setup();
+    render(<TablesTable initial={tables} fetcher={vi.fn()} />);
+
+    await user.click(within(rowFor('Terrace 7')).getByRole('button', { name: 'Edit' }));
+    await user.clear(screen.getByLabelText('Seats'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    // The old sentence sent the operator to the number and the label, both of which are fine.
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "Couldn't save. Give the table a number, a label and a seat count.",
+    );
   });
 
   it('leaves focus on the toggle so a run of tables can be worked through', async () => {

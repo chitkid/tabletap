@@ -18,6 +18,7 @@ import {
   RowNotice,
   asJson,
   deleteRefusal,
+  invalidAttr,
   refusal,
 } from './row-editor';
 
@@ -89,17 +90,22 @@ export function MenuTable({
     setClosed(editing);
   };
 
+  /**
+   * Past the last row, never at the count of rows. Sort orders have gaps in them - 0 and 5 is an
+   * ordinary menu - and a count would open the new row in the middle of the ones it was meant to
+   * follow. Both computed over the list with any abandoned draft already removed, so pressing Add
+   * twice numbers the second draft against what is on the menu rather than against the row that is
+   * being thrown away.
+   */
+  const after = (orders: readonly { sortOrder: number }[]) =>
+    orders.reduce((top, row) => Math.max(top, row.sortOrder), -1) + 1;
+
   const addCategory = () => {
     const id = randomUuid();
-    setCategories((list) => [
-      ...withoutDraft(list, draftId),
-      {
-        id,
-        name: '',
-        sortOrder: list.reduce((top, category) => Math.max(top, category.sortOrder), -1) + 1,
-        items: [],
-      },
-    ]);
+    setCategories((list) => {
+      const saved = withoutDraft(list, draftId);
+      return [...saved, { id, name: '', sortOrder: after(saved), items: [] }];
+    });
     setDraftId(id);
     setEditing(id);
   };
@@ -111,7 +117,7 @@ export function MenuTable({
         category.id === categoryId
           ? {
               ...category,
-              items: [...category.items, emptyItem(id, categoryId, category.items.length)],
+              items: [...category.items, emptyItem(id, categoryId, after(category.items))],
             }
           : category,
       ),
@@ -406,7 +412,7 @@ function CategoryEditor({
             id={nameId}
             autoFocus
             value={name}
-            aria-invalid={(invalid && name.trim() === '') || undefined}
+            aria-invalid={invalidAttr(invalid && name.trim() === '')}
             className="max-w-sm"
             onChange={(event) => setName(event.target.value)}
           />

@@ -12,13 +12,24 @@ import {
   RowNotice,
   asJson,
   deleteRefusal,
+  invalidAttr,
   refusal,
 } from './row-editor';
 
 const TABLE_COLUMNS = 4;
 
 const IN_USE = 'This table has orders. Deactivate it instead.';
-const INCOMPLETE = "Couldn't save. Give the table a number and a label.";
+/** Names all three fields the check below can refuse, seats included - `seats < 1` raises this. */
+const INCOMPLETE = "Couldn't save. Give the table a number, a label and a seat count.";
+
+/**
+ * What `save` refuses, per field, so the message and the mark on the input can never disagree.
+ * The empty string is tested first and on purpose: `Number('')` is `0`, which is finite and an
+ * integer, so a check that only asks whether the text parses calls an emptied field valid at the
+ * exact moment the save is refused for it.
+ */
+const badNumber = (text: string) =>
+  text.trim() === '' || !Number.isInteger(Number(text)) || Number(text) < 1;
 
 const DEFAULT_SEATS = 4;
 
@@ -224,7 +235,9 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
       });
       onToggled(saved);
     } catch (error) {
-      setNotice(refusal(error));
+      // Named for the press that was refused. "Couldn't save." describes an act the operator never
+      // asked for: this control opens no editor and there is nothing here to save.
+      setNotice(refusal(error, isActive ? 'activate the table' : 'deactivate the table'));
     } finally {
       setBusy(false);
     }
@@ -300,13 +313,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
     const label = draft.label.trim();
     const number = Number(draft.number);
     const seats = Number(draft.seats);
-    if (
-      label === '' ||
-      !Number.isInteger(number) ||
-      number < 1 ||
-      !Number.isInteger(seats) ||
-      seats < 1
-    ) {
+    if (label === '' || badNumber(draft.number) || badNumber(draft.seats)) {
       setInvalid(true);
       setNotice(INCOMPLETE);
       return;
@@ -375,7 +382,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
               inputMode="numeric"
               className="w-20 text-right font-mono"
               value={draft.number}
-              aria-invalid={(invalid && !Number.isInteger(Number(draft.number))) || undefined}
+              aria-invalid={invalidAttr(invalid && badNumber(draft.number))}
               onChange={(event) => change({ number: event.target.value })}
             />
             <Label htmlFor={labelId} className="sr-only">
@@ -387,7 +394,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
               id={labelId}
               autoFocus
               value={draft.label}
-              aria-invalid={(invalid && draft.label.trim() === '') || undefined}
+              aria-invalid={invalidAttr(invalid && draft.label.trim() === '')}
               className="max-w-sm"
               onChange={(event) => change({ label: event.target.value })}
             />
@@ -405,7 +412,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
             inputMode="numeric"
             className="w-20 text-right font-mono"
             value={draft.seats}
-            aria-invalid={(invalid && !Number.isInteger(Number(draft.seats))) || undefined}
+            aria-invalid={invalidAttr(invalid && badNumber(draft.seats))}
             onChange={(event) => change({ seats: event.target.value })}
           />
         </td>

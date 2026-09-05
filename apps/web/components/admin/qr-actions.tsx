@@ -55,7 +55,8 @@ export function QrActions({
       setNotice(reissued(table.number));
     } catch (error) {
       // The old code is still the live one: say what was refused and leave the control as it was.
-      setNotice(refusal(error));
+      // Named for the act, not for a save: nothing was being saved and no editor was open.
+      setNotice(refusal(error, 'reissue the code'));
     } finally {
       setBusy(false);
       setConfirming(false);

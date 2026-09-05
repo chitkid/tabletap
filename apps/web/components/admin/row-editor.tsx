@@ -13,9 +13,23 @@ import { ApiError } from '../../lib/api';
 /** Every admin delete answers the same body. */
 export const OkResponseSchema = z.object({ ok: z.literal(true) });
 
-/** `Couldn't save.` and then whatever the server said, because the server said it best. */
-export const refusal = (error: unknown) =>
-  error instanceof ApiError ? `Couldn't save. ${error.message}` : "Couldn't save. Try again.";
+/**
+ * One convention for the whole admin surface: a field that is fine carries no `aria-invalid` at
+ * all, rather than `aria-invalid="false"`. Both are correct to a screen reader; having two of them
+ * across five inputs in three files is the drift this module exists to stop.
+ */
+export const invalidAttr = (when: boolean): true | undefined => when || undefined;
+
+/**
+ * What went wrong, and then whatever the server said, because the server said it best.
+ *
+ * `verb` is the caller's, because this is reused by controls that are not saves: a refused
+ * `Deactivate` and a refused `Reissue QR` both read "Couldn't save." otherwise, which describes an
+ * act the operator never asked for. Defaulted rather than required so the row editors - which are
+ * saves - read the way they always did.
+ */
+export const refusal = (error: unknown, verb = 'save') =>
+  error instanceof ApiError ? `Couldn't ${verb}. ${error.message}` : `Couldn't ${verb}. Try again.`;
 
 /**
  * A refused delete. `IN_USE` is the one failure with a way out, and the way out differs by row —
@@ -23,7 +37,7 @@ export const refusal = (error: unknown) =>
  * operator's words rather than passing the server's own along.
  */
 export const deleteRefusal = (error: unknown, inUse: string) =>
-  error instanceof ApiError && error.code === 'IN_USE' ? inUse : refusal(error);
+  error instanceof ApiError && error.code === 'IN_USE' ? inUse : refusal(error, 'delete');
 
 export const asJson = (method: 'POST' | 'PATCH', body: unknown): RequestInit => ({
   method,

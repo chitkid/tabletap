@@ -34,10 +34,14 @@ describe('LandingContent', () => {
       'href',
       '/login?demo=kitchen',
     );
+    // With `next`, or the card signs an admin in and drops them on the kitchen board, which is
+    // what `/login` defaults to.
     expect(screen.getByRole('link', { name: 'Open the admin' })).toHaveAttribute(
       'href',
-      '/login?demo=admin',
+      '/login?demo=admin&next=/admin',
     );
+    expect(screen.getByText(/Edit the menu, the tables and the codes/)).toBeInTheDocument();
+    expect(screen.queryByText(/Arrives later/)).toBeNull();
     expect(screen.getByText('QR code for table 7')).toBeInTheDocument();
     expect(screen.getByText('Demo data resets every 60 minutes.')).toBeInTheDocument();
   });
@@ -45,6 +49,15 @@ describe('LandingContent', () => {
     render(<LandingContent links={null} qrSvg={null} />);
     expect(screen.queryByRole('link', { name: 'Table 7 as a guest' })).toBeNull();
     expect(screen.getByText('Scan the QR code on your table to order.')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+  it('says why the demo entry points are missing when the API knows', () => {
+    // Demo mode is on and the links still could not be built - an admin renumbered or deactivated
+    // table 7. Blanking the page and saying nothing is what this is here to stop.
+    const said = 'The demo landing needs an active table 7. Restore it in the admin.';
+    render(<LandingContent links={null} qrSvg={null} notice={said} />);
+    expect(screen.getByRole('status')).toHaveTextContent(said);
+    expect(screen.queryByRole('link', { name: 'Table 7 as a guest' })).toBeNull();
   });
   it('offers Simulate rush and the live board copy in demo mode', () => {
     render(<LandingContent links={links} qrSvg="<svg />" />);

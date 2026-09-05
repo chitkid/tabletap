@@ -16,6 +16,10 @@ async function load() {
   vi.resetModules();
   return (await import('./demo-links')).fetchDemoLinks;
 }
+async function loadResult() {
+  vi.resetModules();
+  return (await import('./demo-links')).loadDemoLinks;
+}
 
 describe('fetchDemoLinks', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -46,5 +50,49 @@ describe('fetchDemoLinks', () => {
     expect(await fetchDemoLinks()).toBeNull();
     expect(await fetchDemoLinks()).toEqual(LINKS);
     expect(f).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('loadDemoLinks', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('says nothing when the 404 means demo mode is off or the data was never seeded', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json(404, { error: { code: 'NOT_FOUND', message: 'Not found.' } })),
+    );
+    const loadDemoLinks = await loadResult();
+    // The plain product page is the right answer here, and a notice on it would be noise.
+    expect(await loadDemoLinks()).toEqual({ links: null, notice: null });
+  });
+
+  it('passes on what the API said when demo mode is on but the links cannot be built', async () => {
+    // An admin renumbering or deactivating table 7 reaches this in one press. Reading it as
+    // "demo mode is off" would strip the landing of its cards, its QR and its sign-in buttons
+    // with nothing said about why.
+    const said = 'The demo landing needs an active table 7. Restore it in the admin.';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json(409, { error: { code: 'CONFLICT', message: said } })),
+    );
+    const loadDemoLinks = await loadResult();
+    expect(await loadDemoLinks()).toEqual({ links: null, notice: said });
+  });
+
+  it('says the links are unavailable when the API cannot be reached at all', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('ECONNREFUSED');
+      }),
+    );
+    const loadDemoLinks = await loadResult();
+    const result = await loadDemoLinks();
+    expect(result.links).toBeNull();
+    expect(result.notice).toBe('The demo links are unavailable right now.');
   });
 });

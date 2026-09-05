@@ -18,6 +18,7 @@ import {
   RowNotice,
   asJson,
   deleteRefusal,
+  invalidAttr,
   refusal,
 } from './row-editor';
 
@@ -38,6 +39,17 @@ export const ROW_HEAD = 'relative max-w-0 border-l-2 px-3 text-left font-normal'
 
 const IN_USE = 'This dish is on an order. Mark it sold out instead.';
 const INCOMPLETE = "Couldn't save. Give the dish a name and a price.";
+
+/**
+ * What `save` refuses about the price, so the message and the mark on the input cannot disagree.
+ * The empty string is tested first and on purpose: `Number('')` is `0`, which is finite, so a check
+ * that only asks whether the text parses calls an emptied field valid at the exact moment the save
+ * is refused for it.
+ */
+const badPrice = (text: string) => {
+  const cents = Math.round(Number(text) * 100);
+  return text.trim() === '' || !Number.isFinite(cents) || cents < 0;
+};
 
 type Draft = {
   name: string;
@@ -151,13 +163,7 @@ function EditRow({
     const name = draft.name.trim();
     const cents = Math.round(Number(draft.price) * 100);
     const sortOrder = Number(draft.sortOrder);
-    if (
-      name === '' ||
-      draft.price.trim() === '' ||
-      !Number.isFinite(cents) ||
-      cents < 0 ||
-      !Number.isFinite(sortOrder)
-    ) {
+    if (name === '' || badPrice(draft.price) || !Number.isFinite(sortOrder)) {
       setInvalid(true);
       setNotice(INCOMPLETE);
       return;
@@ -228,7 +234,7 @@ function EditRow({
             id={nameId}
             autoFocus
             value={draft.name}
-            aria-invalid={invalid && draft.name.trim() === ''}
+            aria-invalid={invalidAttr(invalid && draft.name.trim() === '')}
             onChange={(event) => change({ name: event.target.value })}
           />
         </th>
@@ -244,7 +250,7 @@ function EditRow({
             inputMode="decimal"
             className="w-28 text-right font-mono"
             value={draft.price}
-            aria-invalid={invalid && !Number.isFinite(Number(draft.price))}
+            aria-invalid={invalidAttr(invalid && badPrice(draft.price))}
             onChange={(event) => change({ price: event.target.value })}
           />
         </td>

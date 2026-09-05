@@ -1,12 +1,14 @@
 import QRCode from 'qrcode';
 import { LandingContent } from '../components/landing/landing-content';
-import { fetchDemoLinks } from '../lib/demo-links';
+import { loadDemoLinks } from '../lib/demo-links';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'TableTap — QR ordering with a live kitchen display' };
 
 export default async function LandingPage() {
-  const links = await fetchDemoLinks();
+  // The landing is the one surface that acts on *why* the links are missing: demo mode being off
+  // is the plain product page, and anything else is worth saying out loud.
+  const { links, notice } = await loadDemoLinks();
   const qrSvg = links
     ? await QRCode.toString(links.guest.url, {
         type: 'svg',
@@ -14,5 +16,5 @@ export default async function LandingPage() {
         errorCorrectionLevel: 'M',
       })
     : null;
-  return <LandingContent links={links} qrSvg={qrSvg} />;
+  return <LandingContent links={links} qrSvg={qrSvg} notice={notice} />;
 }

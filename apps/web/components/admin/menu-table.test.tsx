@@ -111,6 +111,52 @@ describe('MenuTable', () => {
 
     expect(screen.getByLabelText('Name')).toHaveValue('');
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    // Past the highest sort order on the menu, not at the count of categories: with 0, 3 and 5 in
+    // place, a count would open the new one at 3 and land it in the middle.
+    expect(screen.getByLabelText('Sort order')).toHaveValue(6);
+  });
+
+  it('opens a new dish past the last one rather than at the count of dishes', async () => {
+    const user = userEvent.setup();
+    // A gap in the orders is the whole case: two dishes at 0 and 5 make a count answer 2, which
+    // puts the new dish between them instead of at the end an operator is looking at.
+    const gapped: MenuResponse = {
+      ...menu,
+      categories: [
+        {
+          id: SMALL_PLATES,
+          name: 'Small plates',
+          sortOrder: 0,
+          items: [
+            dish(OLIVES, SMALL_PLATES, 'Olives', 0),
+            dish(FOCACCIA, SMALL_PLATES, 'Focaccia', 5),
+          ],
+        },
+      ],
+    };
+    render(<MenuTable initial={gapped} fetcher={vi.fn()} />);
+
+    await user.click(within(group('Small plates')).getByRole('button', { name: 'Add dish' }));
+    expect(screen.getByLabelText('Sort order')).toHaveValue(6);
+  });
+
+  it('does not let a discarded draft push the next one further along', async () => {
+    const user = userEvent.setup();
+    render(<MenuTable initial={menu} fetcher={vi.fn()} />);
+
+    // Two presses in a row: the first draft is thrown away unsaved, so the second must be
+    // numbered against what is actually on the menu, not against the row that is being discarded.
+    await user.click(screen.getByRole('button', { name: 'Add category' }));
+    await user.click(screen.getByRole('button', { name: 'Add category' }));
+    expect(screen.getAllByLabelText('Name')).toHaveLength(1);
+    expect(screen.getByLabelText('Sort order')).toHaveValue(6);
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    const plates = within(group('Small plates'));
+    await user.click(plates.getByRole('button', { name: 'Add dish' }));
+    await user.click(plates.getByRole('button', { name: 'Add dish' }));
+    expect(screen.getAllByLabelText('Name')).toHaveLength(1);
+    expect(screen.getByLabelText('Sort order')).toHaveValue(2);
   });
 
   it('keeps a category that still holds dishes and says to empty it first', async () => {

@@ -172,6 +172,24 @@ describe('MenuRow', () => {
     expect(onSaved).not.toHaveBeenCalled();
   });
 
+  it('marks an emptied price invalid, which is the case that raises the message', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn();
+    render(<Harness fetcher={fetcher} />, { wrapper });
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.clear(screen.getByLabelText('Price'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    // `Number('')` is `0` - finite - so a check that only asks whether the text parses marks the
+    // emptied field valid at the exact moment the save is refused for it.
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Price')).toHaveAttribute('aria-invalid', 'true');
+    // One convention across both admin screens: valid is the attribute being absent, not
+    // `aria-invalid="false"`.
+    expect(screen.getByLabelText('Name')).not.toHaveAttribute('aria-invalid');
+  });
+
   it('names the availability switch for what it switches, not for the state it is in', async () => {
     const user = userEvent.setup();
     render(<Harness fetcher={vi.fn()} />, { wrapper });
