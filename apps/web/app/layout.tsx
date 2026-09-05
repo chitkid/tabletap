@@ -25,7 +25,7 @@ const fontVariables = {
 } as CSSProperties;
 
 const title = 'TableTap';
-const description = 'Order from your table. Kitchen sees it in real time.';
+const description = 'Order from your table. The kitchen sees it in real time.';
 
 export const metadata: Metadata = {
   // Guests arrive from a QR code, so every share card and canonical URL has to resolve against

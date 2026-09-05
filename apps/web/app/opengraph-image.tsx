@@ -13,8 +13,15 @@ export const alt = 'TableTap — Order from your table. The kitchen sees it in r
 // same reason apps/web/app/icon.svg and apps/web/app/apple-icon.tsx resolve them to
 // literals. Not a hardcoded hex: change the token and this card regenerates with it.
 const INK = designTokens.primitive.color.ink['500'].$value; // --foreground, guest surface / kitchen ground
-const EMBER = designTokens.primitive.color.ember['500'].$value; // --primary
-const OAT = designTokens.primitive.color.oat.bg.$value; // --background, guest surface; also kitchen text
+// This card's ground is the kitchen-dark surface, not the guest one, so it reads the
+// dark-theme primitives rather than the guest-theme ones of the same name: ember.500
+// (#C23E18, ~3.3:1 on ink) is the guest accent, while ember.100 (#F0663D, ~5.7:1 on
+// ink) is the dedicated dark-surface ember the design system already split out for
+// exactly this ground. night.fg is the dark-surface foreground/text token — distinct
+// from oat.bg even though both are #F6F1E8 today, because they are independently
+// adjustable and this card should track the one that actually names this surface.
+const EMBER_ON_DARK = designTokens.primitive.color.ember['100'].$value; // dark-surface --primary
+const NIGHT_FG = designTokens.primitive.color.night.fg.$value; // dark-surface --foreground / kitchen text
 
 const TITLE = 'TableTap';
 const TAGLINE = 'Order from your table. The kitchen sees it in real time.';
@@ -24,10 +31,11 @@ const TAGLINE = 'Order from your table. The kitchen sees it in real time.';
  * so it is effectively the first thing anyone sees of this project. `ImageResponse`
  * renders through Satori, which supports only a subset of CSS — no `currentColor`
  * inheritance — so the mark is redrawn here as literal geometry rather than imported
- * from `packages/ui/src/components/mark.tsx`. Ring: Oat (the kitchen-chrome text
- * colour the mark's `currentColor` resolves to on this dark ground, per
- * docs/brand-guidelines.md §3, "Where it appears: kitchen and admin chrome"). Dot:
- * Ember, same as everywhere else the mark is drawn.
+ * from `packages/ui/src/components/mark.tsx`. Ring: the dark-surface foreground
+ * (`night.fg`) the mark's `currentColor` resolves to on this kitchen-dark ground, per
+ * docs/brand-guidelines.md §3, "Where it appears: kitchen and admin chrome"). Dot: the
+ * dark-surface ember (`ember.100`), the same accent the mark wears everywhere else on
+ * a dark ground.
  *
  * Satori needs a real font file (ttf, otf or woff — not woff2, which
  * next/font/google only ever hands back). The single weight this card needs —
@@ -82,13 +90,13 @@ export default async function OpengraphImage() {
             cy={32}
             r={22}
             fill="none"
-            stroke={OAT}
+            stroke={NIGHT_FG}
             strokeWidth={7}
             strokeLinecap="round"
             strokeDasharray="110 28"
             transform="rotate(28 32 32)"
           />
-          <circle cx={32} cy={32} r={8.5} fill={EMBER} />
+          <circle cx={32} cy={32} r={8.5} fill={EMBER_ON_DARK} />
         </svg>
         <div
           style={{
@@ -96,7 +104,7 @@ export default async function OpengraphImage() {
             fontSize: 76,
             fontWeight: 700,
             letterSpacing: '-0.02em',
-            color: OAT,
+            color: NIGHT_FG,
           }}
         >
           {TITLE}
@@ -108,7 +116,7 @@ export default async function OpengraphImage() {
           marginTop: 36,
           fontSize: 32,
           fontWeight: 700,
-          color: OAT,
+          color: NIGHT_FG,
         }}
       >
         {TAGLINE}
