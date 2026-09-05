@@ -10,4 +10,5 @@ export * from './components/textarea';
 export * from './components/status-badge';
 export * from './components/plate';
 export * from './components/mark';
+export * from './components/motion';
 export * from './lib/plate-plan';

@@ -90,4 +90,23 @@ describe('TicketCard', () => {
     expect(screen.getByRole('button', { name: 'Served #42' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Cancel #42' })).toBeNull();
   });
+  it('fades a ticket that arrives on a board already on screen into place, over a token duration (class-level: jsdom does no layout, so this proves the classes are there, not that anything moved)', () => {
+    render(
+      <TicketCard order={order()} now={T0} fresh arriving onBump={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const { className } = screen.getByRole('article');
+    expect(className).toContain('starting:opacity-0');
+    expect(className).toContain('starting:translate-y-2');
+    expect(className).toContain('duration-[var(--motion-base)]');
+    expect(className).toContain('ease-[var(--motion-ease)]');
+    // Only opacity and transform: anything else would move the board's layout-shift number.
+    expect(className).toContain('transition-[opacity,translate]');
+    expect(className).not.toMatch(/\d+(?:ms|s)\b/);
+  });
+  it('leaves a ticket that was already on the board when the screen came up alone', () => {
+    render(
+      <TicketCard order={order()} now={T0} fresh={false} onBump={vi.fn()} onCancel={vi.fn()} />,
+    );
+    expect(screen.getByRole('article').className).not.toContain('starting:');
+  });
 });

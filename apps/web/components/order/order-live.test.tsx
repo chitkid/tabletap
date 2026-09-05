@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import type { OrderDto } from '@tabletap/shared';
 import { describe, expect, it } from 'vitest';
 import type { AppSocket } from '../../lib/socket';
@@ -141,5 +141,86 @@ describe('OrderLive', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'This order was cleared by the hourly demo reset.',
     );
+  });
+});
+
+/** The five stages, as a list a screen reader can read and a rail a glance can read. */
+const stagesOf = () =>
+  within(screen.getByRole('list', { name: 'Order progress' })).getAllByRole('listitem');
+const lineIn = (stage: HTMLElement) => stage.querySelector('[data-line]');
+const dotIn = (stage: HTMLElement) => stage.querySelector('[data-dot]');
+
+describe('the order timeline', () => {
+  it('fills the rail up to the stage the order has reached and marks that stage as the current step', () => {
+    const socket = fakeSocket();
+    render(
+      <OrderLive
+        initial={{ ...order, status: 'paid' }}
+        currency="USD"
+        socketFactory={() => socket as unknown as AppSocket}
+      />,
+    );
+    const stages = stagesOf();
+    expect(stages.map((stage) => stage.textContent)).toEqual([
+      'Placed',
+      'Paid',
+      'Cooking',
+      'Ready',
+      'Served',
+    ]);
+    expect(stages[1]).toHaveAttribute('aria-current', 'step');
+    expect(lineIn(stages[1]!)?.className).toContain('scale-x-100');
+    expect(lineIn(stages[2]!)?.className).toContain('scale-x-0');
+    expect(dotIn(stages[1]!)?.className).toContain('scale-100');
+    expect(dotIn(stages[2]!)?.className).toContain('scale-75');
+  });
+  it('advances the rail when the kitchen moves the order on (class-level: jsdom does no layout, so this proves the classes change, not that anything grew)', () => {
+    const socket = fakeSocket();
+    render(
+      <OrderLive
+        initial={{ ...order, status: 'paid' }}
+        currency="USD"
+        socketFactory={() => socket as unknown as AppSocket}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    act(() =>
+      socket.fire('order:updated', {
+        order: { ...order, status: 'cooking', updatedAt: '2026-09-03T10:05:00Z' },
+      }),
+    );
+    expect(lineIn(stagesOf()[2]!)?.className).toContain('scale-x-100');
+    expect(stagesOf()[2]).toHaveAttribute('aria-current', 'step');
+  });
+  it('grows the line and then pops the dot, both over token durations and neither touching layout', () => {
+    const socket = fakeSocket();
+    render(
+      <OrderLive
+        initial={{ ...order, status: 'paid' }}
+        currency="USD"
+        socketFactory={() => socket as unknown as AppSocket}
+      />,
+    );
+    const line = lineIn(stagesOf()[1]!);
+    expect(line?.className).toContain('origin-left');
+    expect(line?.className).toContain('transition-[scale]');
+    expect(line?.className).toContain('duration-[var(--motion-base)]');
+    expect(line?.className).toContain('ease-[var(--motion-ease)]');
+    expect(line?.className).not.toMatch(/\d+(?:ms|s)\b/);
+    const dot = dotIn(stagesOf()[1]!);
+    expect(dot?.className).toContain('transition-[opacity,scale]');
+    // The dot waits for the line it sits at the end of rather than moving with it.
+    expect(dot?.getAttribute('style')).toContain('var(--motion-base)');
+  });
+  it('draws no rail for an order that was cancelled, because it did not stop somewhere on it', () => {
+    const socket = fakeSocket();
+    render(
+      <OrderLive
+        initial={{ ...order, status: 'cancelled' }}
+        currency="USD"
+        socketFactory={() => socket as unknown as AppSocket}
+      />,
+    );
+    expect(screen.queryByRole('list', { name: 'Order progress' })).toBeNull();
   });
 });

@@ -68,6 +68,13 @@ describe('LandingContent', () => {
     render(<LandingContent links={null} qrSvg={null} />);
     expect(screen.queryByRole('button', { name: 'Simulate rush' })).toBeNull();
   });
+  it('hands the three entry cards to a first-paint entrance, as its grandchildren', () => {
+    const { container } = render(<LandingContent links={links} qrSvg="<svg />" />);
+    const entrance = container.querySelector('[data-entrance="landing"]');
+    expect(entrance).not.toBeNull();
+    // The cascade lands on the wrapper's grandchildren, so the cards have to be exactly that.
+    expect(entrance?.firstElementChild?.children).toHaveLength(3);
+  });
   it('says payment takes no card when the demo provider is live', () => {
     render(<LandingContent links={links} qrSvg="<svg />" />);
     expect(screen.getByText('Payments run in demo mode: no card, no money.')).toBeInTheDocument();

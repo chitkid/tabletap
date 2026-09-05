@@ -88,6 +88,21 @@ describe('MenuRow', () => {
     expect(lineOf().className.match(/(?:^|\s)h-\d+(?:\s|$)/)?.[0]).toBe(height);
   });
 
+  it('opens the panel with token-based motion while the row it hangs from stays still (class-level: jsdom does no layout, so this proves the classes are there, not that anything moved)', async () => {
+    const user = userEvent.setup();
+    render(<Harness fetcher={vi.fn()} />, { wrapper });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const panel = screen.getByLabelText('Description').closest('[data-panel]');
+    expect(panel?.className).toContain('starting:opacity-0');
+    expect(panel?.className).toContain('transition-[opacity,translate]');
+    expect(panel?.className).toContain('duration-[var(--motion-base)]');
+    expect(panel?.className).toContain('ease-[var(--motion-ease)]');
+    expect(panel?.className).not.toMatch(/\d+(?:ms|s)\b/);
+    // The row itself is M5's fixed line and carries none of it.
+    expect(lineOf().className).not.toContain('starting:');
+  });
+
   it('saves only the fields that changed and shows what the server answered', async () => {
     const user = userEvent.setup();
     const saved: MenuItemDto = { ...dish, name: 'Margherita', priceCents: 1350 };

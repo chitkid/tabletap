@@ -12,6 +12,7 @@ import {
   Plate,
 } from '@tabletap/ui';
 import Link from 'next/link';
+import { Entrance } from '../entrance';
 import { RushButton } from '../kitchen/rush-button';
 
 /** The three plates in the header are the only decoration on the page. */
@@ -116,63 +117,67 @@ export function LandingContent({
               {notice}
             </p>
           ) : null}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  <h2>Guest</h2>
-                </CardTitle>
-                <CardDescription>
-                  {links
-                    ? `Scan the code with your phone, or open table ${links.guest.tableNumber} in this browser.`
-                    : 'Scan the QR code on your table to order.'}
-                </CardDescription>
-              </CardHeader>
-              {links && qrSvg ? (
-                <CardContent>
-                  {/* Local `qrcode` output, not user input: rendered as markup so the code stays
-                      crisp at any size, and hidden from assistive tech behind the text below. */}
-                  <div
-                    aria-hidden
-                    className="mx-auto w-48 [&>svg]:h-auto [&>svg]:w-full"
-                    dangerouslySetInnerHTML={{ __html: qrSvg }}
-                  />
-                  <p className="sr-only">{`QR code for table ${links.guest.tableNumber}`}</p>
-                </CardContent>
-              ) : null}
-              {links ? (
-                <CardFooter className="mt-auto">
-                  <Link
-                    href={new URL(links.guest.url).pathname}
-                    className={cn(buttonVariants(), 'h-11 w-full')}
-                  >
-                    {`Table ${links.guest.tableNumber} as a guest`}
-                  </Link>
-                </CardFooter>
-              ) : null}
-            </Card>
-
-            {STAFF_CARDS.map((card) => (
-              <Card key={card.title}>
+          {/* The three cards are the first thing a stranger reads, and they arrive one after
+              another on the first paint of this route — see components/entrance.tsx. */}
+          <Entrance route="landing">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card>
                 <CardHeader>
                   <CardTitle>
-                    <h2>{card.title}</h2>
+                    <h2>Guest</h2>
                   </CardTitle>
-                  <CardDescription>{links ? card.demo : card.product}</CardDescription>
+                  <CardDescription>
+                    {links
+                      ? `Scan the code with your phone, or open table ${links.guest.tableNumber} in this browser.`
+                      : 'Scan the QR code on your table to order.'}
+                  </CardDescription>
                 </CardHeader>
+                {links && qrSvg ? (
+                  <CardContent>
+                    {/* Local `qrcode` output, not user input: rendered as markup so the code stays
+                        crisp at any size, and hidden from assistive tech behind the text below. */}
+                    <div
+                      aria-hidden
+                      className="mx-auto w-48 [&>svg]:h-auto [&>svg]:w-full"
+                      dangerouslySetInnerHTML={{ __html: qrSvg }}
+                    />
+                    <p className="sr-only">{`QR code for table ${links.guest.tableNumber}`}</p>
+                  </CardContent>
+                ) : null}
                 {links ? (
                   <CardFooter className="mt-auto">
                     <Link
-                      href={card.href}
-                      className={cn(buttonVariants({ variant: 'outline' }), 'h-11 w-full')}
+                      href={new URL(links.guest.url).pathname}
+                      className={cn(buttonVariants(), 'h-11 w-full')}
                     >
-                      {card.cta}
+                      {`Table ${links.guest.tableNumber} as a guest`}
                     </Link>
                   </CardFooter>
                 ) : null}
               </Card>
-            ))}
-          </div>
+
+              {STAFF_CARDS.map((card) => (
+                <Card key={card.title}>
+                  <CardHeader>
+                    <CardTitle>
+                      <h2>{card.title}</h2>
+                    </CardTitle>
+                    <CardDescription>{links ? card.demo : card.product}</CardDescription>
+                  </CardHeader>
+                  {links ? (
+                    <CardFooter className="mt-auto">
+                      <Link
+                        href={card.href}
+                        className={cn(buttonVariants({ variant: 'outline' }), 'h-11 w-full')}
+                      >
+                        {card.cta}
+                      </Link>
+                    </CardFooter>
+                  ) : null}
+                </Card>
+              ))}
+            </div>
+          </Entrance>
           {links ? <p className="text-sm text-muted-foreground">{paymentNotice(links)}</p> : null}
           {links ? <p className="text-sm text-muted-foreground">{resetNotice(links)}</p> : null}
           {links ? (

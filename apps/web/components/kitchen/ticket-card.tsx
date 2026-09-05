@@ -12,11 +12,24 @@ const RULE = {
   late: 'border-t-timer-late',
 } as const;
 
+/**
+ * How a ticket arrives: it fades and rises into its column. `starting:` is `@starting-style`, so
+ * the faded state exists only for the instant the card is inserted — which is also why the same
+ * two lines cover a ticket moving between columns, since the card in the new column is a new
+ * element, and why nothing is left animating in the column it left. A cook reading the board at a
+ * glance must not see a ticket lingering where it no longer is.
+ *
+ * Only opacity and transform, so an arriving ticket moves nothing else on the board.
+ */
+const ARRIVING =
+  'transition-[opacity,translate] duration-[var(--motion-base)] ease-[var(--motion-ease)] starting:translate-y-2 starting:opacity-0';
+
 export function TicketCard({
   order,
   now,
   fresh,
   pending = false,
+  arriving = false,
   onBump,
   onCancel,
 }: {
@@ -24,6 +37,9 @@ export function TicketCard({
   now: number;
   fresh: boolean;
   pending?: boolean;
+  /** Whether this card is landing on a board that is already on screen, rather than being part of
+   * the board's own first paint. The board decides; the card only knows how to arrive. */
+  arriving?: boolean;
   onBump: (order: OrderDto, to: OrderStatus) => void;
   onCancel: (order: OrderDto) => void;
 }) {
@@ -67,6 +83,7 @@ export function TicketCard({
         'flex flex-col gap-3 rounded-lg border border-border border-t-4 bg-card p-4 text-card-foreground',
         RULE[thresholdFor(elapsedMs)],
         fresh && 'border-l-4 border-l-primary',
+        arriving && ARRIVING,
       )}
     >
       {/* Wraps as two whole phrases rather than breaking either one: past five minutes the timer

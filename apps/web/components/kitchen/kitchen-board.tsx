@@ -77,6 +77,13 @@ export function KitchenBoard({
   const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
   const [optimistic, setOptimistic] = useState<Readonly<Record<string, OrderStatus>>>({});
   const [notice, setNotice] = useState<string | null>(null);
+  // The board's own first paint is not an arrival: those tickets were already in the kitchen when
+  // the screen came up, and a board that fades itself in is a board a cook waits for. Only what
+  // lands afterwards — a new ticket, or one bumped into the next column — arrives.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    setSettled(true);
+  }, []);
   const [sound, setSound] = useSoundPreference();
   // The socket handlers are registered once and must read today's preference, not the one that
   // was current when they were bound. Mirrored through an effect: a ref written during render
@@ -328,6 +335,7 @@ export function KitchenBoard({
                     now={now}
                     fresh={freshIds.has(order.id)}
                     pending={pending.has(order.id)}
+                    arriving={settled}
                     onBump={(o, to) => void move(o, to)}
                     onCancel={(o) => void move(o, 'cancelled')}
                   />

@@ -1,6 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { OrderDto } from '@tabletap/shared';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { createChime } from '../../lib/chime';
 import type { AppSocket } from '../../lib/socket';
@@ -527,5 +528,61 @@ describe('KitchenBoard', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel #1' }));
     await user.click(screen.getByRole('button', { name: 'Yes, cancel' }));
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: /^New/ }));
+  });
+  it('paints the board it was handed without fading anything in: those tickets were in the kitchen already', () => {
+    const socket = fakeSocket();
+    const html = renderToStaticMarkup(
+      <KitchenBoard
+        initialOrders={[order('o1')]}
+        staffName="Theo"
+        serverNow={SERVER_NOW}
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={vi.fn()}
+      />,
+    );
+    expect(html).toContain('Kitchen');
+    expect(html).not.toContain('starting:');
+  });
+  it('lets a ticket that lands while the board is up arrive, over a token duration (class-level: jsdom does no layout, so this proves the classes are there, not that anything moved)', () => {
+    const socket = fakeSocket();
+    render(
+      <KitchenBoard
+        initialOrders={[order('o1')]}
+        staffName="Theo"
+        serverNow={SERVER_NOW}
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={vi.fn()}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    act(() => socket.fire('order:created', { order: order('o2') }));
+    const arrived = within(screen.getByRole('region', { name: 'New' })).getByRole('article', {
+      name: 'Table 7 · #2',
+    });
+    expect(arrived.className).toContain('starting:opacity-0');
+    expect(arrived.className).toContain('duration-[var(--motion-base)]');
+  });
+  it('lets a ticket bumped to the next column arrive there, and animates nothing in the one it left', async () => {
+    const user = userEvent.setup();
+    const socket = fakeSocket();
+    render(
+      <KitchenBoard
+        initialOrders={[order('o1')]}
+        staffName="Theo"
+        serverNow={SERVER_NOW}
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        // The move never lands, so what is on screen is the optimistic column change alone.
+        fetcher={vi.fn(() => new Promise<never>(() => {}))}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    await user.click(screen.getByRole('button', { name: 'Start #1' }));
+    const moved = within(screen.getByRole('region', { name: 'Cooking' })).getByRole('article');
+    expect(moved.className).toContain('starting:opacity-0');
+    // Nothing lingers in New: a ticket left behind where it no longer is misreads at a glance.
+    expect(within(screen.getByRole('region', { name: 'New' })).queryByRole('article')).toBeNull();
   });
 });
