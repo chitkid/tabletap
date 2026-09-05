@@ -42,8 +42,14 @@ const EnvSchema = z.object({
    * should degrade to one shared bucket, not to a bucket every caller can choose. The local
    * Compose stack sets it anyway, which is what closes the spoofability a published API port
    * would otherwise leave open there.
+   *
+   * Optional but, when present, at least 32 characters - the same floor every other secret above
+   * carries, and for a sharper reason than most. A weak value here fails *silently*: signatures
+   * still verify and the demo looks correct, while anyone who guesses the secret forges a visitor
+   * address at will and the per-visitor bucket is gone. `blankAsUnset` rather than
+   * `optionalNonEmpty` so a blank still means unset without being measured against that floor.
    */
-  FORWARD_SECRET: optionalNonEmpty,
+  FORWARD_SECRET: blankAsUnset(z.string().min(32).optional()),
   /**
    * Overrides the `Secure` flag on the tt_guest and better-auth cookies. Left unset, it
    * follows NODE_ENV so containers running a production build over plain HTTP (the local

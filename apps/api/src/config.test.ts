@@ -105,6 +105,16 @@ describe('loadConfig', () => {
         's'.repeat(32),
       );
     });
+    it('refuses to boot on a secret too short to be worth signing with', () => {
+      // Optional means optional; it does not mean weak. A guessable secret defeats the whole
+      // property *silently* - the signature still verifies, so nothing looks wrong, and anyone
+      // who guesses it forges a visitor address at will. Every other secret here is min(32) and
+      // this one carries the same weight, so it fails at load rather than at exploitation.
+      expect(() => loadConfig({ ...valid, FORWARD_SECRET: 'short' })).toThrow(/FORWARD_SECRET/);
+      expect(() => loadConfig({ ...valid, FORWARD_SECRET: 's'.repeat(31) })).toThrow(
+        /FORWARD_SECRET/,
+      );
+    });
   });
 
   describe('paymentProvider', () => {
