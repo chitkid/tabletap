@@ -24,12 +24,19 @@ const fontVariables = {
   '--font-text': text.style.fontFamily,
 } as CSSProperties;
 
+const title = 'TableTap';
+const description = 'Order from your table. Kitchen sees it in real time.';
+
 export const metadata: Metadata = {
   // Guests arrive from a QR code, so every share card and canonical URL has to resolve against
-  // the deployed origin rather than whatever host happened to render the page.
+  // the deployed origin rather than whatever host happened to render the page. A relative
+  // og:image URL is the classic silent failure in a link preview, and this is what keeps
+  // apps/web/app/opengraph-image.tsx's file-based image resolving to an absolute one.
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
-  title: 'TableTap',
-  description: 'Order from your table. Kitchen sees it in real time.',
+  title,
+  description,
+  openGraph: { title, description, type: 'website' },
+  twitter: { card: 'summary_large_image', title, description },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
