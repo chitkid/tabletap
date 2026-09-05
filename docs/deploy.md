@@ -35,6 +35,15 @@ anywhere, no log line appears, and the demo behaves correctly in every respect e
 person exploring it can lock out the next. Step 4 says why the property matters and step 6 checks
 what it can check from a dashboard; only check 5 observes the thing itself.
 
+Two more of that class sit in the same chain, and check 5 names all three where it matters. Whether
+Vercel carries a header the middleware sets into an **external** rewrite destination is a second
+silent platform step — measured under Docker Compose, and it transfers no better than the first.
+And check 5 reads its own verdict off which rate-limit bucket each device lands in, which in the
+broken case means off **whatever address Vercel's egress presents**, and that is not a documented
+constant either. The consequence is written out under check 5: a pass there is good evidence rather
+than proof, a refusal is conclusive, and a control that will not flip is a result rather than a
+reason to keep trying.
+
 The checks in step 9 are written to the opposite rule and to a stricter one: each states what a
 **correct** deployment returns, so that a healthy service is never reported as broken. Three
 separate checks in an earlier version of this document did exactly that, and a check you cannot
@@ -145,6 +154,13 @@ check `/health`, `autoDeploy: false`, and every environment variable listed with
    `frankfurt`, `singapore` at the time of writing); take the current list, and the free plan's
    availability in the one you want, from Render's own region documentation. A region the free
    plan does not serve is one of the ways the Blueprint below is rejected.
+
+   **Expect that commit to fail a workflow, and expect it to be fine.** Committing to `main` runs
+   `ci`, and a green `ci` starts `deploy` — which at this point in the runbook has none of step 7's
+   secrets or variables set. It stops at its first step with
+   `Not configured: vars.API_ORIGIN secrets.RENDER_SERVICE_ID …` and deploys nothing, which is the
+   gate doing its job rather than anything to fix. It goes green once step 7 is done.
+
 1. In Render, create a **Blueprint** from this repository. Render reads `render.yaml` and prompts
    for every `sync: false` value. If anything is rejected, the two things to check are that region
    and the key names — confirm both against Render's current Blueprint reference, since the spec
@@ -406,8 +422,14 @@ environment — `FORWARD_SECRET` and every other value you generated in step 4 �
 off your disk:
 
 ```sh
-rm -f .vercel/.env.production.local
+rm .vercel/.env.production.local
 ```
+
+**Run it from the same directory you ran `vercel pull` from** — the file is written under that
+directory's own `.vercel/`, so a reader who took the `apps/web` fallback below has
+`apps/web/.vercel/.env.production.local` instead and the command above will not touch it. No `-f`,
+deliberately: a "No such file or directory" here means you are in the wrong place and the secrets
+are still on disk somewhere else, which is worth being told.
 
 The workflow does the same three commands on a runner that is destroyed afterwards, so this is a
 first-deploy chore, not a recurring one. It comes back every time you run `vercel pull` by hand.
@@ -435,9 +457,10 @@ deploys in the same order.
 ## 9. The post-deploy checks
 
 Seven blocks — six checks, and 5b, which hangs off check 5 rather than standing on its own. Run
-them all once, after the first deploy, **in the order given**: three of them count against the same
-rate-limit bucket and would otherwise refuse each other for reasons that have nothing to do with
-what is being tested. Each says what a **correct** deployment returns.
+them all once, after the first deploy, **in the order given**: four of them count against the same
+rate-limit bucket — check 3, device A's run in check 5, 5b and check 6 — and would otherwise refuse
+each other for reasons that have nothing to do with what is being tested. Each says what a
+**correct** deployment returns.
 
 Check 5 is the one that cannot be skipped, for the reason given under it.
 
@@ -535,14 +558,35 @@ not by restarting.
 **This is the one check that cannot be skipped**, and it needs two networks and a phone, which is
 exactly what makes skipping it tempting. Everything else in this list has a failure that announces
 itself somewhere — a status code, an error page, a connection to `localhost`. This one does not.
-It is the only observation anywhere in this runbook that settles whether Vercel's middleware runtime
+It is the nearest thing this runbook has to a verdict on whether Vercel's middleware runtime
 actually delivers `FORWARD_SECRET` to the edge function (step 4), and a deployment where it does not
 looks entirely healthy while every visitor shares one rate-limit bucket. Step 6's digest comparison
 is not a substitute: it proves the two dashboards hold the same string, not that the running
 middleware ever reads it.
 
-It proves that property on the real path — through the deployed site's own `/api/*` rewrite, which
-is the path every visitor uses.
+It observes that on the real path — through the deployed site's own `/api/*` rewrite, which is the
+path every visitor uses.
+
+**What it rests on, so you can tell a clean result from a lucky one.** When the signed header is
+present, this check is decisive: both of device A's requests and device B's carry their own signed
+addresses, and which bucket each lands in follows from that alone. When the header is _absent_ —
+the broken world this check exists to find — the API falls back to `request.ip`, which for a request
+arriving through the rewrite is whatever address Vercel's egress presents. **That address is not a
+documented constant.** So in the broken world the result depends on something outside anyone's
+control here, and it can mislead in both directions:
+
+- **A pass can be luck.** If device B's request happened to leave Vercel from a different egress
+  address than device A's, B gets its own bucket and shows the ordinary invalid-token message —
+  which is exactly what "correct" looks like.
+- **An inconclusive device A is itself a finding, not only a reason to try again.** If device A's
+  twenty-one requests spread across two or three egress addresses, none of them fills a bucket, the
+  control never flips, and repeating faster never will make it flip. **Record an unflippable
+  control rather than looping on it**: after two honest fast attempts inside a minute, treat it as a
+  result and go to the causes below, which are the same ones.
+
+Neither caveat weakens the failing case: **if device B is refused on its first load, the two clients
+did share a bucket, and that is conclusive.** What the caveats mean is that a pass is good evidence
+rather than proof, and a stuck control is evidence too.
 
 **Two genuinely different networks.** Device A is a laptop on wifi; device B is a phone **on
 cellular data with wifi off**. Two devices behind the same router share one public address, and
@@ -572,7 +616,9 @@ again."** That reads like a dropped connection and it is the signal, not a red h
 **On device A:** open the URL and press Try again twenty times, quickly. **Confirm device A's
 message actually changes** to "Can't reach the server. Check the connection and try again." That is
 the positive control. If it never changes inside the minute, device A did not exhaust the bucket at
-all, and going on to device B would prove nothing either way — repeat it faster first.
+all, and going on to device B would prove nothing either way — repeat it faster. If a second honest
+fast attempt still will not flip it, stop repeating: read "What it rests on" above and take the
+stuck control to the causes below.
 
 **Only then, immediately, on device B:** open the same URL.
 
@@ -581,7 +627,7 @@ invalid-token message. Its bucket is its own.
 
 **The defect:** device B shows "Can't reach the server…" on its very first load. The two clients
 shared a bucket, which means one person exploring the demo can lock everyone else out of claiming a
-table. Three causes, in the order worth trying:
+table. Four causes, in the order worth trying — and a stuck device A control gets the same list:
 
 1. **The web deployment is not receiving the variable at all.** Vercel binds environment variables
    to a deployment, so a `FORWARD_SECRET` added or edited after the current deployment was made has
@@ -590,9 +636,19 @@ table. Three causes, in the order worth trying:
 2. **The value differs between the two platforms, or is missing on one.** Step 6's digest comparison
    rules this out if you did it; do it now if you did not.
 3. **Vercel's middleware runtime does not expose the variable to the edge function at all** — the
-   unverified platform fact this check exists to settle. If a redeploy with matching digests on both
-   sides still fails, this is what is left. It is a finding, not a misconfiguration: record it, and
-   do not hand out the link as a demo that limits per visitor, because it does not.
+   unverified platform fact this check exists to settle.
+4. **Vercel does not carry a header the middleware sets into an _external_ rewrite destination.**
+   `middleware.ts` adds the two visitor headers with `NextResponse.next({ request: { headers } })`
+   and the rewrite in `next.config.ts` sends the request on to `API_URL`. That those headers survive
+   the hand-off was measured under Docker Compose, and it transfers to Vercel no better than cause 3
+   does — it is a second platform-dependent step in the same chain, and it fails the same silently.
+
+Causes 3 and 4 are the two ends of one unverified link and the **action for both is identical**:
+if a redeploy with matching digests on both sides still fails, one of them is what is left. It is a
+finding, not a misconfiguration — record it, say which two possibilities remain rather than naming
+one, and do not hand out the link as a demo that limits per visitor, because it does not. Telling
+them apart needs an observation this runbook does not have: something that reports what the API
+actually received.
 
 #### 5b. And the hop this check does not cover, which needs its own fresh minute
 

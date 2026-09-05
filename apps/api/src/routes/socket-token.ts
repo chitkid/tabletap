@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { SocketTokenResponseSchema } from '@tabletap/shared';
 import { signSocketToken, type SocketPrincipal } from '@tabletap/shared/server';
+import { clientKey } from '../lib/client-key';
 import { AppError } from '../lib/errors';
 import { restaurantIdFor } from '../lib/restaurant';
 import { requireAuthenticated } from '../plugins/rbac';
@@ -14,7 +15,15 @@ export async function socketTokenRoutes(app: FastifyInstance) {
     '/socket-token',
     {
       preHandler: requireAuthenticated(),
-      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+      // `keyGenerator: clientKey` and not the plugin's default, which keys on `request.ip`. Every
+      // browser reaches this route through the web's `/api/*` rewrite, and since the two apps are
+      // deployed to different platforms (spec section 4.4) that address is the web platform's
+      // egress - the same for every visitor at once. On the default generator this is one bucket
+      // of thirty a minute for the whole demo, and running out of it is not a limit being coarse:
+      // `createSocket` answers a failed token fetch with an empty handshake (`cb({})`), the server
+      // refuses it, and the client retries with backoff for ever. A correct deployment under a
+      // little concurrent use would look exactly like a broken one.
+      config: { rateLimit: { max: 30, timeWindow: '1 minute', keyGenerator: clientKey } },
       schema: { response: { 200: SocketTokenResponseSchema } },
     },
     async (request) => {
