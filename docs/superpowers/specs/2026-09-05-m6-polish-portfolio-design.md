@@ -10,7 +10,7 @@ M6 turns a repository into something a stranger can open. It puts the demo on a 
 
 In scope:
 
-- **Deployment.** Two Fly.io apps built from the Dockerfiles the repository already has, a managed Postgres, a Tigris bucket for object storage, and a deploy workflow that runs after CI is green.
+- **Deployment.** The web on Vercel, the API on Render from the Dockerfile this repository already builds, Postgres on Neon — three free tiers, no payment method, no object storage — and a deploy workflow that runs after CI is green.
 - **The hardening a public address forces.** A rate-limit bucket per visitor rather than one for everybody; a demo reset that survives a sleeping machine; containers that do not run as root; an index this project has been missing; photo upload disabled in the deployed demo.
 - **Identity.** A TableTap mark, a favicon set, an Open Graph image, and the Little Furnace SVG wordmark the M1 brand guidelines promised for this milestone.
 - **Motion**, at the level the owner chose: state changes plus one entrance, and nothing on a path where a person is waiting.
@@ -19,7 +19,7 @@ In scope:
 Out of scope, with the reason each stays out:
 
 - **A shared store (Redis) for rate limits and Socket.io rooms.** Both matter only from the second instance onward, and this deployment runs one machine per app. Recorded, with the trigger that would change it.
-- **A sweep for orphaned objects.** Upload is disabled in the deployed demo, so nothing new reaches the bucket.
+- **Object storage entirely.** Upload is disabled in the deployed demo, the seed sets no image, and the API treats unset `S3_*` as a supported state, so there is no bucket to sweep and none to create.
 - **Refunds, secret rotation, the waiter surface, multi-restaurant, a custom domain.** All already on the backlog; none is what this milestone is for.
 
 ## 2. Decisions from brainstorming
@@ -27,8 +27,9 @@ Out of scope, with the reason each stays out:
 | Question | Decision |
 |---|---|
 | Deploy at all? | Yes, live (owner, 2026-09-05). A portfolio project's whole argument is a link someone can open. |
-| Where | **Fly.io for everything.** It runs the existing Dockerfiles unchanged, and Postgres and S3-compatible storage (Tigris) live on the same account. Rejected: Railway (no first-party object storage — a second account and a second set of keys); Render (its free tier sleeps in a way that reads as broken); a Vercel split (the API needs a long-lived process for Socket.io and the hourly reset, so serverless cannot host it). |
+| Where | **Vercel for the web, Render for the API, Neon for Postgres — all free tiers, no payment method** (owner, 2026-09-05, replacing an earlier Fly.io decision). Render runs `Dockerfile.api` unchanged and keeps a process alive, which Socket.io and the hourly reset both need; Vercel does not sleep, so the landing is instant; Neon's free database does not expire, where Render's own historically has. No object storage at all: uploads are off, the seed sets no image, and every `S3_*` variable is optional. Rejected: Fly.io (not free); one platform for everything (the web would sleep too, so a visitor waits half a minute for the first page and concludes the project is broken). |
 | What a visitor may do | **Everything except uploading a file.** Menu, tables, QR reissue, dashboard and the printable sheet all work and the hourly reset undoes them. Upload is the one action whose consequences a database reset does not undo, on storage the owner pays for and is answerable for. The control stays visible and says why it is off. |
+| The free tier's cold start | **Say so, in one line on the landing and in the README** (owner, 2026-09-05). Rejected: a scheduled keep-alive ping (it games the tier it depends on, and it would stop the reset-on-boot from ever running); saying nothing (a thirty-second wait with no explanation reads as a broken project). |
 | The mark | **An open ring with an ember dot** — a tabletop seen from above, and the tap. Chosen over a wordmark alone (no face for the product) and over a QR finder pattern (legible, but a borrowed form every QR product wears). The circle is already this product's language: every dish plate is drawn as one. |
 | Motion | **State changes plus a first-paint entrance.** Rejected: state changes alone (the landing is the first thing a stranger sees and it deserves an entrance); route transitions as well (the only option that adds delay to something a person is waiting for, and the most fragile thing to build on the App Router). |
 | Scope of hardening | Only what going public forces. A shared store and an orphan sweep are documented rather than built. |
@@ -47,52 +48,56 @@ It is TableTap's mark, not Little Furnace's. The brand guidelines already forbid
 
 ### 4.1 Topology
 
-Two Fly apps in one region (`fra`), each from the Dockerfile already in the repository:
+Three services, all on free tiers, and the owner adds no payment method:
 
-| App | Built from | Public | Why |
-|---|---|---|---|
-| `tabletap-api` | `Dockerfile.api` | yes | The browser opens the Socket.io connection straight to it |
-| `tabletap-web` | `Dockerfile.web` | yes | The site itself |
+| Piece | Where | Why |
+|---|---|---|
+| Web | **Vercel**, Hobby | Next.js's own platform. It does not sleep, so the landing — the first thing a stranger opens — is instant. |
+| API | **Render**, free web service, built from `Dockerfile.api` | Runs the image this repository already builds, so no code moves to suit a host. It keeps a process alive, which Socket.io and the hourly reset both need and no serverless runtime offers. |
+| Postgres | **Neon**, free | Render's own free Postgres has historically expired after a fixed period, which would kill the demo silently months later. Neon's free database does not. |
 
-Managed Postgres attached to the API. A Tigris bucket created with `fly storage create`, whose credentials map onto the `S3_*` variables the code already reads — the same interface MinIO serves locally, which is the point ADR 0012 made when it chose the AWS SDK.
+**No object storage.** The deployed demo refuses uploads (§2), the seed sets no `image_url` at all — every dish draws its own plate — and every `S3_*` variable is optional, with `storageConfigured` simply false when they are unset. Adding a bucket would be adding a service to hold nothing.
 
-Both apps stop when idle and start on demand. The first request after a quiet spell is therefore slower; that is the cost the owner accepted for a demo nobody is paying to keep warm, and §4.4 makes it safe.
+**Free tiers change, and this document cannot verify them.** The runbook tells the owner to confirm each service's current terms before relying on them, and says what to do if one has changed.
 
-### 4.2 Two origins, and why cookies still work
+### 4.2 The API sleeps, and the site says so
 
-`apps/web/lib/socket.ts` connects the browser to `NEXT_PUBLIC_API_ORIGIN` directly, while every other browser request goes through the `/api/:path*` rewrite in `apps/web/next.config.ts`. That split decides the whole address layout:
+A free Render service stops after a period without traffic and takes tens of seconds to answer the request that wakes it — not the second or two a paid instance takes. That is the price of the tier and the owner accepted it deliberately.
 
-- `API_URL` — the API's **internal** Fly address. Server components and the rewrite both use it, so ordinary HTTP never leaves the private network and the browser only ever sees a same-origin `/api/...`. Cookies keep working with no change to `SameSite` and no CORS in the browser's path.
-- `NEXT_PUBLIC_API_ORIGIN` — the API's **public** address, used by the WebSocket alone. Cross-origin is safe here precisely because the socket authenticates with the 60-second `tt-socket` token fetched over the same-origin rewrite, never with a cookie. This matters: `fly.dev` is on the Public Suffix List, so two Fly subdomains are cross-site and a cookie would not have travelled between them anyway.
+Two things follow. The reset-on-boot behaviour is what keeps a woken demo coherent rather than showing whatever the last visitor left. And the delay is **stated on the landing page and in the README** in one plain line, because an unexplained thirty-second wait reads as a broken project, while an explained one reads as a considered trade-off.
+
+The web does not sleep, so the wait falls on the first *interaction*, never on the first *impression*.
+
+### 4.3 Two origins, and why cookies still work
+
+`apps/web/lib/socket.ts` connects the browser to `NEXT_PUBLIC_API_ORIGIN` directly, while every other browser request goes through the `/api/:path*` rewrite in `apps/web/next.config.ts`. That split decides the address layout:
+
+- `API_URL` — the API's public address. Server components and the rewrite use it. The browser still only ever sees a same-origin `/api/...`, so cookies keep working with no `SameSite` change and no CORS in the browser's path.
+- `NEXT_PUBLIC_API_ORIGIN` — the same public address, used by the WebSocket alone. Cross-origin is safe there because the socket authenticates with the 60-second `tt-socket` token fetched over the same-origin rewrite, never with a cookie.
 - `WEB_ORIGIN` — the web app's public address, which is what the API's CORS allows.
+- Every `NEXT_PUBLIC_*` value is inlined at build time, so all of them are Vercel **build-time environment variables**, never runtime-only ones.
 
-### 4.3 Secrets and configuration
+### 4.4 One bucket per visitor, across two providers
 
-Every secret is set with `fly secrets set` and none is baked into an image. `BETTER_AUTH_SECRET`, `COOKIE_SECRET`, `TABLE_TOKEN_SECRET`, `SOCKET_TOKEN_SECRET` and `DEMO_PASSWORD` are generated fresh for the deployment — the values in `.env.example` are local-demo values and must never reach a public host. `DATABASE_URL` comes from the Postgres attachment, and the `S3_*` group (`S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL`, `S3_FORCE_PATH_STYLE`) from the Tigris one. `NEXT_PUBLIC_APP_URL` is set to the web app's public address, because a link preview needs absolute URLs. `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` stay unset, so the payment provider resolves to `demo` exactly as it does locally.
+The web and the API now live on different platforms, and that breaks the argument the previous design rested on. That argument was that every hop between the visitor and the API sat inside a private range the API could trust, so the forwarded chain could be walked back to the visitor. Across providers the web's call to the API leaves one network and arrives as ordinary internet traffic from an ordinary public address. Trusting it would let anyone forge a visitor address; not trusting it collapses every visitor onto one bucket.
 
-`TRUST_PROXY` is set for Fly's proxy — see §4.5, where it is measured rather than assumed.
+**So the web signs what it forwards.** `apps/web/middleware.ts` sends the visitor's address together with a short signature over it, keyed by a secret shared with the API. The API honours a forwarded address only when that signature verifies, and otherwise keys on the address of the connection it actually received.
 
-The owner performs every step that requires signing in or attaching a payment method. The milestone delivers a runbook precise enough to follow without improvisation; it does not deliver an agent that logs in on the owner's behalf.
+This is stronger than what it replaces, not merely different. It depends on no platform's proxy behaviour, so it survives this move and the next one; it closes the local-Compose spoofability the previous design had to leave open; and a caller reaching the public API directly cannot mint buckets, because it cannot produce the signature.
 
-### 4.4 The demo reset must survive a sleeping machine
+`TRUST_PROXY` stays configured for the platform's own proxy so that `request.ip` is right for everything else.
 
-The hourly reset runs on a timer inside the API process. A machine that sleeps runs no timer, so a demo left in a mess stays in a mess until someone happens to visit — and the visitor who wakes it is exactly the person who sees the mess.
+### 4.5 Secrets and configuration
 
-**The API resets on boot whenever `DEMO_MODE` is on**, and then schedules the interval as it does today. The reset is idempotent and boots are rare, so the cost is a moment of work on wake. Deploys reset the demo too, which for a demo is correct rather than unfortunate.
+Every secret is set through the platform's own secret store and none is baked into an image. `BETTER_AUTH_SECRET`, `COOKIE_SECRET`, `TABLE_TOKEN_SECRET`, `SOCKET_TOKEN_SECRET`, `DEMO_PASSWORD` and the new forwarding secret are generated fresh for the deployment — **the values in `.env.example` are local demo values and are published in this repository.** `DEMO_UPLOADS_ENABLED` is `false`. `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` stay unset, so the payment provider resolves to `demo`.
 
-### 4.5 One bucket per visitor, proved rather than assumed
-
-`@fastify/rate-limit` keys on `req.ip`. A browser sends no `x-forwarded-for` of its own, and `docs/backlog.md` already records the consequence: through the Next rewrite every browser reaches the API as the web container, so **all visitors share one bucket**. On a public link that is a defect, not a note — one person exploring the demo can exhaust the sign-in limit for everyone else.
-
-Fly's proxy sets forwarded-address headers on the request entering the web container, so the rewrite may carry the visitor's address through on its own. That is a hypothesis. **The task is not complete until two different clients are observed landing in two different buckets on the deployed stack**, and the evidence is written into the report. If the rewrite does not carry it, the fallback is to forward Fly's own client-address header explicitly. `TRUST_PROXY` is configured to match whatever is actually proved.
+`DEMO_PASSWORD` deserves its own line: it has a default equal to the published value, so forgetting it does not fail the boot — it ships a working public demo whose staff password is in the repository.
 
 ### 4.6 The deploy workflow
 
-`.github/workflows/deploy.yml`, triggered by `workflow_run` on the CI workflow completing for `main` and running only when its conclusion is `success`, so a red build cannot deploy. It needs a `FLY_API_TOKEN` repository secret, which the owner adds.
+Both platforms deploy from GitHub on a push to `main`, gated on CI passing. **The order is API first, then web**, and it is not a preference: `OrderDtoSchema` requires fields older API builds do not send, so a newer web against an older API fails to parse every order response — the menu renders and nothing past it works. The reverse order is safe.
 
-**The order is API first, then web, and it is not a preference.** `docs/backlog.md` records why: `OrderDtoSchema` requires fields that older API builds do not send, so a newer web against an older API fails to parse every order response — the menu still renders and nothing past it works. The reverse order is safe, because an older web ignores fields it does not know.
-
-Each stage ends with a smoke check — `/health` on the API, the landing on the web. A failed smoke check fails the workflow.
+Each stage ends with a smoke check that retries, because the API's entrypoint runs migrations and the seed before it listens.
 
 ## 5. Motion
 
@@ -124,7 +129,7 @@ Unit: the rate-limit key derivation for a forwarded address; the reset-on-boot d
 
 Lighthouse already runs in CI against the Compose stack and already gates accessibility at 95 across all six audited pages, which currently measure 100 - the M5 fix wave put it there. M6 adds no Lighthouse machinery. What M6 owes is that the motion work does not lower those numbers, and in particular that cumulative layout shift stays at zero: the entrance animation on the landing and the menu is the one change in this milestone that could move it, which is why §5 confines every animation to `opacity` and `transform`. The deployed site is audited once by hand after the first deploy and its numbers go into the case study, because a shared CI runner's figures and a real host's are not the same claim.
 
-Deployment is verified on the live stack, not simulated: the smoke checks, the two-bucket rate-limit proof of §4.5, a reset observed after a machine wakes, and a WebSocket connection from a browser to the public API origin.
+Deployment is verified on the live stack, not simulated: the smoke checks; the two-bucket proof of §4.4, taken from two genuinely different clients through the web app's own `/api/*` rewrite, which is the path every visitor uses; a forged forwarding signature refused; a reset observed after the API wakes from sleep; and a WebSocket connection from a browser to the public API origin. Every check states what a **correct** deployment returns, because a check that reports a healthy deployment as broken is worse than no check — the reader cannot tell it from a real failure.
 
 ## 8. Documents
 
