@@ -40,6 +40,20 @@ const EnvSchema = z.object({
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   /** Gates GET /api/demo/links and the hourly demo reset scheduler. */
   DEMO_MODE: z.enum(['true', 'false']).default('false'),
+  /**
+   * Refuses new menu photo uploads while leaving every other admin action alone (spec §2): a
+   * visitor to the public demo may do anything an admin can except put an object in storage the
+   * hourly reset does not undo. Defaults to on so the local Compose demo keeps working exactly as
+   * M5 built and verified it, and `.env.example` stays a working local configuration; the public
+   * deployment sets it to `false` (see `docs/deploy.md`).
+   *
+   * The web reads `NEXT_PUBLIC_UPLOADS_ENABLED` to decide what to render, but that is only an
+   * explanation - this value is the control, and it is enforced here regardless of what the web
+   * was built with. If the two ever disagree, a visitor sees a button that fails politely rather
+   * than a hole. `z.coerce.boolean()` would not work here: `Boolean('false')` is `true`, so a
+   * coerced flag could never be turned off from an env file.
+   */
+  DEMO_UPLOADS_ENABLED: z.enum(['true', 'false']).default('true'),
   /** Minutes between automatic demo data resets; 0 disables the scheduler. */
   DEMO_RESET_INTERVAL_MINUTES: z.coerce.number().int().nonnegative().default(60),
   /** Password for the three seeded staff accounts. */
@@ -71,6 +85,7 @@ const EnvSchema = z.object({
 export type Config = z.infer<typeof EnvSchema> & {
   cookieSecure: boolean;
   demoMode: boolean;
+  demoUploadsEnabled: boolean;
   paymentProvider: PaymentProviderName;
   storageConfigured: boolean;
 };
@@ -81,7 +96,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     const lines = parsed.error.issues.map((i) => `  ${i.path.join('.') || '(root)'}: ${i.message}`);
     throw new Error(`Invalid environment:\n${lines.join('\n')}`);
   }
-  const { COOKIE_SECURE, NODE_ENV, DEMO_MODE } = parsed.data;
+  const { COOKIE_SECURE, NODE_ENV, DEMO_MODE, DEMO_UPLOADS_ENABLED } = parsed.data;
   const cookieSecure =
     COOKIE_SECURE === undefined ? NODE_ENV === 'production' : COOKIE_SECURE === 'true';
   const paymentProvider: PaymentProviderName =
@@ -96,6 +111,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ...parsed.data,
     cookieSecure,
     demoMode: DEMO_MODE === 'true',
+    demoUploadsEnabled: DEMO_UPLOADS_ENABLED === 'true',
     paymentProvider,
     storageConfigured,
   };

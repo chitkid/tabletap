@@ -22,6 +22,17 @@ const isPhotoType = (type: string): type is PhotoType =>
 const HINT = 'JPEG, PNG or WebP, up to 5 MB.';
 const BUSY = 'Uploading…';
 const FAILED = "Couldn't upload that. Try again.";
+const UPLOADS_OFF_HINT =
+  'Photo upload is off in this demo. Everything else here is real, and it resets every hour.';
+
+/**
+ * The web's copy of the same decision the API makes with `DEMO_UPLOADS_ENABLED` - an explanation,
+ * not the control. `NEXT_PUBLIC_*` is inlined at build time, not read at request time, so in a
+ * deployed image this is a build argument, never a runtime secret. The API enforces the refusal
+ * regardless of what this reads; if the two ever disagree, a visitor sees a button that fails
+ * politely rather than a hole.
+ */
+const UPLOADS_ENABLED = process.env.NEXT_PUBLIC_UPLOADS_ENABLED !== 'false';
 
 /** The raw PUT to storage. No cookie, no envelope: it is not this API, it is the bucket. */
 async function putToStorage(url: string, file: File): Promise<void> {
@@ -45,6 +56,7 @@ export function PhotoField({
   fetcher = clientFetch,
   upload = putToStorage,
   onUploaded,
+  uploadsEnabled = UPLOADS_ENABLED,
 }: {
   itemId: string;
   itemName: string;
@@ -53,6 +65,8 @@ export function PhotoField({
   fetcher?: typeof clientFetch;
   upload?: (url: string, file: File) => Promise<void>;
   onUploaded?: (item: MenuItemDto) => void;
+  /** The web's explanation of `DEMO_UPLOADS_ENABLED`; the API enforces the actual refusal. */
+  uploadsEnabled?: boolean;
 }) {
   const fieldId = useId();
   const hintId = useId();
@@ -121,6 +135,7 @@ export function PhotoField({
             accept={PHOTO_TYPES.join(',')}
             aria-describedby={hintId}
             className="max-w-xs"
+            disabled={!uploadsEnabled}
             onChange={(event) => {
               setChosen(event.target.files?.[0] ?? null);
               setNotice('');
@@ -129,7 +144,7 @@ export function PhotoField({
           <Button
             type="button"
             variant="outline"
-            disabled={chosen === null || busy}
+            disabled={!uploadsEnabled || chosen === null || busy}
             aria-busy={busy || undefined}
             onClick={() => void send()}
           >
@@ -139,6 +154,9 @@ export function PhotoField({
         <p id={hintId} className="text-sm text-muted-foreground">
           {HINT}
         </p>
+        {uploadsEnabled ? null : (
+          <p className="text-sm text-muted-foreground">{UPLOADS_OFF_HINT}</p>
+        )}
         {/* Always in the layout, empty when there is nothing to say, so the panel never jumps.
             The busy state lives on the button itself, where the press was. */}
         <p role="status" aria-live="polite" className="min-h-5 text-sm text-destructive">

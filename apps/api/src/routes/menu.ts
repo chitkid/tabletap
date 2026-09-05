@@ -14,6 +14,7 @@ import {
   type MenuResponse,
 } from '@tabletap/shared';
 import { schema, type Db } from '@tabletap/db';
+import type { Config } from '../config';
 import { AppError, validate } from '../lib/errors';
 import {
   createCategory,
@@ -48,6 +49,17 @@ function requireStorage(storage: ObjectStorage | null): ObjectStorage {
   if (storage === null)
     throw new AppError('INTERNAL', 503, 'Photographs are not configured for this deployment.');
   return storage;
+}
+
+/**
+ * The control (spec §2): a visitor to the public demo may do anything an admin can except put an
+ * object in storage. Checked before either photo route touches storage, so a refusal here never
+ * lets a signed URL get minted or an upload get confirmed. `NEXT_PUBLIC_UPLOADS_ENABLED` on the web
+ * only explains this same decision; this is what actually enforces it.
+ */
+function requireUploadsEnabled(config: Config): void {
+  if (!config.demoUploadsEnabled)
+    throw new AppError('FORBIDDEN', 403, 'Photo upload is disabled in this deployment.');
 }
 
 export async function loadMenu(db: Db, restaurantId: string): Promise<MenuResponse> {
@@ -224,6 +236,7 @@ export async function menuRoutes(app: FastifyInstance) {
       const p = request.principal;
       if (p.kind !== 'staff')
         throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+      requireUploadsEnabled(app.config);
       const storage = requireStorage(app.storage);
       const restaurantId = await restaurantIdFor(app.db, p);
       const { id } = validate(IdParamsSchema, request.params);
@@ -243,6 +256,7 @@ export async function menuRoutes(app: FastifyInstance) {
       const p = request.principal;
       if (p.kind !== 'staff')
         throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+      requireUploadsEnabled(app.config);
       const storage = requireStorage(app.storage);
       const restaurantId = await restaurantIdFor(app.db, p);
       const { id } = validate(IdParamsSchema, request.params);

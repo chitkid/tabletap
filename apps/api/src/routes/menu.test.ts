@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { schema } from '@tabletap/db';
+import { seed } from '@tabletap/db/seed';
+import { createTestDb } from '@tabletap/db/testing';
 import {
   ErrorEnvelopeSchema,
   MenuCategoryDtoSchema,
@@ -9,8 +11,15 @@ import {
   PhotoUploadResponseSchema,
 } from '@tabletap/shared';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { buildApp } from '../server';
 import type { ObjectStorage, UploadCheck, UploadRejection } from '../storage/types';
-import { TEST_CONFIG, claimTable, createTestApp, signInAs } from '../test/helpers';
+import {
+  TEST_CONFIG,
+  TEST_DEMO_PASSWORD,
+  claimTable,
+  createTestApp,
+  signInAs,
+} from '../test/helpers';
 
 describe('GET /api/menu', () => {
   let ctx: Awaited<ReturnType<typeof createTestApp>>;
@@ -699,5 +708,81 @@ describe('menu photographs', () => {
     expect(confirm.statusCode).toBe(503);
     expect(ErrorEnvelopeSchema.parse(confirm.json()).error.message).toBe(message);
     expect(await imageUrlOf(itemId)).toBeNull();
+  });
+});
+
+describe('demo upload gate', () => {
+  /**
+   * Every method throws. This is a stronger check than a status code: a refusal that ran the
+   * storage call and then discarded the result would still pass a mere `toBe(403)`, but not this.
+   */
+  function throwingStorage(): ObjectStorage {
+    const boom = () => {
+      throw new Error('storage must not be called while uploads are disabled');
+    };
+    return {
+      photoKey: boom,
+      presignPut: boom,
+      head: boom,
+      checkUpload: boom,
+      publicUrl: boom,
+      remove: boom,
+    };
+  }
+
+  it('refuses both photo routes for an otherwise-allowed admin, before any storage call, when DEMO_UPLOADS_ENABLED is off', async () => {
+    const { db, close } = await createTestDb();
+    await seed(db, {
+      mode: 'reset',
+      demoPassword: TEST_DEMO_PASSWORD,
+      tableTokenSecret: TEST_CONFIG.TABLE_TOKEN_SECRET,
+      tableTokenTtlDays: 365,
+      webOrigin: TEST_CONFIG.WEB_ORIGIN,
+    });
+    const app = await buildApp({
+      db,
+      config: { ...TEST_CONFIG, DEMO_UPLOADS_ENABLED: 'false', demoUploadsEnabled: false },
+      logger: false,
+    });
+    await app.ready();
+    try {
+      app.storage = throwingStorage();
+      const admin = await signInAs(app, 'admin@littlefurnace.demo');
+      const [item] = await db
+        .select()
+        .from(schema.menuItems)
+        .where(eq(schema.menuItems.name, 'Ember Salmon Bowl'));
+      const itemId = item!.id;
+      const message = 'Photo upload is disabled in this deployment.';
+
+      const sign = await app.inject({
+        method: 'POST',
+        url: `/api/menu/items/${itemId}/photo-url`,
+        headers: { cookie: admin },
+        payload: { contentType: 'image/jpeg' },
+      });
+      expect(sign.statusCode).toBe(403);
+      expect(ErrorEnvelopeSchema.parse(sign.json()).error).toMatchObject({
+        code: 'FORBIDDEN',
+        message,
+      });
+
+      const confirm = await app.inject({
+        method: 'POST',
+        url: `/api/menu/items/${itemId}/photo`,
+        headers: { cookie: admin },
+        payload: { key: `menu/${itemId}/${randomUUID()}.jpg` },
+      });
+      expect(confirm.statusCode).toBe(403);
+      expect(ErrorEnvelopeSchema.parse(confirm.json()).error).toMatchObject({
+        code: 'FORBIDDEN',
+        message,
+      });
+      const [row] = await db.select().from(schema.menuItems).where(eq(schema.menuItems.id, itemId));
+      expect(row?.imageUrl ?? null).toBeNull();
+    } finally {
+      await app.close();
+      await close();
+    }
   });
 });

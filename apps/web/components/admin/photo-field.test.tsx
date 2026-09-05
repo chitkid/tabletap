@@ -117,4 +117,27 @@ describe('PhotoField', () => {
     renderField({ fetcher: vi.fn(), upload: vi.fn() });
     expect(screen.getByText('JPEG, PNG or WebP, up to 5 MB.')).toBeInTheDocument();
   });
+
+  it('disables the control and explains why when uploads are off, reaching neither input nor route', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn();
+    const upload = vi.fn();
+    const input = renderField({ fetcher, upload, uploadsEnabled: false });
+
+    expect(input).toBeDisabled();
+    const button = screen.getByRole('button', { name: 'Add a photo' });
+    expect(button).toBeDisabled();
+    expect(
+      screen.getByText(
+        'Photo upload is off in this demo. Everything else here is real, and it resets every hour.',
+      ),
+    ).toBeInTheDocument();
+
+    // A disabled control cannot be reached: choosing a file and pressing the button does nothing.
+    await user.upload(input, file('plate.jpg', 'image/jpeg', 2048));
+    await user.click(button);
+
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
 });

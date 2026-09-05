@@ -26,7 +26,9 @@ export const TEST_CONFIG: Config = {
   DEMO_MODE: 'true',
   DEMO_RESET_INTERVAL_MINUTES: 0,
   DEMO_PASSWORD: 'tabletap-demo',
+  DEMO_UPLOADS_ENABLED: 'true',
   demoMode: true,
+  demoUploadsEnabled: true,
   paymentProvider: 'demo',
   // Obvious fakes: the S3 client is lazy, so a test builds the storage without opening a socket.
   S3_ENDPOINT: 'http://s3.test:9000',
