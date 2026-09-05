@@ -17,11 +17,11 @@
 - **Run every gate with `--force`**: `corepack pnpm lint --force && corepack pnpm typecheck --force && corepack pnpm test --force && corepack pnpm validate-tokens && corepack pnpm exec prettier --check .`. Turbo has served stale cache hits in these worktrees and hidden real errors, including a React "cannot access refs during render" bug behind a cached green run. `--force` is a Turbo flag and is **not** valid on vitest; for a focused loop use `corepack pnpm --filter @tabletap/web exec vitest run <path>`.
 - pnpm through corepack; `--save-exact`; commit `pnpm-lock.yaml` with the code; never `pnpm approve-builds`.
 - TypeScript strict, `noUncheckedIndexedAccess`, `verbatimModuleSyntax` (`import type`); no `any`.
-- TDD (red → verify → green → commit) for every behaviour change. Exempt: migrations, config schema lines, presentational markup, Dockerfiles, Fly and CI configuration, ADRs and other documents.
+- TDD (red → verify → green → commit) for every behaviour change. Exempt: migrations, config schema lines, presentational markup, Dockerfiles, platform and CI configuration, ADRs and other documents.
 - **Only `opacity` and `transform` may be animated**, and every animation must collapse to an instant substitution under `prefers-reduced-motion: reduce`. Cumulative layout shift stays at 0 and the existing Lighthouse gate (accessibility ≥ 95 on six pages, currently 100) stays green.
 - **Nothing animates on a path where a person is waiting.** The payment-to-kitchen route measured 34 ms against a 500 ms budget; it gains no animation, and neither does the interval between a press and the answer to it.
 - Tokens only in `apps/` and `packages/ui/src`; 44 px targets (`h-11`); every control labelled; notices in `role="status"`; brand voice — plain verbs, no exclamation marks.
-- No secret value from `.env.example` may reach a public host. Deployment secrets are generated fresh and set with `fly secrets set`.
+- No secret value from `.env.example` may reach a public host. Deployment secrets are generated fresh and set through each platform's own secret store.
 - Public URLs added in M6: none. The deployment moves existing URLs to a public origin; it does not invent new paths.
 
 ## Context files for every task
@@ -34,7 +34,7 @@
 | `packages/ui/src/components/plate.tsx` | The nearest existing SVG component; follow its shape |
 | `apps/api/src/server.ts`, `src/lib/staff-key.ts`, `src/plugins/demo-reset.ts`, `src/lib/demo-reset.ts` | Rate limiting and the demo reset, both of which M6 changes |
 | `apps/web/next.config.ts`, `apps/web/lib/socket.ts`, `apps/web/app/layout.tsx` | The rewrite, the socket origin, and the metadata root |
-| `Dockerfile.api`, `Dockerfile.web`, `docker-compose.yml`, `.github/workflows/ci.yml` | What Fly will build, and the CI the deploy workflow waits for |
+| `Dockerfile.api`, `Dockerfile.web`, `docker-compose.yml`, `.github/workflows/ci.yml` | What Render builds, what Compose and CI build, and the CI run the deploy workflow waits for |
 | `docs/backlog.md` | Where the M6-tagged debts are recorded, several of which this plan closes |
 
 ## File structure (M6 additions)
@@ -279,7 +279,7 @@ git commit -m "feat(web): motion where something changed, and nowhere else"
 
 - Modify: `apps/api/src/plugins/demo-reset.ts`, `apps/api/src/plugins/demo-reset.test.ts`
 
-**Why:** the reset runs on `setInterval` inside the API process. Fly stops an idle machine, and a stopped machine runs no timer — so a demo somebody left in a mess stays in a mess, and the next visitor is the one who wakes it and sees it. Spec §4.4.
+**Why:** the reset runs on `setInterval` inside the API process. A free instance stops when idle, and a stopped instance runs no timer — so a demo somebody left in a mess stays in a mess, and the next visitor is the one who wakes it and sees it. Spec §4.4.
 
 - [ ] **Step 1: Failing test**
 
@@ -612,7 +612,7 @@ API first, then web. Then the smoke checks by hand: `/health` on the API, the la
 
 - [ ] **Step 3: The four measurements that decide whether this is done**
 
-1. **Two visitors, two buckets** — repeat Task 9's measurement against the live host. Task 6 proved it in Compose; Fly's proxy is a different hop chain, and the deployed answer is the one that matters. Record both lines of status codes.
+1. **Two visitors, two buckets** — repeat Task 9's measurement against the live host, from two genuinely different networks, through the deployed site's own `/api/*` rewrite. Compose proved the mechanism; the deployed answer is the one that matters, and it is the only thing that sees a `FORWARD_SECRET` mismatch between Vercel and Render. Record what each client saw.
 2. **The reset survives a sleep** — leave the demo altered, wait for the machines to stop, open the site, and confirm the data came back. Record how long the first request took.
 3. **The WebSocket connects** — open the kitchen board and a guest order in two browsers and watch a status change cross. Record the latency and compare it with the 34 ms measured locally.
 4. **Lighthouse against the live host** — one run, six pages. Record every number; these are the figures the case study will quote, and a shared CI runner's numbers are not the same claim.
