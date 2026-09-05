@@ -83,7 +83,9 @@ The web and the API now live on different platforms, and that breaks the argumen
 
 **So the web signs what it forwards.** `apps/web/middleware.ts` sends the visitor's address together with a short signature over it, keyed by a secret shared with the API. The API honours a forwarded address only when that signature verifies, and otherwise keys on the address of the connection it actually received.
 
-This is stronger than what it replaces, not merely different. It depends on no platform's proxy behaviour, so it survives this move and the next one; it closes the local-Compose spoofability the previous design had to leave open; and a caller reaching the public API directly cannot mint buckets, because it cannot produce the signature.
+This is stronger than what it replaces, not merely different. The web-to-API leg depends on no platform's proxy behaviour at all, so it survives this move and the next one; it closes the local-Compose spoofability the previous design had to leave open; and a caller reaching the public API directly cannot mint buckets, because it cannot produce the signature.
+
+One leg is **not** covered by the signature and the deployment must check it. The middleware signs whatever inbound `x-forwarded-for` it reads, so the visitor-to-web hop still rests on the web's own platform overwriting or appending that header rather than relaying a value the client supplied. That assumption is inherited rather than introduced here, it cannot be tested off the platform, and it is on the post-deploy list in §7.
 
 `TRUST_PROXY` stays configured for the platform's own proxy so that `request.ip` is right for everything else.
 
