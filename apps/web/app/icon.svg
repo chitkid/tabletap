@@ -1,12 +1,16 @@
 <!--
   TableTap's favicon: the same geometry as packages/ui/src/components/mark.tsx, with
   the two colours resolved to their literal values, because a favicon has no CSS
-  context to resolve currentColor or var(--primary) against. Ring: Ink #1C1917
-  (--foreground, light theme). Dot: Ember #C23E18 (--primary, light theme). Not
-  scanned by scripts/validate-tokens.cjs — it only scans .ts/.tsx/.js/.jsx/.css/.scss
-  files, and this is the one place a literal colour is correct rather than a bug.
+  context to resolve currentColor or a custom property against. Ring: Ink #1C1917
+  (the foreground token, light theme). Dot: Ember #C23E18 (the primary token, light
+  theme). Not scanned by scripts/validate-tokens.cjs, which only scans
+  .ts/.tsx/.js/.jsx/.css/.scss files; this is the one place a literal colour is
+  correct rather than a bug.
 
   If the ring or dot geometry in mark.tsx ever changes, change it here too.
+
+  A literal double hyphen breaks XML comment parsing, so none appears above; keep
+  it that way if this comment is edited.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <circle
