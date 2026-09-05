@@ -223,6 +223,11 @@ jobs:
         # that proves the whole path. It is `public: true` (apps/api/src/routes/demo.ts), which is
         # why an anonymous curl is the right caller for it - /api/menu would answer 401 here, from
         # a perfectly healthy deployment, because it requires `menu.read`.
+        #
+        # One condition on that: this route answers 404 when DEMO_MODE is off. render.yaml pins it
+        # to 'true' and this is a portfolio demo, so it is on. If it is ever turned off, this line
+        # starts failing a healthy deployment and it is this line that has to change, not the
+        # deployment.
         run: |
           set -eu
           curl -fsS --retry 10 --retry-delay 3 --retry-all-errors -o /dev/null "${WEB_ORIGIN}/login"
