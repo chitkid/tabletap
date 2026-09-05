@@ -14,7 +14,7 @@ In scope:
 - **The hardening a public address forces.** A rate-limit bucket per visitor rather than one for everybody; a demo reset that survives a sleeping machine; containers that do not run as root; an index this project has been missing; photo upload disabled in the deployed demo.
 - **Identity.** A TableTap mark, a favicon set, an Open Graph image, and the Little Furnace SVG wordmark the M1 brand guidelines promised for this milestone.
 - **Motion**, at the level the owner chose: state changes plus one entrance, and nothing on a path where a person is waiting.
-- **Lighthouse in CI** as a gate rather than a local ritual, and a case study.
+- **A case study**, and keeping the Lighthouse gate that already runs in CI green through the motion work.
 
 Out of scope, with the reason each stays out:
 
@@ -122,7 +122,7 @@ Everything M1–M5 established stays: RBAC on every route, a signed table token 
 
 Unit: the rate-limit key derivation for a forwarded address; the reset-on-boot decision; the mark component rendering at its documented sizes; motion tokens resolving, and every animation collapsing under `prefers-reduced-motion`.
 
-Lighthouse moves into CI against the Compose stack and gates accessibility at 95 across all six audited pages, which currently measure 100. Performance is reported, not gated: a shared runner's numbers are not stable enough to fail a build on.
+Lighthouse already runs in CI against the Compose stack and already gates accessibility at 95 across all six audited pages, which currently measure 100 - the M5 fix wave put it there. M6 adds no Lighthouse machinery. What M6 owes is that the motion work does not lower those numbers, and in particular that cumulative layout shift stays at zero: the entrance animation on the landing and the menu is the one change in this milestone that could move it, which is why §5 confines every animation to `opacity` and `transform`. The deployed site is audited once by hand after the first deploy and its numbers go into the case study, because a shared CI runner's figures and a real host's are not the same claim.
 
 Deployment is verified on the live stack, not simulated: the smoke checks, the two-bucket rate-limit proof of §4.5, a reset observed after a machine wakes, and a WebSocket connection from a browser to the public API origin.
 
