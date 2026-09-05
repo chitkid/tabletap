@@ -65,9 +65,12 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     // The API sits behind the Next.js rewrite: without this every request looks like it
     // came from the proxy and @fastify/rate-limit would share one bucket for everyone.
     // TRUST_PROXY is a list of addresses - the private network the rewrite and the platform's
-    // proxy sit on - and deliberately neither `true` nor a hop count, both of which would read
-    // the forwarded header of a caller that reached this publicly exposed API directly and let
-    // it choose its own bucket. `lib/client-key.ts` is where that reasoning is written down.
+    // proxy sit on - and deliberately neither `true` nor a hop count. `true` believes the
+    // forwarded header of any caller, including one that reached this publicly exposed API
+    // directly, and lets it choose its own bucket. A number fails the other way: Fastify's
+    // `getTrustProxyFn` turns it into `() => false`, so nothing is trusted and every request
+    // through the rewrite is keyed on the web container again. `lib/client-key.ts` is where the
+    // reasoning, and the answer to whether a direct caller can pick its bucket, is written down.
     trustProxy: config.TRUST_PROXY,
   }).withTypeProvider<ZodTypeProvider>();
 

@@ -1,7 +1,5 @@
+import { normalizeIP } from '@fastify/rate-limit';
 import type { FastifyRequest } from 'fastify';
-
-/** `::ffff:203.0.113.9` and `203.0.113.9` are one visitor, and must be one bucket. */
-const IPV4_MAPPED = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i;
 
 /**
  * One rate-limit bucket per visitor, for the routes no session reaches: the QR claim a visitor
@@ -9,27 +7,47 @@ const IPV4_MAPPED = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i;
  * or `staffKey`, both of which fall back to this same `ip:` namespace when there is no cookie yet
  * - which for a first-time visitor is the common path, not the edge case.
  *
- * **Can a caller reaching the public API directly pick its own bucket? No.** `request.ip` is
- * `proxy-addr` reading the forwarded chain under `TRUST_PROXY`, which lists the private network in
- * front of the API and nothing else. A caller from the public internet is therefore not a trusted
- * peer, its `x-forwarded-for` is not read at all, and its bucket is the source address of its own
- * connection - which the network sets and the caller cannot choose. A caller that does arrive
- * through the platform's proxy is keyed on the address that proxy appended as the last hop, and
- * everything the caller wrote to the left of it is skipped: the chain is trusted for the one hop
- * we actually control, and no further. That is the whole reason `TRUST_PROXY` is a list of
- * addresses rather than `true` or a hop count - either of those would believe any caller's header.
+ * The address is normalised by `@fastify/rate-limit`'s own `normalizeIP`, the exact function its
+ * default key generator uses: it lowercases, unwraps `::ffff:` forms, and collapses IPv6 to its
+ * /64 start address. That last one is not cosmetic. A home or mobile IPv6 line is delegated a
+ * whole prefix, so picking a fresh address inside it costs a visitor nothing, and keying on the
+ * full address would let one person mint buckets without limit - the very thing this file exists
+ * to stop. A custom key generator is called with the request alone (`applyRateLimit` only passes
+ * `ipv6Subnet` to the default one), so this takes `normalizeIP`'s own default of /64; setting
+ * `ipv6Subnet` in the plugin options would not reach here, and would have to be passed by hand.
  *
- * The remaining reliance is on that proxy appending rather than passing through, which is the
- * assumption every `trust proxy` setting behind every reverse proxy makes, and which spec §7 has
- * verified on the live stack. `Fly-Client-IP` was considered and rejected: believing it would
- * still require the peer to be trusted, so it adds no safety, and it would open a second forgery
- * path anywhere the platform does not overwrite it.
+ * **Can a caller reaching the public API directly pick its own bucket? No - but read why, because
+ * it is not the reason it first appears to be.** `request.ip` is `@fastify/proxy-addr`: `alladdrs`
+ * walks the socket address and the forwarded chain from the right, truncating at the first entry
+ * that is not a trusted peer, and `request.ip` is the last entry left standing.
+ *
+ * It is tempting to say a direct caller's header is never read at all. On Fly that is false: all
+ * public ingress terminates at fly-proxy, whose address is `fdaa::` - inside `fc00::/7`, inside
+ * `uniquelocal`, and therefore trusted. The header *is* read. The property rests on where the
+ * walk stops instead: fly-proxy appends the caller's real address as the last hop, that address is
+ * public and so is not trusted, the walk stops there, and everything the caller wrote to its left
+ * is discarded. Padding the chain with private addresses does not help - they sit to the left of
+ * the appended one. So the bucket is the address the platform observed, never the one the caller
+ * typed. That single leg is what this stands on, which is why spec §7 verifies it on the live
+ * stack: it holds exactly as long as the platform's proxy appends rather than relays. (Where a
+ * peer genuinely is untrusted - an API exposed with no proxy in front of it - the chain is
+ * discarded entirely and the socket address is the key. True, but not this deployment's shape.)
+ *
+ * This is why `TRUST_PROXY` has to be a list of addresses. `true` trusts every peer, so any
+ * caller's header would be believed. A number is worse than it looks: Fastify 5.12.1's
+ * `getTrustProxyFn` returns `() => false` for one, failing closed - it trusts nobody, the walk
+ * stops at the socket, and every request through the rewrite is keyed on the web container again,
+ * which is the defect this task closed. Both are wrong, in opposite directions.
+ *
+ * `Fly-Client-IP` was considered and rejected: believing it would still require the peer to be
+ * trusted, so it adds no safety, and it would open a second forgery path anywhere the platform
+ * does not overwrite it.
  *
  * Two things this does not do. It does not defend the *local* Compose demo, where the API's port
  * is published straight onto the developer's host with no proxy in front of it, so a host-side
- * caller is inside the trust boundary and can still set the header (docs/backlog.md). And it is
- * per process: the in-memory store means the limit is per instance until a shared store exists.
+ * caller is a trusted peer whose header is read and believed (docs/backlog.md). And it is per
+ * process: the in-memory store means the limit is per instance until a shared store exists.
  */
 export function clientKey(request: FastifyRequest): string {
-  return `ip:${IPV4_MAPPED.exec(request.ip)?.[1] ?? request.ip}`;
+  return `ip:${normalizeIP(request.ip)}`;
 }
