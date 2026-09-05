@@ -34,9 +34,20 @@ primary_region = 'fra'
   #     autostart/autostop as flycast's reason to exist. It also explicitly wants the app bound to
   #     `0.0.0.0:port`, not `fly-local-6pn` - the opposite requirement from `.internal` - which is
   #     exactly what apps/api/src/main.ts already does. No code change, and the machine wakes.
-  # Needs a private IPv6 allocated once (docs/deploy.md step 1): `fly ips allocate-v6 --private
-  # --app tabletap-api`. Without it this hostname does not resolve at all.
-  API_URL = 'http://tabletap-api.flycast:4000'
+  #
+  # Flycast is served on the app's *external service ports* (fly.api.toml's `[[services.ports]]`
+  # - 80 and 443), never on `internal_port` (4000, the port the API actually listens on inside the
+  # container) - Fly Proxy is what bridges the two, the same way it does for the public address.
+  # An earlier version of this file wrote `:4000` here, carried over unchanged from the `.internal`
+  # form (where the port *is* the one the machine listens on, since `.internal` connects straight
+  # to it with no proxy in between) - that value has nothing listening behind it over flycast.
+  # Plain `http://`, not `https://`: flycast is HTTP-only (Fly's own Flycast documentation says so
+  # verbatim - there is no TLS path for a private-only hostname), which is also why
+  # fly.api.toml's port-80 entry must not carry `force_https`. Port 80 is `http://`'s implicit
+  # default, so this resolves to `tabletap-api.flycast:80`.
+  # Needs a private IPv6 allocated once (docs/deploy.md's own numbered step for it): `fly ips
+  # allocate-v6 --private --app tabletap-api`. Without it this hostname does not resolve at all.
+  API_URL = 'http://tabletap-api.flycast'
   # The API's *public* address, for the WebSocket alone (apps/web/lib/socket.ts). Cross-origin is
   # safe here specifically because the socket authenticates with the 60-second tt-socket token
   # fetched over the same-origin rewrite, never with a cookie - and fly.dev is on the Public Suffix
