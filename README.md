@@ -12,10 +12,10 @@ The demo tenant is **Little Furnace**, a neighbourhood wood-fired place — flat
 | M2 Guest flow + demo landing | Menu, basket, order placement, illustrated dishes, demo landing with QR, hourly demo reset                             | Done    |
 | M3 Kitchen display           | Socket.io, kitchen board, order-state enforcement                                                                      | Done    |
 | M4 Payments                  | Payment port with a Stripe adapter and a demo terminal, signed webhook, idempotent settlement                          | Done    |
-| M5 Admin                     | Menu CRUD, photo uploads, QR PDFs, dashboard                                                                           | Planned |
+| M5 Admin                     | Menu and tables edited in place, photo uploads to object storage, a printable QR sheet, revocable codes, a dashboard   | Done    |
 | M6 Polish + portfolio        | Motion, Lighthouse CI, deployment, case study                                                                          | Planned |
 
-M2 makes the product visible: a guest scans the QR on the table, reads the menu, fills a basket and places an order. M3 closes the loop — the ticket is on the kitchen board in well under half a second, the kitchen moves it through the statuses, and the guest's phone follows along without a reload. M4 puts the money in the middle of it: an order is placed, then paid, and only a payment event sends it to the kitchen.
+M2 makes the product visible: a guest scans the QR on the table, reads the menu, fills a basket and places an order. M3 closes the loop — the ticket is on the kitchen board in well under half a second, the kitchen moves it through the statuses, and the guest's phone follows along without a reload. M4 puts the money in the middle of it: an order is placed, then paid, and only a payment event sends it to the kitchen. M5 hands the restaurant its own tool: everything the seed used to decide — the dishes, their prices and photographs, the tables and their printed codes — is now something an admin changes on screen.
 
 ## Try the demo
 
@@ -29,10 +29,11 @@ Bring the stack up (Docker section below, or local development), then open <http
 6. **Order page.** "Order #42 is waiting for payment.", the table, a status badge, the lines, the note, and "Placed 2 min ago" ticking every 30 seconds. A **Pay $28.00** button sits under the headline.
 7. **Pay.** The button opens a payment attempt and follows wherever the provider points. In demo mode that is `/pay/<order id>`, the restaurant's own terminal — the amount, a dead keypad, **Pay** and **Decline** side by side, and "This is a demo. No card, no money." Pay, and you land back on the order page reading "Order #42 sent to the kitchen."; decline, and it says "Payment declined. Try again." with the Pay button still there.
 8. **Watch it cook.** The ticket is on the kitchen board the moment the payment settles. The status updates in place as the kitchen works it, and "Order #42 is ready." is announced when it is.
+9. **Run the restaurant.** Open <http://localhost:3000/login?demo=admin&next=/admin> to arrive as Mara Quinn on the admin surface: the day's figures, the menu edited row by row, and the tables with their printed codes. Change a price and reload the guest menu; it is the same menu.
 
-The two staff cards sign you in with one click: **Open the kitchen display** and **Open the admin** go to `/login?demo=kitchen` and `/login?demo=admin`, which sign in with the seeded credentials below. Since M3 the kitchen button lands on the board itself; the admin card still shows the signed-in state until M5. **Simulate rush** on the landing gives the board something to do without a second device.
+The two staff cards sign you in with one click: **Open the kitchen display** and **Open the admin** go to `/login?demo=kitchen` and `/login?demo=admin`, which sign in with the seeded credentials below. Both land on the kitchen board, because that is what `/login` defaults to — so the admin card opens the board as an admin rather than the admin surface M5 built. Reach it with the `&next=/admin` link above, or by opening `/admin` once signed in. Pointing the card at it is on the backlog. **Simulate rush** on the landing gives the board something to do without a second device.
 
-Guest URLs added in M2: `/t/<token>`, `/menu`, `/checkout`, `/orders/<id>`, `/session-ended`. M3 adds the staff board at `/kitchen`, M4 the demo terminal at `/pay/<id>`. `/` is the landing page (M1's redirect to `/login` is gone).
+Guest URLs added in M2: `/t/<token>`, `/menu`, `/checkout`, `/orders/<id>`, `/session-ended`. M3 adds the staff board at `/kitchen`, M4 the demo terminal at `/pay/<id>`, M5 the admin at `/admin` and its three rooms `/admin/dashboard`, `/admin/menu` and `/admin/tables`. `/` is the landing page (M1's redirect to `/login` is gone).
 
 The demo data is wiped and re-seeded every `DEMO_RESET_INTERVAL_MINUTES` (default 60). A reset deletes orders and guest sessions, so a guest who was mid-order gets sent to `/session-ended` on their next tap and starts again by scanning. Table ids are stable across resets, so the printed QR code and the basket kept under it both survive one. With `DEMO_MODE=false` the landing degrades gracefully — the same page without the QR code and without the sign-in buttons — and `GET /api/demo/links` answers 404.
 
@@ -97,15 +98,62 @@ It prints a `whsec_…` secret; that is `STRIPE_WEBHOOK_SECRET` for this session
 
 **Simulate rush** places orders that are already paid, with a `demo` payment row and a `payment.succeeded` audit line marked `source: 'rush'` — otherwise the narrowed New column would stay empty.
 
+## Admin
+
+`/admin` is the restaurant's own tool, for the `admin` role alone. An anonymous visit redirects to `/login?next=/admin`; a kitchen member is sent to the board and a waiter to the landing, because the point is to put each of them somewhere they have something to do rather than on a screen full of refusals. It is light and dense where the kitchen board is dark and large: a sidebar, a top bar, no centred column and no marketing rhythm. `/admin` itself is the door and opens on the dashboard.
+
+**Three screens.**
+
+- **`/admin/dashboard`** — four figures for today, and seven days of paid orders as CSS bars, no chart library. Orders taken, revenue in the restaurant's own currency, the average time from paid to ready, and how many tickets are open right now. "Today" means the restaurant's day: the boundaries come from `restaurants.timezone`, so a place in Lisbon does not roll over at midnight UTC. An order that was paid and later cancelled still counts — the money was taken and this milestone has no refunds.
+- **`/admin/menu`** — categories and dishes, edited where they are read. No dialog ever opens: a row expands in place, its cells become inputs at the same line height, and an explicit **Save** and **Cancel** sit in the row. One row is open at a time, opening another closes the one before it, and a refused save puts the previous values back and says what the server refused. The expanded panel carries the description, the allergens, the sort order, the photograph and **Delete**.
+- **`/admin/tables`** — the room in number order: number, label, seats, and whether the table is in service. **Deactivate** is one press and entirely reversible. **Print QR sheet** downloads the PDF, and **Reissue QR** retires a table's printed codes.
+
+**What a refusal means.** A category holding dishes, a dish that is on an order and a table that has orders cannot be deleted: the foreign keys are `restrict`, and quietly cascading away order history is not something an admin tool should do. Each answers 409 `IN_USE` and the row says what to do instead — empty the category, mark the dish sold out, deactivate the table. Two people editing the same row is 409 `CONFLICT` ("This item changed while you were editing it. Reload and try again."), decided by an `updatedAt` guard inside the `UPDATE`'s own `WHERE`. Every write leaves an audit row carrying both the previous and the new values.
+
+**Reissuing a QR is the one control that cannot be undone.** It bumps `tables.qr_version`, which travels inside the signed table token, so every card already printed for that table stops working on the next scan — including the one in your hand. Guests already sitting there are unaffected: their session rests on the signed cookie, not on the token. The control says so before it acts, swapping the row's buttons for the question "Reissue the QR for table 7? Every printed code for this table stops working immediately." with **Keep the current code** as the answer that costs nothing. Print the sheet again afterwards. The reasoning, and what a retired code is worth to whoever holds it, is in [ADR 0013](docs/adr/0013-revocable-qr.md).
+
+**The QR sheet.** `GET /api/tables/qr.pdf` renders A4 portrait with `pdfkit`, six cards to a page, one card per **active** table: the table's number, its label, a 45 mm code and the line "Scan with your phone camera to see the menu and order." Each code is signed at the version the table carries at that moment and lasts `TABLE_TOKEN_TTL_DAYS` (365), so a printed sheet outlives a demo reset. The response is `application/pdf` as an attachment, and the link is a plain `<a href>` rather than a fetch — the Next.js rewrite makes it a same-origin navigation, so the staff cookie rides along and the browser saves the file without leaving the page. The sheet prints in Helvetica: `@fontsource/ibm-plex-sans` ships woff and woff2 only, neither of which pdfkit can embed. Dropping a TTF into the package switches the face with no other edit — see the backlog, because it is not a no-op.
+
+**Photographs go to object storage, not through the API.** The browser asks for a URL, uploads straight to the store, and the API confirms: `POST /api/menu/items/:id/photo-url` answers a `PUT` signed for one key, one content type and sixty seconds; the browser uploads; `POST /api/menu/items/:id/photo` checks the object is there, is under 5 MB and is a JPEG, PNG or WebP, deletes it if it is not, and only then writes `image_url` from the server's own public URL for that key. A dish with a photograph shows it on the guest menu in place of its drawn plate ([ADR 0007](docs/adr/0007-illustrated-menu.md)). The whole shape is in [ADR 0012](docs/adr/0012-object-storage-uploads.md).
+
+Locally the store is MinIO, brought up by Compose: `docker compose up` starts it on 9000 (the S3 API) and 9001 (the console, signed in with the two keys below), and a one-shot `minio-init` creates the bucket and opens its `menu/` prefix — and only that prefix — to anonymous readers, because a guest who scanned a QR code has no session to authenticate a photograph with. Nothing else in the bucket is public.
+
+| Variable               | Side | What it does                                                                                                                                                                                                |
+| ---------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `S3_ENDPOINT`          | API  | Where the API itself dials the store. Compose sets `http://minio:9000`, which is the name on the compose network. Required.                                                                                 |
+| `S3_BUCKET`            | API  | Bucket name. Required.                                                                                                                                                                                      |
+| `S3_ACCESS_KEY_ID`     | API  | Required. Also MinIO's root user under Compose.                                                                                                                                                             |
+| `S3_SECRET_ACCESS_KEY` | API  | Required. Also MinIO's root password under Compose. Never leaves the server.                                                                                                                                |
+| `S3_REGION`            | API  | Default `us-east-1`. MinIO does not care; S3 does.                                                                                                                                                          |
+| `S3_PRESIGN_ENDPOINT`  | API  | The origin an upload URL is _signed_ for. SigV4 covers the Host header, so this has to be where the **browser** will PUT: under Compose `http://localhost:9000`, while the API keeps dialling `minio:9000`. |
+| `S3_PUBLIC_URL`        | API  | Base URL a guest's browser reads a photograph from — a CDN or an R2 custom domain in production. Unset, the endpoint and the bucket stand in for it.                                                        |
+| `S3_FORCE_PATH_STYLE`  | API  | `true` for MinIO and R2, `false` for AWS S3's virtual-hosted addressing. Default `true`.                                                                                                                    |
+
+Blank the four required ones and the API starts without photographs rather than failing to boot: `/menu/items/:id/photo-url` and its confirmation answer 503, and everything else works. Under Compose the `api` service sets them itself, so blanking them in `.env` changes nothing there. For AWS S3 use `S3_ENDPOINT=https://s3.<region>.amazonaws.com` with path style `false`; for Cloudflare R2 use the account endpoint with path style `true` and point `S3_PUBLIC_URL` at the bucket's public domain.
+
+**Endpoints.** Everything that writes wants the `admin` role, as does the dashboard and the QR sheet. `GET /api/tables` is `tables.read`, open to any signed-in staff; reading the menu is the guest's own permission and unchanged.
+
+| Method and path                      | What                                                                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `GET /api/dashboard`                 | Today's four figures and the seven-day count, in the restaurant's timezone.                        |
+| `POST /api/menu/categories`          | Create. `PATCH` and `DELETE` on `/:id`; delete refuses 409 `IN_USE` while it holds dishes.         |
+| `POST /api/menu/items`               | Create. `PATCH` and `DELETE` on `/:id`; delete refuses 409 `IN_USE` once the dish is on an order.  |
+| `POST /api/menu/items/:id/photo-url` | A presigned `PUT`: `{ url, key, expiresInSeconds }`. 503 when no store is configured.              |
+| `POST /api/menu/items/:id/photo`     | Confirms `{ key }` after checking the object, and answers the updated dish.                        |
+| `GET /api/tables`                    | The room. `POST` creates, `PATCH /:id` renames or deactivates, `DELETE /:id` refuses 409 `IN_USE`. |
+| `POST /api/tables/:id/qr`            | Reissues: `qr_version + 1`, audited, irreversible for printed codes.                               |
+| `GET /api/tables/qr.pdf`             | The printable sheet, `application/pdf` as an attachment.                                           |
+
 ## Stack
 
 - **Web** — Next.js 16 (App Router), React 19, Tailwind 4, shadcn components consumed from `@tabletap/ui`
 - **API** — Fastify 5, Zod 4 via `fastify-type-provider-zod`, pino, better-auth 1.7 for staff sessions
 - **Real-time** — Socket.io 4.8 on both ends, with the event map typed once in `@tabletap/shared`
 - **Data** — PostgreSQL 17, Drizzle ORM 0.45, SQL migrations generated by drizzle-kit and committed
+- **Storage** — S3-compatible object storage through the AWS SDK v3 and its request presigner; MinIO locally, S3 or R2 in production. PDFs with `pdfkit`, QR codes with `qrcode`
 - **Tests** — Vitest 4 everywhere; the API and database tests run on PGlite (embedded Postgres, no Docker needed), Playwright 1.62 for the end-to-end smoke tests, Lighthouse 13 for the accessibility gate
 - **Tooling** — pnpm workspaces via corepack, Turborepo, TypeScript strict, ESLint 9 flat config, Prettier
-- **Infra** — Docker Compose (postgres, api, web), GitHub Actions
+- **Infra** — Docker Compose (postgres, minio, minio-init, api, web), GitHub Actions
 
 Architecture decisions are recorded in [`docs/adr/`](docs/adr/).
 
@@ -118,10 +166,11 @@ docker compose up --build
 
 - Web: <http://localhost:3000> — the demo landing
 - API: <http://localhost:4000> — try <http://localhost:4000/health>
+- MinIO: <http://localhost:9000> is the S3 API menu photographs are uploaded to and read from; <http://localhost:9001> is its console, signed in with `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`
 
-The API container applies the migrations and runs `seed --if-empty` before starting, so the demo data and the three staff accounts are there on first boot. `.env.example` sets `DEMO_MODE=true`, which is what puts the QR code and the sign-in buttons on the landing page.
+The API container applies the migrations and runs `seed --if-empty` before starting, so the demo data and the three staff accounts are there on first boot. It waits for MinIO's healthcheck and for the one-shot `minio-init` that creates the bucket, so the store is ready before the first upload URL is asked for. `.env.example` sets `DEMO_MODE=true`, which is what puts the QR code and the sign-in buttons on the landing page.
 
-**Honest caveat:** the repository still has no remote, so the `compose-e2e` job — which brings the stack up, runs the Playwright specs and then the Lighthouse audit against it — has never run in CI. It has now run locally: Docker arrived on the owner's machine on 2026-09-03, and M3 and M4 each exercised the whole sequence on 2026-09-04. If you hit a problem with Compose, e2e or the audit, an untested CI job is the likeliest reason.
+**Local evidence:** the `compose-e2e` job brings the stack up, runs the Playwright specs and then the Lighthouse audit against it, and the same sequence is run by hand on this machine before every merge — M3 and M4 on 2026-09-04, M5 on 2026-09-05, each against a stack built from scratch. Compose arrived here on 2026-09-03, so it is a young part of the project: if you hit a problem with Compose, e2e or the audit, that is the likeliest place for it.
 
 **HTTPS deployments:** the Compose file defaults `COOKIE_SECURE` to `false`, because the local demo is served over plain HTTP while the container itself runs `NODE_ENV=production`. Behind TLS, set `COOKIE_SECURE=true` — otherwise session cookies are issued without the `Secure` flag. Left unset, the flag follows `NODE_ENV`.
 
@@ -154,45 +203,51 @@ pnpm db:seed -- --if-empty           # prints the twelve guest URLs it signs
 pnpm dev                             # web on :3000, api on :4000
 ```
 
-`pnpm test` needs none of that — the suite runs on PGlite in memory: 371 tests across the five packages (shared 44, db 16, ui 31, api 158, web 122).
+`pnpm test` needs none of that — the suite runs on PGlite in memory: 537 tests across the five packages (shared 52, db 17, ui 32, api 260, web 176).
 
 ## Scripts
 
 Run from the repository root.
 
-| Script                       | What it does                                                                                                                                                      |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                   | Runs every package's dev task through Turbo (web on :3000, api on :4000)                                                                                          |
-| `pnpm build`                 | Builds every package                                                                                                                                              |
-| `pnpm lint`                  | ESLint across the workspace                                                                                                                                       |
-| `pnpm typecheck`             | `tsc --noEmit` in every package                                                                                                                                   |
-| `pnpm test`                  | Vitest in every package, over PGlite                                                                                                                              |
-| `pnpm e2e`                   | Playwright smoke tests against a running stack (`E2E_BASE_URL`, default <http://localhost:3000>)                                                                  |
-| `pnpm lighthouse`            | Lighthouse audit of `/`, `/menu` and `/kitchen` against a running stack; `--base`, `--min-a11y` (default 95), `--out` (default `docs/lighthouse-results.json`)    |
-| `pnpm tokens`                | Regenerates `packages/ui/tokens.css` from `assets/design-tokens.json`                                                                                             |
-| `pnpm validate-tokens`       | Fails if `apps/` or `packages/ui/src` contains a raw hex, `rgb()`/`hsl()` or a px/rem value (0 and 1px excepted), Tailwind arbitrary values included              |
-| `pnpm brand:sync`            | Rebuilds the `ember` / `olive` / `ink` primitive scales in `assets/design-tokens.json` from `docs/brand-guidelines.md`, then regenerates `packages/ui/tokens.css` |
-| `pnpm db:generate`           | drizzle-kit: generates a migration from the schema                                                                                                                |
-| `pnpm db:migrate`            | Applies committed migrations to `DATABASE_URL`                                                                                                                    |
-| `pnpm db:seed -- --if-empty` | Seeds the demo data unless it is already there                                                                                                                    |
-| `pnpm db:seed -- --reset`    | Wipes the demo data and re-seeds it in one transaction                                                                                                            |
-| `pnpm format`                | Prettier over the repository                                                                                                                                      |
+| Script                       | What it does                                                                                                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                   | Runs every package's dev task through Turbo (web on :3000, api on :4000)                                                                                                            |
+| `pnpm build`                 | Builds every package                                                                                                                                                                |
+| `pnpm lint`                  | ESLint across the workspace                                                                                                                                                         |
+| `pnpm typecheck`             | `tsc --noEmit` in every package                                                                                                                                                     |
+| `pnpm test`                  | Vitest in every package, over PGlite                                                                                                                                                |
+| `pnpm e2e`                   | Playwright smoke tests against a running stack (`E2E_BASE_URL`, default <http://localhost:3000>)                                                                                    |
+| `pnpm lighthouse`            | Lighthouse audit of `/`, `/menu`, `/kitchen` and the admin dashboard against a running stack; `--base`, `--min-a11y` (default 95), `--out` (default `docs/lighthouse-results.json`) |
+| `pnpm tokens`                | Regenerates `packages/ui/tokens.css` from `assets/design-tokens.json`                                                                                                               |
+| `pnpm validate-tokens`       | Fails if `apps/` or `packages/ui/src` contains a raw hex, `rgb()`/`hsl()` or a px/rem value (0 and 1px excepted), Tailwind arbitrary values included                                |
+| `pnpm brand:sync`            | Rebuilds the `ember` / `olive` / `ink` primitive scales in `assets/design-tokens.json` from `docs/brand-guidelines.md`, then regenerates `packages/ui/tokens.css`                   |
+| `pnpm db:generate`           | drizzle-kit: generates a migration from the schema                                                                                                                                  |
+| `pnpm db:migrate`            | Applies committed migrations to `DATABASE_URL`                                                                                                                                      |
+| `pnpm db:seed -- --if-empty` | Seeds the demo data unless it is already there                                                                                                                                      |
+| `pnpm db:seed -- --reset`    | Wipes the demo data and re-seeds it in one transaction                                                                                                                              |
+| `pnpm format`                | Prettier over the repository                                                                                                                                                        |
 
 ## Tests
 
 `pnpm test` is the unit and integration suite: Vitest across the five packages, with the API and database tests on PGlite so nothing needs a container. The socket tests are the one place that does real I/O — they start the Fastify app on an ephemeral port and connect a real `socket.io-client`, which is the only honest way to show that a token-less handshake is refused, that a table token cannot open a socket, and that a guest of table 3 never receives table 7's events.
 
-`pnpm e2e` runs Playwright against a running stack — six specs in three files:
+`pnpm e2e` runs Playwright against a running stack — eight specs in four files:
 
 - `e2e/guest-order.spec.ts` — a guest orders from the landing page's QR link and pays for it: the receipt says the order is waiting for payment, the terminal shows the amount and the disclaimer, and paying lands back on a receipt that says the kitchen has it. A second test declines instead and asserts the order is exactly where it was, with the Pay button still offering another attempt. A third checks that an expired QR code explains itself.
 - `e2e/staff-login.spec.ts` — kitchen staff signs in through the same-origin API proxy and lands on the board; a wrong password shows the brand-voice message.
 - `e2e/kitchen-live.spec.ts` — the milestone's definition of done, in two browser contexts at once. Context K signs in as kitchen and opens `/kitchen`; context G claims table 7 from the landing and places an order. While that order is unpaid the board must have no heading for it at all — an unpaid ticket was never on the pass, not merely gone from it. G then pays at the terminal; the test reads the order's `paidAt` from the API and records the wall-clock moment its ticket becomes visible in K, and the gap must be under 500 ms. K bumps the ticket through **Start** and **Ready**, and G's order page must say "Order #42 is ready." without a reload. Finally K goes offline and back online: the reconnect banner appears, then clears, and the board is compared against the orders in `GET /api/orders?active=1` that the board actually draws. The spec prints both numbers it measures.
 
-On the local Compose stack that payment-to-kitchen latency measured **30–53 ms** across six runs against the 500 ms budget, and the offline banner appeared in **7–9 ms** — the browser's offline event, well inside the 20 s the spec allows for the heartbeat to notice instead.
+- `e2e/admin.spec.ts` — the admin surface end to end, in two browser contexts each time. An admin signs in through `/login?demo=admin&next=/admin`, opens the menu, adds a dish with a name unique to the run and a price, and a guest arriving from the landing's QR link finds that dish on the menu at that price — a write that crossed from the operator's tool to the guest's phone. The second spec reads the printed link from `GET /api/demo/links`, proves it claims a table right now, reissues table 7's code through the confirmation, and then opens the same link in a fresh context, where it must read "This QR code is not valid." Proving the link worked _before_ the reissue is what stops the test passing on a token that was never valid. It ends by waiting for the landing to hand out a working link again, because the web tier remembers the demo link for 30 seconds and the other specs all start by clicking it.
+
+On the local Compose stack that payment-to-kitchen latency measured **30–53 ms** across ten runs against the 500 ms budget, and the offline banner appeared in **7–15 ms** — the browser's offline event, well inside the 20 s the spec allows for the heartbeat to notice instead.
+
+The suite spends five of the ten sign-ins a minute the API allows one address, so two full runs inside a minute will trip the limit and a test will read "Too many attempts. Wait a minute and try again." That is the rate limiter working, not a broken spec.
 
 ## Lighthouse
 
-`pnpm lighthouse` claims table 7 through the web origin and signs in as the demo kitchen account, then audits three pages on Lighthouse's mobile preset: `/` without a cookie, `/menu` as a real guest, and `/kitchen` as real staff. It prints a table, writes `docs/lighthouse-results.json`, and exits non-zero when accessibility falls below `--min-a11y` (95). Locally all three scored **100** for accessibility on the M4 branch, with performance 97 / 97 / 95 and a CLS of 0.04 on the board, since the server now renders each ticket's real elapsed time instead of `0:00` and the cards no longer grow on hydration. The demo terminal at `/pay/<id>` is not audited: it needs a guest cookie _and_ an order that is still waiting for payment, which the audit script does not set up. On the backlog.
+`pnpm lighthouse` claims table 7 through the web origin and signs in as the demo kitchen and admin accounts, then audits four pages on Lighthouse's mobile preset: `/` without a cookie, `/menu` as a real guest, `/kitchen` as real kitchen staff, and `/admin/dashboard` as a real operator. It prints a table, writes `docs/lighthouse-results.json`, and exits non-zero when accessibility falls below `--min-a11y` (95). On the M5 branch all four scored **100** for accessibility. Performance ranged 95–100 depending on how warm the stack was — 97 / 97 / 95 / 96 against a stack just built, 100 / 99 / 98 / 100 against one that had already served the suite — with a CLS of 0.04 on the board and 0 everywhere else, since the server renders each ticket's real elapsed time instead of `0:00` and the cards no longer grow on hydration.
+
+The admin entry points at `/admin/dashboard` rather than at `/admin`, which is a bare redirect onto it with no content of its own to score — and which cannot be audited through anyway, because the `Cookie` header Lighthouse injects does not survive the redirect hop and the audit would score the sign-in page. A browser carrying the same session in its own jar follows it perfectly well; the e2e suite does exactly that. `/admin/menu` and `/admin/tables` are not audited separately, and the demo terminal at `/pay/<id>` is not audited either: it needs a guest cookie _and_ an order that is still waiting for payment, which the audit script does not set up. Both on the backlog.
 
 That gate runs in CI, in the `compose-e2e` job, after the Playwright tests. `docs/lighthouse-results.json` is gitignored: it is written on every run and uploaded as a build artifact, not committed. Accessibility is the only gated category. Performance is measured and reported, and is gated in M6 — the board's first paint currently costs it some layout shift, since server-rendered tickets grow when their timers hydrate.
 
@@ -218,7 +273,7 @@ Password for all three: `tabletap-demo` (override with `DEMO_PASSWORD` before se
 | `kitchen@littlefurnace.demo` | Theo Baptiste | kitchen |
 | `waiter@littlefurnace.demo`  | Jun Okafor    | waiter  |
 
-Sign in at `/login`. There is no sign-up: staff accounts come from the seed until the admin surface arrives in M5.
+Sign in at `/login`. There is no sign-up, and M5's admin surface does not add one: it manages the menu, the tables and their codes, not the people. Staff accounts come from the seed.
 
 ## Project structure
 
@@ -227,13 +282,14 @@ tabletap/
   apps/
     api/                Fastify 5, Drizzle, better-auth, pino
       src/plugins/      auth, principal, rbac, route-guard, error-handler, demo-reset, demo-rush
-      src/routes/       health, me, guest, tables, menu, orders, socket-token, payments, demo
+      src/routes/       health, me, guest, tables, menu, orders, socket-token, payments, dashboard, demo
       src/realtime/     Socket.io server: handshake, rooms, snapshot ack, broadcasts
       src/payments/     the PaymentProvider port and its two adapters (stripe, demo)
-      src/lib/          orders, transitions, payments (the one writer of `paid`), order-events (the emitter the socket listens to), rush
+      src/storage/      the ObjectStorage port, its S3 adapter and the photo key shape
+      src/lib/          orders, transitions, payments (the one writer of `paid`), order-events (the emitter the socket listens to), rush, menu-admin, tables-admin, qr-pdf, dashboard, audit
     web/                Next.js 16 App Router, Tailwind 4, shadcn
-      app/              / (landing), /login, /t/[token], /menu, /checkout, /orders/[id], /pay/[id], /session-ended, /kitchen
-      components/       claim-table, menu/, basket/, checkout/, order/, pay/, landing/, kitchen/, login-form
+      app/              / (landing), /login, /t/[token], /menu, /checkout, /orders/[id], /pay/[id], /session-ended, /kitchen, /admin (dashboard, menu, tables)
+      components/       claim-table, menu/, basket/, checkout/, order/, pay/, landing/, kitchen/, admin/, login-form
       lib/              api client, socket, board store, timer thresholds, chime, guest cookie, basket store, money and elapsed formatting
   packages/
     db/                 Drizzle schema, migrations/, seed, migrate, PGlite test helper
@@ -243,7 +299,7 @@ tabletap/
   design-system/tabletap/       MASTER.md and the kitchen / admin page specs
   scripts/                      generate-tokens, validate-tokens, sync-brand-to-tokens, lighthouse-audit
   docs/                         brand guidelines, ADRs, design specs, backlog
-  e2e/                          Playwright smoke tests (staff sign-in, guest order and payment, kitchen live)
+  e2e/                          Playwright smoke tests (staff sign-in, guest order and payment, kitchen live, admin)
 ```
 
 `packages/shared` is browser-safe by default; Node-only helpers (the table-token signer) live behind the `@tabletap/shared/server` subpath, and an ESLint rule stops the web app importing it.
@@ -259,7 +315,7 @@ docs/brand-guidelines.md  →  assets/design-tokens.json  →  packages/ui/token
 - `docs/brand-guidelines.md` is the brand document. `pnpm brand:sync` reads its Quick Reference table and its Primary / Secondary / Accent colour sections and rewrites exactly three primitive scales in the token JSON — `ember`, `olive` and `ink`, per the role map at the top of `scripts/sync-brand-to-tokens.cjs`. Nothing else in the file is touched: the neutral primitives, the semantic layer, the dark block and the component layer are authored by hand and gated by the contrast test in `packages/ui/src/tokens.test.ts`. CI reruns the sync and fails on a diff.
 - `assets/design-tokens.json` holds three layers — primitive (raw scales), semantic (`background`, `primary`, `status-*`, `timer-*`, …), component (`button`, `order-card`, `status-badge`, …). The semantic layer uses shadcn's variable names, so the components in `packages/ui` work unmodified.
 - `pnpm tokens` emits `packages/ui/tokens.css`. With the hand-written `packages/ui/theme.css` those are the two stylesheets the apps consume. `tokens.css` is committed, and CI regenerates it and fails on a diff.
-- `packages/ui/theme.css` is hand-written and small: it maps tokens into Tailwind's `@theme`, and defines the surface overrides — the kitchen board is the dark theme plus its own `--text-*` scale, so a `text-base` utility renders at 20 px there and nothing on the surface falls below 16 px; the admin surface is one `--spacing` override.
+- `packages/ui/theme.css` is hand-written and small: it maps tokens into Tailwind's `@theme`, and defines the surface overrides — the kitchen board is the dark theme plus its own `--text-*` scale, so a `text-base` utility renders at 20 px there and nothing on the surface falls below 16 px; the admin surface has its own block and deliberately scales nothing, because the `--spacing` multiplier it used to carry shrank its 44 px controls to about 35 along with the gaps between them. M5 removed it: density there comes from the grid and the type scale.
 - `pnpm validate-tokens` and a WCAG contrast test in `packages/ui` both run in CI.
 
 Regenerating after a brand change: edit `docs/brand-guidelines.md`, then `pnpm brand:sync && pnpm test && pnpm validate-tokens`. `brand:sync` regenerates `tokens.css` itself, so `pnpm tokens` is only needed after a hand edit to the semantic, dark or component layer.
@@ -270,7 +326,8 @@ Regenerating after a brand change: edit `docs/brand-guidelines.md`, then `pnpm b
 - [M2 design spec](docs/superpowers/specs/2026-09-03-m2-guest-flow-design.md) — guest flow, demo landing, contracts, states and copy
 - [M3 design spec](docs/superpowers/specs/2026-09-03-m3-kitchen-display-design.md) — kitchen board, real-time delivery, transitions, demo rush
 - [M4 design spec](docs/superpowers/specs/2026-09-04-m4-payments-design.md) — payment port, webhook, the demo terminal, the ADR 0009 removal
-- [Architecture decisions](docs/adr/) — [0001 staff auth and guest sessions](docs/adr/0001-staff-auth-and-guest-sessions.md), [0002 signed table token in the QR](docs/adr/0002-signed-table-token-in-qr.md), [0003 PGlite tests and Compose e2e](docs/adr/0003-pglite-tests-compose-e2e.md), [0004 API behind the Next.js rewrite](docs/adr/0004-api-behind-next-rewrite.md), [0005 one token source, three surfaces](docs/adr/0005-one-token-source-three-surfaces.md), [0006 guest reads, basket and order placement](docs/adr/0006-guest-reads-and-orders.md), [0007 illustrated menu instead of photography](docs/adr/0007-illustrated-menu.md), [0008 real-time delivery](docs/adr/0008-realtime-delivery.md), [0009 the interim order state machine](docs/adr/0009-interim-state-machine.md), [0010 payments through one port, settled once](docs/adr/0010-payments-one-port.md), [0011 the demo payment provider](docs/adr/0011-demo-payment-provider.md)
+- [M5 design spec](docs/superpowers/specs/2026-09-04-m5-admin-design.md) — the admin shell, in-place editing, uploads, revocable QR codes, the dashboard
+- [Architecture decisions](docs/adr/) — [0001 staff auth and guest sessions](docs/adr/0001-staff-auth-and-guest-sessions.md), [0002 signed table token in the QR](docs/adr/0002-signed-table-token-in-qr.md), [0003 PGlite tests and Compose e2e](docs/adr/0003-pglite-tests-compose-e2e.md), [0004 API behind the Next.js rewrite](docs/adr/0004-api-behind-next-rewrite.md), [0005 one token source, three surfaces](docs/adr/0005-one-token-source-three-surfaces.md), [0006 guest reads, basket and order placement](docs/adr/0006-guest-reads-and-orders.md), [0007 illustrated menu instead of photography](docs/adr/0007-illustrated-menu.md), [0008 real-time delivery](docs/adr/0008-realtime-delivery.md), [0009 the interim order state machine](docs/adr/0009-interim-state-machine.md), [0010 payments through one port, settled once](docs/adr/0010-payments-one-port.md), [0011 the demo payment provider](docs/adr/0011-demo-payment-provider.md), [0012 photographs in object storage](docs/adr/0012-object-storage-uploads.md), [0013 a table's QR can be revoked](docs/adr/0013-revocable-qr.md)
 - [Brand guidelines](docs/brand-guidelines.md) — palette, type, voice
 - [Component state specs](docs/design/components.md) and [UX notes](docs/design/ux-notes.md)
 - [Backlog](docs/backlog.md) — everything noticed and deliberately not done

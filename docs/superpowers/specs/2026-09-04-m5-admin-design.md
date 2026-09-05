@@ -1,6 +1,6 @@
 # M5 Admin — Design Spec
 
-Date: 2026-09-04. Status: approved by the owner on 2026-09-04; implementation plan pending.
+Date: 2026-09-04. Status: implemented on branch `feat/m5-admin` (2026-09-05); merge pending final review.
 Project: TableTap — QR table ordering with a real-time kitchen display (portfolio full-stack project).
 Milestone: M5 of six. Builds on M1 Foundation, M2 Guest flow + Demo landing, M3 Kitchen display and M4 Payments (all merged into `main`). The master brief remains the permanent context; this spec covers M5 only.
 

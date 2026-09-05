@@ -2,8 +2,7 @@
 
 Out-of-scope items noticed during work. Nothing here is scheduled.
 
-- Secret rotation for table tokens (`kid` header) — spec 17.
-- Admin-triggered QR regeneration — M5.
+- Secret rotation for table tokens (`kid` header) — spec 17. Since M5 it is the only lever that retires every table's code at once; one table at a time is [ADR 0013](adr/0013-revocable-qr.md).
 - Waiter-created orders — not in the brief.
 - Multi-restaurant tenancy — non-goal.
 
@@ -16,7 +15,6 @@ Noticed while reviewing the M1 branch; none of it blocks the milestone.
 - `/health` swallows the `select 1` error silently. Log it at debug so a degraded response says why.
 - The debug log in `principal` / `resolve-principal` includes the raw caught error object; log `err.message` only.
 - The guest cookie's `secure` flag now comes from `COOKIE_SECURE`. Revisit when a staging tier exists that is neither the local demo nor production.
-- The admin surface's `--spacing: 0.2rem` scales `h-11` buttons down to about 35 px. Revisit the density mechanism before M5 builds real admin screens.
 - The `--button-*` component tokens are not consumed by `button.tsx`.
 - Generated colour shades above 600 collapse to near-black for the `ink` and `olive` bases. Nothing references them; the semantic layer uses 100-600 only.
 - `auth.test.ts` and `guest.test.ts` share per-file rate-limit buckets, which makes them sensitive to test order.
@@ -53,7 +51,6 @@ Noticed while building and reviewing the M2 branch. Ordered roughly by how much 
 - The seed's option object — `demoPassword`, `tableTokenSecret`, `tableTokenTtlDays`, `webOrigin` — is assembled by hand in three places (`packages/db/src/cli/seed.ts`, `apps/api/src/plugins/demo-reset.ts`, the seed tests). One helper that builds it from a config would stop the fourth caller getting it wrong.
 - `apps/web/lib/api.test.ts` puts an import between statements to keep a `vi.mock` above it. It works and it is the common workaround, but a short comment saying why would save the next reader the detour.
 - The landing's "Built with" list renders each tool as a `Badge`. Badges usually mean status; this is a list of nouns. A plain list styled the same way would say the same thing without borrowing the semantics.
-- `OrderDto` carries no currency, so `/orders/[id]` passes `currency="USD"` as a literal. One restaurant, priced in USD, makes that true today. M5 should put the currency on the DTO. M4 widened this — see the M4 list below.
 
 ## Resolved in the M2 fix wave
 
@@ -152,7 +149,6 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 
 - Refunds, and cancelling a paid order with the money back. `settlePayment` only moves an order forward; cancelling a paid order today writes the cancellation and moves no money, and the audit trail says so. Out of M4 by the design spec's own scope line, and the first thing a real deployment would need.
 - A sweeper for orders that are never paid. A `placed` order with an abandoned attempt stays in the guest's list forever and counts as active in `GET /api/orders?active=1`. This needs a timeout rule — how long an order may sit unpaid, and whether the guest is told — more than it needs code.
-- Multi-currency on `OrderDto`. `startPayment` hardcodes `'USD'` for the payments row and the provider session, and both `/orders/[id]` and `/pay/[id]` pass `currency="USD"` as a literal. One restaurant priced in USD is what makes that true; M5 owns putting the currency on the DTO, and M4 added two more consumers of the literal.
 
 **Configuration and provider selection**
 
@@ -215,3 +211,71 @@ Docker was not available on the owner's machine until 2026-09-03, so `docker com
 - `getByRole('alert')` in the invalid-QR e2e matched two elements: the page's alert and the empty route announcer Next.js appends to the body. The locator is scoped to `main`.
 
 Local-only, not a repo defect: the Playwright `chrome.exe` on that Windows host fails side-by-side activation ("dependent assembly could not be found"), while `chrome-headless-shell.exe` and Edge start normally. `scripts/lighthouse-audit.mjs` honours `CHROME_PATH` so the audit can run on either.
+
+## Resolved in M5
+
+Carried on the lists above until the admin surface closed them.
+
+- The currency literal. `OrderDto` carries the restaurant's currency end to end, `startPayment` reads it from the restaurant row, and every one of the twelve `formatCents` call sites in `apps/` passes an explicit currency — including the dashboard's revenue tile, which is the reason the debt was worth closing rather than moving again. The one place still hardcoding `'USD'` is `rush.ts`, listed below.
+- The admin density mechanism. The `--spacing` multiplier that scaled the surface's 44 px controls down to about 35 is gone from `packages/ui/theme.css`; density comes from the grid and the type scale, and the comment beside the admin block says why nothing is scaled there.
+- Admin-triggered QR regeneration, which was the milestone's own line item. `POST /api/tables/:id/qr` bumps `tables.qr_version`, the claim endpoint compares it, and the control asks first. See [ADR 0013](adr/0013-revocable-qr.md).
+
+## Deferred from M5
+
+Noticed while building and reviewing the admin branch. Nothing here blocks the milestone. Several of these were found independently by more than one reviewer and are written down once.
+
+**Scope deliberately left for later milestones**
+
+- The waiter surface. `TRANSITION_RIGHTS.waiter` is still unused by any screen: the rights exist in `packages/shared`, and nothing renders a control that would exercise them. It is the last unbuilt role.
+- Refunds, and what a cancellation means to the day's figures. A paid order that is later cancelled still counts toward today's orders and revenue on the dashboard. That is correct as specified — the money was taken and not returned, and refunding is an explicit non-goal — but the two questions have to be answered together whenever refunds arrive.
+- `GET /api/tables` and `GET /api/tables/:id` are not scoped by restaurant: they answer from the id alone. Harmless while one restaurant exists, and multi-tenancy is a stated non-goal, but this is the concrete thing that has to be fixed before a second one. Pre-existing, untouched by M5.
+- A one-press sold-out control on the menu. The availability switch lives inside edit mode, so marking a dish sold out is Edit, toggle, Save — three steps for the thing an operator does mid-service. The placement is deliberate: an in-row control that wrote immediately would contradict the explicit-Save model the whole row is built on. A dedicated control is the thing to consider, not moving this one.
+
+**Storage and uploads**
+
+- An upload nobody confirms is an orphan, and there is no sweep. Three ways to make one: the browser completes its `PUT` and the tab closes before the confirmation; two photo changes race and the loser's object is superseded the moment it is confirmed; and a post-commit `remove` of the previous object fails, in which case that object is orphaned for ever. A lifecycle rule on the `menu/` prefix, or a sweep that lists it against `image_url`, closes all three. See [ADR 0012](adr/0012-object-storage-uploads.md).
+- Confirming a key that is already in use can delete the object it points at. A presigned `PUT` is reusable for its minute and signs no size, so re-confirming the current key runs `checkUpload` against a live object and deletes it if the second upload was too large.
+- `POST /api/menu/items/:id/photo-url` mints a write capability into the bucket with no rate limit of its own and no audit row, so nothing records that a URL was asked for.
+- The 503 for an unconfigured store carries the `INTERNAL` error code, because `ERROR_CODES` has no `SERVICE_UNAVAILABLE`. `requireStorage` also runs before the id is validated, so a malformed id on a store-less deployment answers 503 rather than 400.
+- `head()` reads a missing `ContentLength` as `0` — failing open on the very value the 5 MB ceiling depends on. `exists` calls `this.head`, so a destructured reference to it breaks.
+- `.env.example` says blanking the four storage variables disables photographs, which is true on a host but not under Compose, where the `api` service sets them itself. The MinIO images are unpinned (`minio/minio` and `minio/mc` with no tag), and the compose interpolation for `S3_PUBLIC_URL` nests a default inside a default.
+- Untested: the null-storage branch, both `isMissing` branches in the S3 adapter, and `isPhotoKeyFor` at the port level — it is exercised through the route rather than directly. Two identical `preprocess` helpers sit side by side in `apps/api/src/config.ts`.
+
+**Concurrency and the database**
+
+- The optimistic-concurrency guard compares `updatedAt`, which migration 0005 pinned to millisecond precision. Two writes to the same row inside one millisecond are indistinguishable, so a genuinely stale write can win instead of getting a 409 — and for `reissueQr` that means the version moves by one while two audit rows each claim to have moved it from 1 to 2. Inherent to a timestamp-based guard; a version counter or `xmin` closes it properly, and closes it everywhere at once. Found independently by three reviewers.
+- `orders` has no index on `restaurant_id` at all — only `table_id`, `status`, `number` and `paid_at`. Every restaurant-scoped query in the API is paying for that, and the dashboard is only its loudest caller.
+- Migration 0005 takes `ACCESS EXCLUSIVE` and rewrites `orders`, `order_items` and `payments` to change the timestamp precision. Harmless today, with no deployed environment; worth knowing before it ever meets a populated database.
+- The stale-write block — read `before`, guard the `UPDATE` on it, re-read to tell a 404 from a 409 — is written out twice in `tables-admin.ts` and three times in `menu-admin.ts`. One `staleWrite(db, restaurantId, id, noun)` helper would remove all five, the way `changedFields` was lifted into `lib/audit.ts`.
+- `rush.ts` still hardcodes `'USD'` in the payments row it inserts directly, and `loadMenu` keeps a `'USD'` fallback for a missing restaurant row. Both are the last remnants of the literal M5 removed everywhere else.
+
+**The printed code and the sheet**
+
+- The QR sheet prints in Helvetica. `@fontsource/ibm-plex-sans` ships woff and woff2 only, neither of which pdfkit can embed, and `resolveBrandFont()` is wired so that dropping a TTF into the package switches the face with no other edit. **It is not a no-op.** The instruction line clears Helvetica by roughly 6 pt at the width it is drawn in, so the wider IBM Plex Sans will wrap it and shift the foot of every card. Whoever adds the font has to re-measure that line: the card layout, not just the font path, is what changes.
+- `GET /api/tables/qr.pdf` has no rate limit and writes no audit row, though it hands out a live token for every active table. It also reads every table and filters `isActive` in JS rather than in the `WHERE`.
+- A guest holding a retired code is told less than the server said. The claim endpoint answers 401 `TOKEN_INVALID` with "This QR code is no longer valid. Ask staff for a new one.", but `apps/web/components/claim-table.tsx` maps by error code alone and shows its own "This QR code is not valid." — the same sentence a forged token gets, and no instruction to ask staff. Either give revocation its own error code or pass the server's message through. Noticed when the version claim was added and still open.
+- Reseeding recreates tables at `qr_version` 1, so a demo reset revalidates a code that was deliberately retired. Correct for a demo that returns to a known state; surprising if it is read as a bug.
+- No end-to-end test drives a versionless token — an M4-era code — through the claim; the default-to-1 rule is covered as a unit test only.
+
+**The admin surface**
+
+- The landing's Admin card does not reach the admin. It points at `/login?demo=admin` with no `next`, and `/login` defaults to `/kitchen`, so the card signs an admin in and drops them on the kitchen board — and its own copy still reads "Arrives later; today it opens the kitchen board as an admin." An `&next=/admin` and a rewritten sentence in `apps/web/components/landing/landing-content.tsx` is the whole fix. Until then the surface is reachable only by typing `/admin`.
+- Deleting takes one press with no confirmation, on both admin screens. A category with dishes, a dish on an order and a table with orders are all refused outright with 409 `IN_USE`, and Delete sits inside the expanded panel rather than beside Save, so the reachable damage is an empty category, an unordered dish or an unused table. It now spans two screens, which is why it is written down rather than left as a per-screen judgement.
+- Deleting a table that a guest has claimed but not ordered from ends that guest's session: `guest_sessions.table_id` cascades. Judged correct — the table is gone, so the session sitting at it should be too, and the cascade is scoped to that one table — and recorded here because it is a consequence nobody decided in writing. Orders still block the delete outright, so no history is reachable this way.
+- Three reads of `GET /api/menu` per dashboard view. The admin layout fetches it for the restaurant's name and the dashboard page fetches it again for the currency, on top of the dashboard's own query. A `GET /api/restaurant` route, or `restaurant` on `MeResponse`, retires all of them.
+- `GET /api/dashboard` has no caching, and `MenuCategoryDto` carries no `isActive`, so the admin UI can neither see nor reactivate a deactivated category.
+- WCAG 2.5.3 (Label in Name) is half satisfied on the availability switch: the visible word reads "Sold out" while the accessible name reads "Available", so a voice-control user saying the word they can see does not hit the control. Accepted deliberately — the brief mandates both visible words, and a switch's on/off text is conventionally a value rather than a label — but it belongs in the first real screen-reader and voice pass.
+- Smaller, on the menu screen: `aria-invalid` on the price field is `false` in exactly the case that triggers the invalid state, because `Number('')` is `0` and finite; a new dish takes `sortOrder = items.length` rather than `max + 1`, so it can land mid-category while `addCategory` gets this right; the layout's second fetch has no `catch`, so a 5xx on the name lookup takes the whole admin surface to the error boundary; `sameAllergens` is order-sensitive, so uncheck-then-recheck sends a spurious patch; the dish `onDeleted` omits the `setDraftId(null)` its category twin has; Save and Cancel can be scrolled out of view under 672 px; and `menu-table.tsx` is 459 lines holding four components.
+- Smaller, on the tables screen: `aria-invalid` on Number and Seats is `false` when the field is emptied, for the same `Number('')` reason, and the message never mentions seats though `seats < 1` raises it; the QR list item carries an `aria-label` while its visible content is entirely `aria-hidden`, with no `sr-only` fallback; `addTable`'s double-press guard has no test and reads `tables` from the render closure rather than through a functional updater, unlike its neighbour; the label suppression is an exact-string compare, so a label of "table 7" still reads the number twice; and the reissued sentence never clears for the rest of the session.
+
+**Tests and tooling**
+
+- A reissue leaves the landing's demo link dead for up to thirty seconds. `apps/web/lib/demo-links.ts` remembers a successful `GET /api/demo/links` for 30 s, so the landing keeps handing out the code that was just retired until that memory expires. In the demo that is a visitor scanning the landing's QR and being told it is not valid; in the e2e suite it is a cross-spec hazard, which `e2e/admin.spec.ts` handles by waiting for the landing to come good again before it finishes. A shorter memory, or dropping it when a table is reissued, fixes the product side.
+- The e2e suite spends five of the ten sign-ins a minute the API allows one address, so two full runs inside a minute trip the limit and a test reads "Too many attempts. Wait a minute and try again." Fine for CI and for one local run; worth knowing before a sixth sign-in is added.
+- `/admin` cannot be audited by Lighthouse. The `Cookie` header the audit injects does not survive the redirect onto `/admin/dashboard`, so asking for the door scores the sign-in page; the audit points at the dashboard instead. `/admin/menu` and `/admin/tables` are not audited at all, and neither is `/pay/<id>` (already on the M4 list) — the accessibility gate sees one of the three admin screens.
+- `e2e/admin.spec.ts` leaves the dish it adds on the menu; nothing cleans it up, so a stack that is never torn down grows one dish per run. Harmless — the name carries a timestamp and the hourly demo reset removes it — but it is state a test left behind.
+- No test asserts that a card's **text** appears on the QR sheet, only that the link annotations are there: deleting every `doc.text()` call in `drawCard` would pass all four PDF tests. A `compress: false` flag through `QrSheetInput` would put the strings literally in the stream and make the assertion possible. The PDF route tests also hard-code the seed counts (12 and 11), so they depend on every earlier test cleaning up after itself.
+- Dashboard edges: `revenueCents ::int` overflows above 21.47M cents of daily revenue and `averageReadyMs` above about 24.8 days — both raise a Postgres error rather than return a wrong number, so this is liveness rather than correctness; a malformed `timezone` column value surfaces as a 500 rather than a clean envelope; the route's 401/403 tests assert `statusCode` without checking the error envelope; two unreachable bare `Error` throws bypass the `AppError` envelope; `asNumberConflict` returns `unknown` on a path where it always throws; and no DST-transition case is actually executed.
+- The row-height test compares an `h-*` class against itself, both sides sourced from `ROW_LINE`, so it can only catch a deliberate override. Recorded as a decision rather than a defect: the brief mandated that exact form and jsdom does no layout, so the real assurance is the shared constant plus the 56 px line over the 44 px control.
+- `apps/web/components/admin/week-bars.test.tsx` asserts the bar height with `/min-h-\d+/`, which passes on `min-h-0` — the one value that would make the zero-day baseline invisible. A test that permits the bug it exists to prevent.
+- `packages/shared/src/api.test.ts` has a second import block from `./index` three hundred lines into the file. The lockfile now carries two majors each of `@noble/ciphers` and `@noble/hashes`, pulled in through `pdfkit`.
