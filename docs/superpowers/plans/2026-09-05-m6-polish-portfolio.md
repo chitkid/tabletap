@@ -563,7 +563,7 @@ API first, then web. Then the smoke checks by hand: `/health` on the API, the la
 
 - [ ] **Step 4: Record the outcome**
 
-Put the live URL, the four measurements and anything that surprised you into the ledger, and hand them to Task 11. If a measurement fails, that is a defect to fix before Task 10, not a number to soften.
+Put the live URL, the four measurements and anything that surprised you into the ledger, and hand them to Task 11. If a measurement fails, that is a defect to fix before Task 11, not a number to soften.
 
 ---
 
