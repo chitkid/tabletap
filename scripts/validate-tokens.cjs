@@ -42,6 +42,8 @@ Checks for:
   - Hardcoded pixel values anywhere on the line, including Tailwind arbitrary
     values such as w-[300px]. Only 0 (unitless) and 1px are allowed
   - Hardcoded rem values, including gap-[1.5rem]
+  - Hardcoded durations, including duration-[300ms] and a bare 0.3s
+  - Hardcoded cubic-bezier() easing curves
 
 Not scanned:
   - packages/ui/tokens.css and packages/ui/theme.css - the token definitions
@@ -89,6 +91,23 @@ const patterns = {
     regex: /(?<![\w.#-])\d*\.?\d+rem\b/g,
     message: 'Hardcoded rem value',
     suggestion: 'Use var(--space-*) or var(--font-size-*) token',
+  },
+  durationValue: {
+    // Same guard as pixelValue/remValue: a digit run directly preceded by a word char, dot, `#`
+    // or `-` is part of an identifier (or already inside a hex literal), not a bare duration. The
+    // trailing \b keeps this from matching "16sec" or similar - it must end right after ms/s.
+    regex: /(?<![\w.#-])\d*\.?\d+(?:ms|s)\b/g,
+    message: 'Hardcoded duration',
+    suggestion: 'Use var(--motion-fast), var(--motion-base) or var(--motion-stagger) token',
+    // 0.01ms is the standard "collapse to instant" sentinel inside the global
+    // prefers-reduced-motion override (apps/web/app/globals.css) - it isn't a choice about
+    // timing the way a real duration is, so it doesn't belong behind a --motion-* token.
+    allow: (match, ext) => STYLESHEET_EXTENSIONS.has(ext) && match === '0.01ms',
+  },
+  easingValue: {
+    regex: /\bcubic-bezier\s*\(/gi,
+    message: 'Hardcoded cubic-bezier() easing',
+    suggestion: 'Use var(--motion-ease) token',
   },
 };
 

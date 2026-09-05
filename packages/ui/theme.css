@@ -82,3 +82,13 @@ body {
   font-family: var(--font-text);
   font-variant-numeric: tabular-nums;
 }
+
+/* Motion tokens (packages/ui/src/components/motion.ts). The easing is asymmetric on purpose: it
+   leaves fast and settles slow, which is what makes an arrival read as arriving rather than
+   sliding. */
+:root {
+  --motion-fast: 180ms;
+  --motion-base: 280ms;
+  --motion-stagger: 60ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+}

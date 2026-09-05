@@ -10,3 +10,18 @@
 body:has([data-surface='kitchen']) {
   background: var(--primitive-color-night-bg);
 }
+
+/* One collapse for the whole product: every animation and transition folds to an instant
+   substitution when the user has asked the OS for reduced motion. This is why no component
+   under apps/web/components/ writes its own prefers-reduced-motion branch — it would either be
+   redundant with this rule or, worse, drift from it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
