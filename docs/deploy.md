@@ -758,6 +758,16 @@ can pick their own bucket.
 If the loop took close to or over sixty seconds, the window rolled and the run says nothing. Script
 it rather than pasting lines by hand, and repeat.
 
+### Changing an environment variable needs a redeploy, not a restart
+
+Render's **Restart service** does not pick up an edited environment variable. This was measured on
+this deployment: `WEB_ORIGIN` was corrected and saved, the service was restarted, the event
+"Service restarted by you" was recorded, and the API went on serving the old value. **Manual Deploy
+-> Deploy latest commit** applied it.
+
+That matters because "Save only" followed by a restart is the fast path a reader will reach for, and
+it fails silently - the service comes back healthy, serving the value you thought you had replaced.
+
 ## 10. What is expected, and is not a fault
 
 **The first request after the API has slept takes about a minute.** That is Render's own figure for spinning a free instance back up, and Neon's compute wakes on top of it. Render's free web service stops
@@ -765,7 +775,8 @@ after a period without traffic and starts again on the next request; Neon's free
 and wakes the same way. That is the price of a demo nobody pays to keep warm, it was chosen
 deliberately, and the landing page and the README both say so in a line — an unexplained
 thirty-second wait reads as a broken project, an explained one reads as a trade-off. The web does
-not sleep, so the wait falls on the first _interaction_ and never on the first _impression_.
+not sleep — but the landing is `force-dynamic` and renders `GET /api/demo/links` from the server,
+so a cold API delays the first page too. Measured on this deployment: **34 s cold, 0.6 s warm.**
 
 **The demo data comes back reset.** The API reseeds on boot and on an interval
 (`DEMO_RESET_INTERVAL_MINUTES=60`), so a menu item you renamed or a table you deactivated will be

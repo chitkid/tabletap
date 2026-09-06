@@ -27,7 +27,7 @@ Out of scope, with the reason each stays out:
 | Question | Decision |
 |---|---|
 | Deploy at all? | Yes, live (owner, 2026-09-05). A portfolio project's whole argument is a link someone can open. |
-| Where | **Vercel for the web, Render for the API, Neon for Postgres — all free tiers, no payment method** (owner, 2026-09-05, replacing an earlier Fly.io decision). Render runs `Dockerfile.api` unchanged and keeps a process alive, which Socket.io and the hourly reset both need; Vercel does not sleep, so the landing is instant; Neon's free database does not expire, where Render's own historically has. No object storage at all: uploads are off, the seed sets no image, and every `S3_*` variable is optional. Rejected: Fly.io (not free); one platform for everything (the web would sleep too, so a visitor waits half a minute for the first page and concludes the project is broken). |
+| Where | **Vercel for the web, Render for the API, Neon for Postgres — all free tiers, no payment method** (owner, 2026-09-05, replacing an earlier Fly.io decision). Render runs `Dockerfile.api` unchanged and keeps a process alive, which Socket.io and the hourly reset both need; Vercel does not sleep, so the site is always served (though the landing's content still waits on a cold API — measured at 34 s, §4.2); Neon's free database does not expire, where Render's own historically has. No object storage at all: uploads are off, the seed sets no image, and every `S3_*` variable is optional. Rejected: Fly.io (not free); one platform for everything (the web would sleep too — this turned out to be a weaker distinction than it read, since the landing waits on the API regardless, but a sleeping web adds its own cold start on top and takes the styling and the shell down with it). |
 | What a visitor may do | **Everything except uploading a file.** Menu, tables, QR reissue, dashboard and the printable sheet all work and the hourly reset undoes them. Upload is the one action whose consequences a database reset does not undo, on storage the owner pays for and is answerable for. The control stays visible and says why it is off. |
 | The free tier's cold start | **Say so, in one line on the landing and in the README** (owner, 2026-09-05). Rejected: a scheduled keep-alive ping (it games the tier it depends on, and it would stop the reset-on-boot from ever running); saying nothing (a thirty-second wait with no explanation reads as a broken project). |
 | The mark | **An open ring with an ember dot** — a tabletop seen from above, and the tap. Chosen over a wordmark alone (no face for the product) and over a QR finder pattern (legible, but a borrowed form every QR product wears). The circle is already this product's language: every dish plate is drawn as one. |
@@ -52,7 +52,7 @@ Three services, all on free tiers, and the owner adds no payment method:
 
 | Piece | Where | Why |
 |---|---|---|
-| Web | **Vercel**, Hobby | Next.js's own platform. It does not sleep, so the landing — the first thing a stranger opens — is instant. |
+| Web | **Vercel**, Hobby | Next.js's own platform, and it does not sleep. That makes the site itself always warm; the landing's *content* still waits on the API, because it is rendered per request from `/api/demo/links` (§4.2). |
 | API | **Render**, free web service, built from `Dockerfile.api` | Runs the image this repository already builds, so no code moves to suit a host. It keeps a process alive, which Socket.io and the hourly reset both need and no serverless runtime offers. |
 | Postgres | **Neon**, free | Render's own free Postgres has historically expired after a fixed period, which would kill the demo silently months later. Neon's free database does not. |
 
@@ -66,7 +66,11 @@ A free Render service stops after a period without traffic and takes tens of sec
 
 Two things follow. The reset-on-boot behaviour is what keeps a woken demo coherent rather than showing whatever the last visitor left. And the delay is **stated on the landing page and in the README** in one plain line, because an unexplained thirty-second wait reads as a broken project, while an explained one reads as a considered trade-off.
 
-The web does not sleep, so the wait falls on the first *interaction*, never on the first *impression*.
+The web does not sleep, but that does not spare the first impression, and measurement on the real
+deployment settled it: **34 seconds cold, 0.6 warm, for the landing itself.** `apps/web/app/page.tsx`
+is `force-dynamic` and awaits `loadDemoLinks()`, which calls `GET /api/demo/links` from the server on
+every render - the file's own comment says so. A sleeping API therefore blocks the first page, not
+the first press. The notice has to say so plainly, and it is written for the page a stranger opens.
 
 ### 4.3 Two origins, and why cookies still work
 
