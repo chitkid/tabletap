@@ -49,6 +49,12 @@ describe('middleware', () => {
 
   beforeEach(() => {
     vi.unstubAllEnvs();
+    // `unstubAllEnvs` undoes `vi.stubEnv` calls; it does not clear a variable the runner's own
+    // shell really exports. Without this, a developer with FORWARD_SECRET set sees the no-secret
+    // tests below fail as if the product were broken. Blank is proven equivalent to unset by
+    // 'treats an empty secret as no secret' below, so stubbing it to '' here is sound rather than
+    // a papering-over.
+    vi.stubEnv('FORWARD_SECRET', '');
   });
 
   it('passes the visitor address on to the rewrite', async () => {
