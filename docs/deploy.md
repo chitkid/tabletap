@@ -154,9 +154,12 @@ assuming it from the name. **`<web>` from here on is that host name without a sc
 like `tabletap-web.vercel.app` — so every URL below reads `https://<web>/…`.
 
 Two notes on what `vercel link` just did locally. It wrote `.vercel/project.json`, which holds the
-organisation and project ids step 7 needs. And `.vercel/` is in this repository's `.gitignore` on
-purpose: `vercel pull` writes the project's environment — secrets included — into
-`.vercel/.env.production.local`, and that file must never be committed.
+organisation and project ids step 7 needs. And it appended two lines to `.gitignore`: `.vercel`,
+which this repository wants — `vercel pull` writes the project's environment, secrets included,
+into `.vercel/.env.production.local`, and that file must never be committed — and a blanket
+`.env*`, which it does not. That pattern lands after the env block near the top of the file, and a
+later pattern beats an earlier negation, so it puts the tracked `.env.example` back in the
+ignore set. **Keep the first line, drop the second**; the version committed here already has.
 
 `apps/web/next.config.ts` sets `output: 'standalone'`, which exists for the Docker image the local
 Compose stack builds. Vercel's own Next.js builder handles that setting; no change is needed for

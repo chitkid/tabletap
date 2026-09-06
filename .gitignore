@@ -37,3 +37,10 @@ assets/design-tokens.css
 
 # Lighthouse output; CI uploads it as an artifact.
 docs/lighthouse-results.json
+
+# Written by `vercel link`. `.vercel/project.json` holds the org and project ids, and
+# `vercel pull` writes the project's environment - secrets included - into
+# `.vercel/.env.production.local`. The CLI also appends a blanket `.env*`; that is dropped on
+# purpose, because a later pattern beats the `!.env.example` negation above and would start
+# ignoring a file this repository tracks.
+.vercel/
