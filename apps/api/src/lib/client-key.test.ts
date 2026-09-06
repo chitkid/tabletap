@@ -259,7 +259,10 @@ describe('clientKey with no forwarding secret configured', () => {
 describe('the header names', () => {
   it('are the two the web writes', () => {
     // `apps/web/lib/forward-signature.ts` exports the same two literals and its own test pins
-    // them. No module is shared between the two apps, so this pair of tests is the joint.
+    // them. The two apps do share `@tabletap/shared`, but its entry point pulls in `zod`, and
+    // `apps/web/middleware.ts` runs in the edge runtime - so these two literals are duplicated
+    // on purpose to keep `zod` out of that bundle, and this pair of tests is the joint holding
+    // the duplicates in sync.
     expect(VISITOR_HEADER).toBe('x-tt-visitor');
     expect(VISITOR_SIG_HEADER).toBe('x-tt-visitor-signature');
   });
