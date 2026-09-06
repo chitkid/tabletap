@@ -40,7 +40,9 @@ docs/lighthouse-results.json
 
 # Written by `vercel link`. `.vercel/project.json` holds the org and project ids, and
 # `vercel pull` writes the project's environment - secrets included - into
-# `.vercel/.env.production.local`. The CLI also appends a blanket `.env*`; that is dropped on
-# purpose, because a later pattern beats the `!.env.example` negation above and would start
-# ignoring a file this repository tracks.
+# `.vercel/.env.production.local`. The CLI also appends a blanket `.env*` every time it
+# writes one of those files - `vercel link`, `vercel env pull` - and that line is removed
+# each time on purpose: it lands after the env block near the top, a later pattern beats
+# the earlier `!.env.example` negation, and a file this repository tracks would quietly
+# join the ignore set.
 .vercel/
