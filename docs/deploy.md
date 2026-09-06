@@ -721,42 +721,52 @@ again. If the loop itself took near or over sixty seconds, it says nothing eithe
 
 ### 6. A forged visitor header sent straight at the API is ignored
 
-**Wait at least sixty seconds after 5b before starting this**, if you are running it from the same
-machine. A correct deployment keys this check on the laptop's own address — the very thing it is
-about to prove — which is the same bucket 5b just filled. Starting early means a refusal that has
-nothing to do with what is being tested.
+**Read this first, because the obvious version of this check reports a correct deployment as
+broken.** Render fronts services with Cloudflare. Measured on this deployment, the API sees direct
+callers from `141.101.76.191`, `172.70.242.93`, `162.158.87.241` and others - Cloudflare edge
+addresses, a different one from request to request. They are public, so `TRUST_PROXY`
+(`loopback,uniquelocal`) does not trust them, `proxy-addr` discards the forwarded chain, and
+`request.ip` is whichever edge node served that request. So the fallback key **drifts**, and a loop
+of unsigned requests spreads across several buckets and may never be refused. Under the earlier
+wording - "no refusal at all means the API is believing a header anyone can write" - that reads as
+the defect, on a deployment where nothing is wrong.
 
-Twenty-one requests straight at the public API — not through the rewrite — each claiming a
-_different_ visitor address with a signature that cannot verify:
+The fix is to stop testing the fallback and test the property directly, which the drift makes easy
+rather than hard: **a signed address is stable and a fallback address is not.** Run both halves back
+to back, from one machine, inside a minute. `/api/demo/rush` allows two a minute, so three requests
+settle it.
 
 ```sh
-# A signature of the right shape - 64 hex characters, the length of a hex SHA-256 - so that
-# `signedVisitor` in apps/api/src/lib/client-key.ts does not short-circuit on the length guard and
-# the check exercises the comparison it is actually about.
-sig=$(printf '0%.0s' $(seq 64))
+# Half A: three requests, one address, correctly signed.
+addr=198.51.100.55
+sig=$(printf %s "$addr" | openssl dgst -sha256 -hmac "$FORWARD_SECRET" -r | cut -d' ' -f1)
+for i in 1 2 3; do
+  curl -s -o /dev/null -w "A$i %{http_code}
+" -X POST https://<api>/api/demo/rush     -H "x-tt-visitor: $addr" -H "x-tt-visitor-signature: $sig"
+done
 
-time (for i in $(seq 1 21); do
-  curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<api>/api/guest/claim \
-    -H 'content-type: application/json' \
-    -H "x-tt-visitor: 203.0.113.$i" \
-    -H "x-tt-visitor-signature: $sig" \
-    -d '{"token":"not-a-real-token"}'
-done)
+# Half B: the same three, same address, with no signature at all.
+for i in 1 2 3; do
+  curl -s -o /dev/null -w "B$i %{http_code}
+" -X POST https://<api>/api/demo/rush     -H "x-tt-visitor: $addr"
+done
 ```
 
-**Correct:** `401` repeatedly and then a `429`, with `time` reporting well under a minute. Twenty-one
-different claimed addresses bought one bucket, not twenty-one: the API ignored every unverifiable
-header and keyed on the address of the connection it actually received. The `401`s are the fake
-token being rejected, which is fine — this check is about counting, not about claiming a table.
+**Correct:** half A ends in a `429` and half B does not. Measured on this deployment: A returned
+`200, 409, 429` and B returned `409, 409, 409`. A's counter falls because the signature verifies and
+the signed address is one stable key; B's does not because the bare header is ignored and each
+request falls back to a different Cloudflare edge address. The `409`s are "a rush is already
+running", which is not what this check is about - only the `429`, and where it does and does not
+appear, carries the finding.
 
-The refusal may arrive **before** the twenty-first request if your address already spent some of its
-twenty in checks 3, 5 or 5b. That is still correct, and it is still the same finding: they shared a
-bucket. What would be wrong is **no refusal at all** across all twenty-one, on a loop that finished
-inside the minute — that would mean the API is believing a header anyone can write, and every caller
-can pick their own bucket.
+**The defect:** half B also reaching `429`, which would mean the bare header keys the same bucket as
+a signed one, so anyone can pick a bucket. **Also a defect, in the other direction:** half A never
+reaching `429`, which would mean the signature never verifies and every visitor shares one bucket -
+check that `FORWARD_SECRET` is identical on both platforms.
 
-If the loop took close to or over sixty seconds, the window rolled and the run says nothing. Script
-it rather than pasting lines by hand, and repeat.
+Add `-w '%{http_code}'` output of `x-ratelimit-remaining` if you want to watch it directly; reading
+the counter beats inferring it from status codes, which is how four earlier attempts at this check
+each produced an answer that did not survive its own control.
 
 ### Changing an environment variable needs a redeploy, not a restart
 

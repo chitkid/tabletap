@@ -306,3 +306,17 @@ One pass over the whole branch before merge, from two reviews that found nothing
 - The Lighthouse gate audits `/admin/menu` and `/admin/tables` as well as the dashboard — six pages, still gated at 95 for accessibility.
 - The MinIO images are pinned (`minio/minio:RELEASE.2025-09-07T16-13-09Z`, `minio/mc:RELEASE.2025-08-13T08-35-41Z`).
 - Documents: `design-system/tabletap/MASTER.md` no longer describes the `--spacing` override Task 1 deleted; ADR 0012 no longer claims the application keeps objects and rows in step, and names the scheduled reset; the README states what CI has actually run, describes `GET /api/tables`'s real guard, and leads with the redirect guard rather than an unverified claim about cookies.
+
+## Found on the live deployment, 2026-09-06
+
+- **`TRUST_PROXY` does not cover Render's front, so the fallback rate-limit key drifts.** Render
+  serves through Cloudflare, whose edge addresses are public and therefore outside
+  `loopback,uniquelocal`; `proxy-addr` discards the forwarded chain and keys on the edge node, which
+  differs from request to request. Signed traffic through the web's rewrite is unaffected - the
+  signature decides the key and no proxy is trusted for it (verified live: a signed address is
+  refused on the third request, an unsigned one is not). What degrades is the fallback, which is
+  what a caller hitting the public API directly gets: instead of one bucket per caller it is one
+  bucket per Cloudflare edge node, shared by strangers and re-rollable by retrying. The fix is not
+  to trust Cloudflare's ranges by hand - they change - but to key the fallback on a header Render
+  documents as trustworthy, or to accept the weaker fallback and say so. Trigger: any abuse of the
+  public API that does not come through the rewrite.
