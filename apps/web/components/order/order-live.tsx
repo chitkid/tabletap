@@ -47,7 +47,7 @@ function OrderProgress({ status }: { status: OrderStatus }) {
   if (status === 'cancelled') return null;
   const reached = REACHED[status];
   return (
-    <ol aria-label="Order progress" className="mx-auto grid w-full max-w-2xl grid-cols-5 px-4 pt-6">
+    <ol aria-label="Order progress" className="grid w-full grid-cols-5">
       {STAGES.map((stage, index) => {
         const done = index <= reached;
         return (
@@ -155,34 +155,38 @@ export function OrderLive({
       {cleared ? (
         // `OrderScreen` renders its own live region (the elapsed-time clock); once the order is
         // gone that clock is no longer telling the truth, so the cleared notice replaces the
-        // whole receipt rather than sitting on top of it.
-        <p
-          role="status"
-          aria-live="polite"
-          className="mx-auto w-full max-w-2xl px-4 pt-6 text-muted-foreground"
-        >
-          This order was cleared by the hourly demo reset.
-        </p>
+        // whole receipt — landmark included — rather than sitting on top of it.
+        <main className="mx-auto w-full max-w-2xl px-4 py-6">
+          <p role="status" aria-live="polite" className="text-muted-foreground">
+            This order was cleared by the hourly demo reset.
+          </p>
+        </main>
       ) : (
-        <>
-          {/* The redirect back from a payment page is a claim, not a receipt: only the socket
-              delivering a paid order settles it, and the moment it does this notice has nothing
-              left to say and goes. A decline needs no such waiting — nothing is in flight — so
-              it is a plain line that stays put above the Pay button offering another attempt. */}
-          {notice !== null ? (
-            <p
-              role="status"
-              aria-live="polite"
-              className={`mx-auto w-full max-w-2xl px-4 pt-6 ${
-                paidStatus === 'declined' ? 'text-destructive' : 'text-muted-foreground'
-              }`}
-            >
-              {notice}
-            </p>
-          ) : null}
-          <OrderProgress status={order.status} />
-          <OrderScreen order={order} currency={currency} />
-        </>
+        <OrderScreen
+          order={order}
+          currency={currency}
+          rail={
+            <>
+              {/* The redirect back from a payment page is a claim, not a receipt: only the
+                  socket delivering a paid order settles it, and the moment it does this notice
+                  has nothing left to say and goes. A decline needs no such waiting — nothing is
+                  in flight — so it is a plain line that stays put above the Pay button offering
+                  another attempt. */}
+              {notice !== null ? (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className={
+                    paidStatus === 'declined' ? 'text-destructive' : 'text-muted-foreground'
+                  }
+                >
+                  {notice}
+                </p>
+              ) : null}
+              <OrderProgress status={order.status} />
+            </>
+          }
+        />
       )}
     </>
   );

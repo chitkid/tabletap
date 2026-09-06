@@ -142,6 +142,37 @@ describe('OrderLive', () => {
       'This order was cleared by the hourly demo reset.',
     );
   });
+  it('keeps the payment notice and the progress rail inside the page’s one main landmark', () => {
+    const socket = fakeSocket();
+    render(
+      <OrderLive
+        initial={order}
+        currency="USD"
+        paidStatus="received"
+        socketFactory={() => socket as unknown as AppSocket}
+      />,
+    );
+    // A landmark-only reader jumps straight to `main`; anything meaningful outside it is
+    // unreachable that way. Asserted through the landmark, not a class name.
+    const main = screen.getByRole('main');
+    expect(within(main).getByText('Payment received. Confirming…')).toBeInTheDocument();
+    expect(within(main).getByRole('list', { name: 'Order progress' })).toBeInTheDocument();
+  });
+  it('keeps the cleared notice inside a main landmark, since the whole receipt is gone', () => {
+    const socket = fakeSocket();
+    render(
+      <OrderLive
+        initial={order}
+        currency="USD"
+        socketFactory={() => socket as unknown as AppSocket}
+      />,
+    );
+    act(() => socket.fire('connect'));
+    act(() => socket.lastAck?.({ orders: [], serverTime: '2026-09-03T11:00:00Z' }));
+    expect(screen.getByRole('main')).toHaveTextContent(
+      'This order was cleared by the hourly demo reset.',
+    );
+  });
 });
 
 /** The five stages, as a list a screen reader can read and a rail a glance can read. */

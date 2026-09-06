@@ -37,6 +37,7 @@ export function OrderScreen({
   order,
   currency,
   onPay,
+  rail,
 }: {
   order: OrderDto;
   currency: string;
@@ -46,6 +47,13 @@ export function OrderScreen({
    * uses to drive Pay without a network, and passing `null` renders no control at all.
    */
   onPay?: ReactNode;
+  /**
+   * Whatever sits above the headline — the live progress rail and the payment notice, for
+   * `OrderLive`. Rendered first inside `main`, so it shares the one landmark on the page rather
+   * than sitting outside it. Left off entirely, `OrderScreen` renders nothing extra here — the
+   * standalone case this component's own test exercises.
+   */
+  rail?: ReactNode;
 }) {
   // `undefined` rather than a nullish check, so a caller can pass `null` to mean "no control"
   // and still get the default by leaving the prop off.
@@ -57,6 +65,7 @@ export function OrderScreen({
     );
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6">
+      {rail}
       <header className="flex flex-col gap-3">
         <h1 className="font-display text-3xl font-semibold">{headlineFor(order)}</h1>
         <div className="flex flex-wrap items-center gap-3">
