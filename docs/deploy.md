@@ -53,7 +53,8 @@ distinguish from a real fault is worse than no check at all.
 
 ## 0. Confirm the three free tiers before relying on them
 
-**(owner)** Five minutes of reading now, against the providers' own current pages:
+**Checked on 2026-09-06 against the providers' own pages, and the results are recorded below.** Re-check anything
+that looks different on screen — these terms move, and a date is the only honest warranty a runbook can give.
 
 | Confirm                 | Where                                            | What this deployment assumes                                                                                                                                                                                                       |
 | ----------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -61,10 +62,32 @@ distinguish from a real fault is worse than no check at all.
 | Render free web service | render.com/pricing and the Docker/free-plan docs | A free web service that builds a Dockerfile, in the region `render.yaml` names (`frankfurt` — step 3 is where you change it), that sleeps after a period of inactivity and wakes on the next request. WebSockets on the free plan. |
 | Neon free project       | neon.com/pricing                                 | A free Postgres project that does not expire, with a connection string you can copy.                                                                                                                                               |
 
-Two of those assumptions carry real weight. If **Render's free plan no longer builds Dockerfiles**,
-this deployment has no host — the whole point of Render here is that it runs `Dockerfile.api`
-unchanged. If **Neon's free project now expires**, the demo dies silently months from now, which is
-the exact failure Render's own free database was rejected for.
+### What the check found, 2026-09-06
+
+All three hold. The two load-bearing ones first:
+
+- **Render's free plan does build Dockerfiles.** Docker is a _runtime_, not a service type, and the
+  free-instance page restricts service types (web service, static site, Postgres, key value) rather
+  than runtimes. `Dockerfile.api` runs unchanged, which is the whole reason the API is here.
+- **Neon's free plan is permanent and needs no card.** Its pricing page says so in as many words:
+  "The Free plan is permanent (not a trial); no credit card required."
+
+And the rest, with three facts worth having that this document did not previously carry:
+
+- **Render spins a free web service down after 15 minutes without traffic, and spinning back up
+  takes about a minute** — Render's own figure. WebSockets count as traffic, and a new WebSocket
+  connection wakes it. Section 10 quotes that minute rather than "tens of seconds".
+- **750 free instance hours per workspace per month.** A service that never sleeps would burn
+  roughly 730 of them, so this only works because ours sleeps; a spun-down service consumes none.
+  Exhaust them and Render suspends every free service until the month turns over.
+- **Free Render Postgres expires 30 days after creation** — not months, thirty days. That is the
+  failure Neon was chosen to avoid, and it is nearer than this document assumed.
+- **Vercel Hobby is free, does not sleep, and is restricted to non-commercial personal use.** A
+  portfolio demo is exactly that; a paying customer on it would not be.
+
+One consequence for later: with no payment method on Render, running out of bandwidth or build
+minutes suspends free services rather than billing you. That is the safe direction, and it is worth
+knowing before a demo goes quiet for no visible reason.
 
 If a tier has changed in a way this document does not cover, stop and re-decide the topology rather
 than improvising around it. Nothing further down is worth doing on a tier that will not hold.
@@ -723,7 +746,7 @@ it rather than pasting lines by hand, and repeat.
 
 ## 10. What is expected, and is not a fault
 
-**The first request after the API has slept takes tens of seconds.** Render's free web service stops
+**The first request after the API has slept takes about a minute.** That is Render's own figure for spinning a free instance back up, and Neon's compute wakes on top of it. Render's free web service stops
 after a period without traffic and starts again on the next request; Neon's free compute suspends
 and wakes the same way. That is the price of a demo nobody pays to keep warm, it was chosen
 deliberately, and the landing page and the README both say so in a line — an unexplained
