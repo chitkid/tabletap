@@ -161,10 +161,21 @@ into `.vercel/.env.production.local`, and that file must never be committed — 
 later pattern beats an earlier negation, so it puts the tracked `.env.example` back in the
 ignore set. **Keep the first line, drop the second**; the version committed here already has.
 
-`apps/web/next.config.ts` sets `output: 'standalone'`, which exists for the Docker image the local
-Compose stack builds. Vercel's own Next.js builder handles that setting; no change is needed for
-it. It is mentioned here only so that a build failure naming it is recognisable rather than
-mysterious.
+`apps/web/next.config.ts` sets `output: 'standalone'` together with an `outputFileTracingRoot`
+above `apps/web`, both for the Docker image the local Compose stack builds. **Vercel must build
+without either**, and the config now switches on `VERCEL` to make sure it does. This is written
+from a failure, not from caution: the first deploy of this project died on
+`ENOENT: apps/web/.next/next-server.js.nft.json`, because a tracing root outside the app makes Next
+write its trace manifests relative to that root while Vercel's `onBuildComplete` looks for them
+under the app. Vercel traces a monorepo itself, from the root directory plus the include-files
+setting above, so it needs neither.
+
+`turbo.json` declares `API_URL`, `FORWARD_SECRET` and `VERCEL` on the `build` task. Turbo 2 is
+strict about environment variables and passes through only what is declared; it infers
+`NEXT_PUBLIC_*` for a Next.js package, which is why those three are the ones that have to be said
+out loud. If you add a build-time variable that is not `NEXT_PUBLIC_*`, add it there too - Vercel
+prints a warning naming it, and the build otherwise carries on with the code's fallback, which for
+`API_URL` is `http://localhost:4000`.
 
 ## 3. The API on Render, from `render.yaml`
 
