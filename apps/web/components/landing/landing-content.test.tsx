@@ -79,6 +79,16 @@ describe('LandingContent', () => {
     render(<LandingContent links={links} qrSvg="<svg />" />);
     expect(screen.getByText('Payments run in demo mode: no card, no money.')).toBeInTheDocument();
   });
+  it('says the first page can be slow, beside the other two notices', () => {
+    // The wait falls on the first page rather than the first press: the landing is force-dynamic
+    // and awaits the API before it renders at all. An unexplained wait reads as a broken project.
+    render(<LandingContent links={links} qrSvg="<svg />" />);
+    expect(
+      screen.getByText(
+        'On the free tier the API sleeps when nobody is here, so the first page after a quiet spell can take about a minute.',
+      ),
+    ).toBeInTheDocument();
+  });
   it('hands over the test card when Stripe is configured', () => {
     render(
       <LandingContent

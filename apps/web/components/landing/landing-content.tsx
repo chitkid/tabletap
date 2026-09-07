@@ -66,6 +66,15 @@ function paymentNotice(links: DemoLinksResponse): string {
   return `Payments run in Stripe test mode. Card ${testCard ?? '4242 4242 4242 4242'}, any future date, any CVC.`;
 }
 
+/**
+ * The free tier's cold start, said before anyone waits through it. The wait falls on the first
+ * *page* rather than the first press: this route is `force-dynamic` and awaits `/api/demo/links`
+ * from the server, so a sleeping API blocks the render. Measured on the deployment: 34 s cold,
+ * 0.6 s warm. The condition is stated because the local stack does not sleep.
+ */
+const COLD_START_NOTICE =
+  'On the free tier the API sleeps when nobody is here, so the first page after a quiet spell can take about a minute.';
+
 function resetNotice(links: DemoLinksResponse): string {
   return links.resetsEveryMinutes === null
     ? 'Demo data is not reset automatically.'
@@ -180,6 +189,7 @@ export function LandingContent({
           </Entrance>
           {links ? <p className="text-sm text-muted-foreground">{paymentNotice(links)}</p> : null}
           {links ? <p className="text-sm text-muted-foreground">{resetNotice(links)}</p> : null}
+          {links ? <p className="text-sm text-muted-foreground">{COLD_START_NOTICE}</p> : null}
           {links ? (
             <div className="flex flex-wrap items-center gap-3">
               <RushButton />
