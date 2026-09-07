@@ -49,6 +49,17 @@ connection it actually received (M6 spec §4.4). Unset means verify nothing, nev
 key is normalised through the rate-limit plugin's own `normalizeIP`, so two addresses in one IPv6 /64
 are one visitor, as they are for every route that kept the default generator.
 
+**Four routes take that key, and the sign-in route is not one of them.** `clientKey` is passed as
+`keyGenerator` on `POST /api/guest/claim`, `GET /api/demo/links`, `POST /api/demo/rush` and
+`POST /api/socket-token` — the routes no session reaches. Everything else that is limited keys on
+`guestKey` or `staffKey`, both of which fall back to a bare `ip:${request.ip}` when there is no
+cookie yet. `POST /api/auth/sign-in/email` (`apps/api/src/plugins/auth.ts`) is the one the Context
+names by its symptom, and it was left alone: it declares ten a minute with no `keyGenerator` at all,
+so it still keys on the plugin default. After the move that is not even per deployment — it is one
+bucket per Cloudflare edge node, shared between strangers and re-rollable by retrying, which is the
+consequence below read onto the route where it matters most. `clientKey` plus a test is the fix, and
+it is on [the backlog](../backlog.md) rather than landed at a milestone's last gate.
+
 **Photo upload is off in the deployed demo.** `DEMO_UPLOADS_ENABLED=false`, and the API enforces it:
 both photo routes refuse with 403 before any storage call, proven with a storage fake whose every
 method throws. The web only explains — the control stays visible and says why it is off, because a
@@ -84,14 +95,17 @@ had been paying for.
   photo control is visible and disabled with its reason beside it. A visitor is not left guessing
   whether the feature is broken or absent, and a reader of this repository can see that the local
   stack has the whole thing.
-- **The fallback rate-limit key is weaker than the signed one, and only on the public API.** Render
-  fronts services with Cloudflare, whose edge addresses are public and therefore outside
+- **The fallback rate-limit key is weaker than the signed one, wherever the fallback is reached.**
+  Render fronts services with Cloudflare, whose edge addresses are public and therefore outside
   `TRUST_PROXY`, so `proxy-addr` discards the forwarded chain and keys on the edge node — which
-  differs from request to request. Traffic through the web's rewrite is unaffected, because the
-  signature decides the key and no proxy is trusted for it. What degrades is what a caller hitting
-  the public API directly gets: one bucket per edge node rather than one per caller. It is on the
-  backlog with its trigger, and the fix is a header the platform documents as trustworthy rather than
-  a hand-maintained list of Cloudflare ranges.
+  differs from request to request. **Signed** traffic through the web's rewrite is unaffected,
+  because the signature decides the key and no proxy is trusted for it — and signed means the four
+  `clientKey` routes named above. Everywhere else the no-cookie fallback is a bare
+  `ip:${request.ip}`, which is neither the signed address nor `normalizeIP`, so a first-time
+  visitor's request through the rewrite lands on the drifting edge key exactly as a direct caller's
+  does. What degrades is one bucket per edge node rather than one per caller. It is on the backlog
+  with its trigger, and the fix is a header the platform documents as trustworthy rather than a
+  hand-maintained list of Cloudflare ranges.
 - **One leg is not covered by the signature.** The middleware signs whatever inbound
   `x-forwarded-for` it reads, so the visitor-to-web hop still rests on the web's platform overwriting
   or appending that header rather than relaying a value a client supplied. That assumption is

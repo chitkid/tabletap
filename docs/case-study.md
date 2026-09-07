@@ -195,8 +195,11 @@ same way. The microsecond digits that break the comparison were always zero, so 
 matched.
 
 **The fix was the column, not the call sites.** Migration `0005_timestamp-precision.sql` pins every
-`created_at` and `updated_at` to `timestamp (3)`, and the `timestamps` helper in
-`packages/db/src/schema/helpers.ts` carries the reason where a schema author will read it. Rounding
+`created_at` and `updated_at` that goes through the shared `timestamps` helper to `timestamp (3)` —
+eight tables — and that helper, in `packages/db/src/schema/helpers.ts`, carries the reason where a
+schema author will read it. Going through the helper is what makes it every column that matters:
+`audit_log` and the four better-auth tables declare their own timestamps and keep Postgres's
+microsecond default, and nothing guards on those. Rounding
 the `Date` at each call site, or writing `date_trunc` into each guard, would have worked once and
 required every future writer to know. Making the column round-trip exactly what a JS `Date` can hold
 means no call site needs to know anything.
@@ -209,8 +212,10 @@ what makes the test independent of the clock that hid the bug in the first place
 millisecond are genuinely indistinguishable and a stale write can win. That is inherent to a
 timestamp-based guard rather than to this fix; a version counter or `xmin` closes it everywhere at
 once, and it is on the backlog, found independently by three reviewers. The migration also takes
-`ACCESS EXCLUSIVE` and rewrites three tables — harmless against a database with no rows in it, worth
-knowing before it ever meets one that has.
+`ACCESS EXCLUSIVE` and rewrites eight tables — `restaurants`, `tables`, `menu_categories`,
+`menu_items`, `guest_sessions`, `order_items`, `orders` and `payments`, each with a
+precision-narrowing `SET DATA TYPE`. Harmless against a database with no rows in it, worth knowing
+before it ever meets one that has.
 
 ## Measuring a property on a system you do not control
 
@@ -279,7 +284,8 @@ could not, because the tests were part of what needed reviewing.
 Two things are worth saying about the tests themselves. The API and database suites run on PGlite, so
 nothing needs a container and the suite is fast — and problem 4 above is the price of that: an
 embedded engine is not the engine production runs. Compose plus Playwright plus a Lighthouse audit is
-what closes that gap, and it is run by hand against a stack built from scratch before every merge.
+what closes that gap, and CI builds that stack from scratch and runs all three on every pull request
+(`compose-e2e` in `.github/workflows/ci.yml`).
 The other is a known limit rather than a boast: `e2e` and the Lighthouse audit are not in a task's own
 gate, which is how a UI change once broke two end-to-end specs and was found by an unrelated task
 three tasks later.

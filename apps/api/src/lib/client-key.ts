@@ -17,7 +17,10 @@ const SIGNATURE_LENGTH = 64;
  * Two guards stand in front of `timingSafeEqual`, and both are load-bearing: it throws outright on
  * a length mismatch, and `Buffer.from(_, 'hex')` silently drops anything that is not a hex pair
  * rather than rejecting it, so an unchecked garbage header would become a 500 rather than a
- * fallback. A duplicated header arrives as an array and is refused by the same `typeof` check.
+ * fallback. A duplicated header is refused too, but by the HMAC rather than by the `typeof` check:
+ * Node's parser comma-joins duplicates of an unknown header into one string (only `set-cookie`
+ * becomes an array), so `"a, b"` arrives and nobody can sign it. The `typeof` guard still earns its
+ * place - Fastify types the value `string | string[]` - it is just not what stops that case.
  */
 function signedVisitor(request: FastifyRequest, secret: string): string | null {
   const claimed = request.headers[VISITOR_HEADER];
@@ -61,6 +64,12 @@ function signedVisitor(request: FastifyRequest, secret: string): string | null {
  * stronger than what it replaces rather than merely different - it survives this move and the next
  * one, and with the secret set it closes the local Compose hole where the API's published port let
  * a host-side caller write its own `x-forwarded-for` and be believed.
+ *
+ * **The hop the signature does not cover.** All of that is the web-to-API leg. `middleware.ts`
+ * signs whatever inbound `x-forwarded-for` it reads, so the visitor-to-web leg still rests on the
+ * web's own platform overwriting or appending that header rather than relaying a value the client
+ * supplied - an assumption inherited from the single-host design rather than introduced here, and
+ * one nothing off the platform can measure. Check 5b in docs/deploy.md is where it is tested.
  *
  * **Unset means verify nothing, never accept anything.** With no secret both headers are ignored
  * outright - not waved through - so a deployment that forgets to set it degrades to the fallback
