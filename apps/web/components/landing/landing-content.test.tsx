@@ -89,6 +89,26 @@ describe('LandingContent', () => {
       ),
     ).toBeInTheDocument();
   });
+  it('still says the first page can be slow when the API did not answer', () => {
+    // The moment the line exists for: demo mode is on, the API did not answer, and the visitor is
+    // looking at a page that says the links are unavailable with no reason attached.
+    render(
+      <LandingContent
+        links={null}
+        qrSvg={null}
+        notice="The demo links are unavailable right now."
+      />,
+    );
+    expect(
+      screen.getByText(
+        'On the free tier the API sleeps when nobody is here, so the first page after a quiet spell can take about a minute.',
+      ),
+    ).toBeInTheDocument();
+  });
+  it('keeps the cold-start line off the plain product page', () => {
+    render(<LandingContent links={null} qrSvg={null} />);
+    expect(screen.queryByText(/the API sleeps when nobody is here/)).toBeNull();
+  });
   it('hands over the test card when Stripe is configured', () => {
     render(
       <LandingContent

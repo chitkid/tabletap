@@ -189,7 +189,13 @@ export function LandingContent({
           </Entrance>
           {links ? <p className="text-sm text-muted-foreground">{paymentNotice(links)}</p> : null}
           {links ? <p className="text-sm text-muted-foreground">{resetNotice(links)}</p> : null}
-          {links ? <p className="text-sm text-muted-foreground">{COLD_START_NOTICE}</p> : null}
+          {/* Not gated on `links` like its two neighbours, which read fields out of it. This one is
+              a constant, and the case it exists for is the one where `links` is null because the
+              API did not answer - see the notice above. Both null is the plain product page, where
+              there is no API in play and nothing to explain. */}
+          {links || notice ? (
+            <p className="text-sm text-muted-foreground">{COLD_START_NOTICE}</p>
+          ) : null}
           {links ? (
             <div className="flex flex-wrap items-center gap-3">
               <RushButton />
