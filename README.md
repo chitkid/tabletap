@@ -1,19 +1,31 @@
 # TableTap
 
+A guest scans the code on the table, orders from their phone, pays, and the ticket appears on the kitchen board the moment the payment settles.
+
+**Live demo: <https://tabletap-web.vercel.app>** — the whole product, on three free tiers. On the free tier the API sleeps when nobody is here, so the first page after a quiet spell can take about a minute; measured on 2026-09-06 at 34 s cold against 0.6 s warm. Nothing takes a card: payments run in demo mode.
+
+| The demo landing                                                                                                                                       | The guest menu                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![The TableTap landing page: Guest, Kitchen and Admin cards, a QR code for table 7, and the demo notices](docs/screenshots/landing.png)                | ![The Little Furnace menu at table 7: four categories, and flatbreads with their drawn plates, prices and Add buttons](docs/screenshots/menu.png)          |
+| **The kitchen board**                                                                                                                                  | **The admin dashboard**                                                                                                                                    |
+| ![The kitchen board mid-service: eight tickets in New, one Cooking, one Ready, each with its timer and one bump control](docs/screenshots/kitchen.png) | ![The admin dashboard: 12 orders, $627.00, 42 s average time to ready, 11 open tickets, and seven days of paid orders as bars](docs/screenshots/admin.png) |
+
+**[Read the case study](docs/case-study.md)** — four problems where the obvious answer was wrong, what each one cost, and how the mistakes were found.
+
 TableTap is a QR table-ordering system for a single restaurant: a guest scans the code on the table, orders from their phone, and the kitchen sees the ticket appear in real time. It is a portfolio project built milestone by milestone, with the design pipeline, the tests and the infrastructure treated as part of the product rather than as an afterthought.
 
 The demo tenant is **Little Furnace**, a neighbourhood wood-fired place — flatbreads, grain bowls, a short list of sides and drinks.
 
 ## Milestones
 
-| Milestone                    | Scope                                                                                                                  | Status  |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------- |
-| M1 Foundation                | Monorepo, schema and migrations, staff auth, guest sessions, RBAC, shared contracts, design tokens, Docker Compose, CI | Done    |
-| M2 Guest flow + demo landing | Menu, basket, order placement, illustrated dishes, demo landing with QR, hourly demo reset                             | Done    |
-| M3 Kitchen display           | Socket.io, kitchen board, order-state enforcement                                                                      | Done    |
-| M4 Payments                  | Payment port with a Stripe adapter and a demo terminal, signed webhook, idempotent settlement                          | Done    |
-| M5 Admin                     | Menu and tables edited in place, photo uploads to object storage, a printable QR sheet, revocable codes, a dashboard   | Done    |
-| M6 Polish + portfolio        | Motion, Lighthouse CI, deployment, case study                                                                          | Planned |
+| Milestone                    | Scope                                                                                                                  | Status    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------- |
+| M1 Foundation                | Monorepo, schema and migrations, staff auth, guest sessions, RBAC, shared contracts, design tokens, Docker Compose, CI | Done      |
+| M2 Guest flow + demo landing | Menu, basket, order placement, illustrated dishes, demo landing with QR, hourly demo reset                             | Done      |
+| M3 Kitchen display           | Socket.io, kitchen board, order-state enforcement                                                                      | Done      |
+| M4 Payments                  | Payment port with a Stripe adapter and a demo terminal, signed webhook, idempotent settlement                          | Done      |
+| M5 Admin                     | Menu and tables edited in place, photo uploads to object storage, a printable QR sheet, revocable codes, a dashboard   | Done      |
+| M6 Polish + portfolio        | Motion, Lighthouse CI, deployment, case study                                                                          | In review |
 
 M2 makes the product visible: a guest scans the QR on the table, reads the menu, fills a basket and places an order. M3 closes the loop — the ticket is on the kitchen board in well under half a second, the kitchen moves it through the statuses, and the guest's phone follows along without a reload. M4 puts the money in the middle of it: an order is placed, then paid, and only a payment event sends it to the kitchen. M5 hands the restaurant its own tool: everything the seed used to decide — the dishes, their prices and photographs, the tables and their printed codes — is now something an admin changes on screen.
 
@@ -205,7 +217,7 @@ pnpm db:seed -- --if-empty           # prints the twelve guest URLs it signs
 pnpm dev                             # web on :3000, api on :4000
 ```
 
-`pnpm test` needs none of that — the suite runs on PGlite in memory: 537 tests across the five packages (shared 52, db 17, ui 32, api 260, web 176).
+`pnpm test` needs none of that — the suite runs on PGlite in memory: 660 tests across the five packages (shared 52, db 17, ui 39, api 317, web 235).
 
 ## Scripts
 
@@ -251,7 +263,7 @@ The suite spends five of the ten sign-ins a minute the API allows one address, s
 
 `/admin` itself is not in the list, and the reason is in the script rather than in anything about cookies: the audit fails any page whose final URL differs from the one requested, because a redirect is scored as whatever it landed on — an expired guest session would send `/menu` to `/session-ended` and sail through every gate. `/admin` is a bare redirect onto the dashboard, so it would be reported as redirected on every run. The three screens behind it are audited directly instead, which is where the in-place editors and the reissue confirmation live. The demo terminal at `/pay/<id>` is still not audited: it needs a guest cookie _and_ an order that is still waiting for payment, which the audit script does not set up. On the backlog.
 
-That gate runs in CI, in the `compose-e2e` job, after the Playwright tests. `docs/lighthouse-results.json` is gitignored: it is written on every run and uploaded as a build artifact, not committed. Accessibility is the only gated category. Performance is measured and reported, and is gated in M6 — the board's first paint currently costs it some layout shift, since server-rendered tickets grow when their timers hydrate.
+That gate runs in CI, in the `compose-e2e` job, after the Playwright tests. `docs/lighthouse-results.json` is gitignored: it is written on every run and uploaded as a build artifact, not committed. Accessibility is the only gated category; performance is measured and reported. M6 added no Lighthouse machinery and owed only that the motion work did not lower the existing numbers, which is why every animation is confined to `opacity` and `transform`. Measured on the M6 branch with a cooking ticket deliberately on the board: accessibility 100 and cumulative layout shift 0 on all six pages, the kitchen included — the board's reconnect banner used to drop the page by 46 px when it unmounted, and the space is reserved now.
 
 ## Demo mode
 
@@ -329,9 +341,12 @@ Regenerating after a brand change: edit `docs/brand-guidelines.md`, then `pnpm b
 - [M3 design spec](docs/superpowers/specs/2026-09-03-m3-kitchen-display-design.md) — kitchen board, real-time delivery, transitions, demo rush
 - [M4 design spec](docs/superpowers/specs/2026-09-04-m4-payments-design.md) — payment port, webhook, the demo terminal, the ADR 0009 removal
 - [M5 design spec](docs/superpowers/specs/2026-09-04-m5-admin-design.md) — the admin shell, in-place editing, uploads, revocable QR codes, the dashboard
-- [Architecture decisions](docs/adr/) — [0001 staff auth and guest sessions](docs/adr/0001-staff-auth-and-guest-sessions.md), [0002 signed table token in the QR](docs/adr/0002-signed-table-token-in-qr.md), [0003 PGlite tests and Compose e2e](docs/adr/0003-pglite-tests-compose-e2e.md), [0004 API behind the Next.js rewrite](docs/adr/0004-api-behind-next-rewrite.md), [0005 one token source, three surfaces](docs/adr/0005-one-token-source-three-surfaces.md), [0006 guest reads, basket and order placement](docs/adr/0006-guest-reads-and-orders.md), [0007 illustrated menu instead of photography](docs/adr/0007-illustrated-menu.md), [0008 real-time delivery](docs/adr/0008-realtime-delivery.md), [0009 the interim order state machine](docs/adr/0009-interim-state-machine.md), [0010 payments through one port, settled once](docs/adr/0010-payments-one-port.md), [0011 the demo payment provider](docs/adr/0011-demo-payment-provider.md), [0012 photographs in object storage](docs/adr/0012-object-storage-uploads.md), [0013 a table's QR can be revoked](docs/adr/0013-revocable-qr.md)
+- [M6 design spec](docs/superpowers/specs/2026-09-05-m6-polish-portfolio-design.md) — the mark, motion, the deployment, one rate-limit bucket per visitor, the case study
+- [Case study](docs/case-study.md) — four problems, what each cost, and the measurements from the live deployment
+- [Deployment runbook](docs/deploy.md) — Vercel, Render and Neon from nothing, with the post-deploy checks and what a correct deployment returns
+- [Architecture decisions](docs/adr/) — [0001 staff auth and guest sessions](docs/adr/0001-staff-auth-and-guest-sessions.md), [0002 signed table token in the QR](docs/adr/0002-signed-table-token-in-qr.md), [0003 PGlite tests and Compose e2e](docs/adr/0003-pglite-tests-compose-e2e.md), [0004 API behind the Next.js rewrite](docs/adr/0004-api-behind-next-rewrite.md), [0005 one token source, three surfaces](docs/adr/0005-one-token-source-three-surfaces.md), [0006 guest reads, basket and order placement](docs/adr/0006-guest-reads-and-orders.md), [0007 illustrated menu instead of photography](docs/adr/0007-illustrated-menu.md), [0008 real-time delivery](docs/adr/0008-realtime-delivery.md), [0009 the interim order state machine](docs/adr/0009-interim-state-machine.md), [0010 payments through one port, settled once](docs/adr/0010-payments-one-port.md), [0011 the demo payment provider](docs/adr/0011-demo-payment-provider.md), [0012 photographs in object storage](docs/adr/0012-object-storage-uploads.md), [0013 a table's QR can be revoked](docs/adr/0013-revocable-qr.md), [0014 the demo is public](docs/adr/0014-the-demo-is-public.md)
 - [Brand guidelines](docs/brand-guidelines.md) — palette, type, voice
 - [Component state specs](docs/design/components.md) and [UX notes](docs/design/ux-notes.md)
 - [Backlog](docs/backlog.md) — everything noticed and deliberately not done
 
-Case study, live demo and screenshots arrive in M6.
+The case study, the live demo and the screenshots are at the top of this file.

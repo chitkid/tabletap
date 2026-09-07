@@ -27,8 +27,8 @@ Noticed while reviewing the M1 branch; none of it blocks the milestone.
 
 Noticed in the whole-branch review before merge. Everything here was judged out of scope for M1 and is written down so it is not rediscovered.
 
-- Containers run as root. Add `USER node` to both Dockerfiles. Postgres also publishes 5432 with the default demo credentials. Both are scoped to the local demo; neither is acceptable on a deployed host.
-- The rate limiter uses the in-memory store, which is per process. A multi-instance deploy needs a shared store (Redis) or the limit is per instance. M6, with deployment.
+- ~~Containers run as root.~~ Closed in M6, which is when there was a deployed host: both Dockerfiles set `USER node`, verified with `whoami` inside each running container. The other half of the entry stands — Postgres publishes 5432 with the default demo credentials — and it is scoped to the local demo, since the deployed stack publishes no database port.
+- The rate limiter uses the in-memory store, which is per process. Merged with the Socket.io adapter entry below into one item under **Deferred from M6**, where it carries its trigger.
 - `AuthClientLike` in `apps/web/components/login-form.tsx` mirrors the better-auth client shape by hand so the form can be tested without the real client. It will drift if better-auth changes; derive it from the client's own types if that becomes a problem.
 - ~~In the local demo the API port is published on the host, so a host-side client can set `x-forwarded-for` itself. `TRUST_PROXY` believes loopback, so a caller on the host can pick its own rate-limit bucket.~~ Closed in M6: the web signs the address it forwards and the API honours a forwarded address only when the signature verifies (`FORWARD_SECRET`; spec §4.4), so a host-side caller with no secret is keyed on its own connection address. `.env.example` sets the secret, so a stack brought up from it is defended; one whose `.env` predates the variable still is not.
 
@@ -78,7 +78,7 @@ Noticed while building and reviewing the M3 branch. Nothing here blocks the mile
 **Scope deliberately left for later milestones**
 
 - A guest cancel endpoint. `orders.cancel.own` exists in the RBAC matrix and nothing routes to it; the kitchen can cancel, the guest cannot. Needs a window rule (before `cooking`, presumably) more than it needs code.
-- A Redis adapter for multi-instance Socket.io (M6, with deployment). The in-memory adapter means two API instances never see each other's rooms. Same shape as the rate limiter's in-memory store, already on this list.
+- A Redis adapter for multi-instance Socket.io. Merged with the rate limiter's in-memory store into one item under **Deferred from M6**: they are the same shape and they fail on the same day.
 - Deployment order, for whoever writes the M6 pipeline: **API before web.** `OrderDtoSchema` requires `updatedAt` and the per-status timestamps — `paidAt` among them since M4 — so a newer web against an older API fails to parse every order response: the menu still works and nothing after it does. The reverse order is safe, since an older web ignores fields it does not know about.
 - A waiter surface (M5). `TRANSITION_RIGHTS.waiter` grants `served` and `cancelled`, and there is no screen from which to use them.
 - Served and cancelled history on the board. Tickets leave when they leave; there is no way to look at the last hour, and no undo for a mis-bump.
@@ -116,7 +116,7 @@ Noticed while building and reviewing the M3 branch. Nothing here blocks the mile
 - Small type debt in `apps/api/src`: a redundant `String()` in the transition `keyGenerator`, a computed-key spread in `lib/transitions.ts` that bypasses Drizzle's column typing, and a non-null assertion on the post-commit reload.
 - Light-surface `timer-ok` (3.87:1) and `timer-warn` (3.24:1) are still asserted on the kitchen surface only. M1 deferred the light-surface assertions to M2, M2 deferred them to M3 expecting the board to need them, and M3 could not add them either: every `timer-*` token is consumed on the kitchen (dark) surface, and the guest order page shows an elapsed counter in body text using none of them. The gap is not a missing test but a missing consumer — either give a light surface a timer, or drop the light values from the token file. Deciding that is the actual task.
 
-- A browser sends no `x-forwarded-for`, and the Next rewrite forwards only what it receives, so every browser client reaches the API as the web container and shares one rate-limit bucket. A caller that sets the header gets its own bucket, which is what `TRUST_PROXY` is for behind a real reverse proxy. In the Compose demo the sign-in limit is therefore per deployment, not per member of staff.
+- ~~A browser sends no `x-forwarded-for`, and the Next rewrite forwards only what it receives, so every browser client reaches the API as the web container and shares one rate-limit bucket.~~ Closed in M6 (spec §4.4): `apps/web/middleware.ts` signs the visitor's address with `FORWARD_SECRET` and the API honours a forwarded address only when that signature verifies, keying on the connection's own address otherwise. Measured before and after on a rebuilt Compose stack — two source addresses shared one bucket, then got twenty each. The relay behaviour itself was confirmed rather than assumed: Next sets `x-forwarded-for` on the incoming request and does not add one to the rewrite's outgoing fetch.
 
 ## Resolved in the final M3 fix wave
 
@@ -190,7 +190,7 @@ Noticed while building and reviewing the payments branch. Nothing here blocks th
 - `apps/web/components/kitchen/kitchen-board.test.tsx` builds its 409 payload with `from: 'placed'`, while the shared fixture defaults to `paid` and a real refusal would say `from: 'paid'`. Nothing reads the field; it is stale test data beside a live assertion.
 - `/pay/<id>` is outside the Lighthouse audit. It needs a guest cookie _and_ an order still waiting for payment, which `scripts/lighthouse-audit.mjs` does not set up, so the one screen M4 added is the one screen the accessibility gate does not see.
 - One test name in `apps/web/components/order/pay-button.test.tsx` claims more than the assertion under it checks.
-- `apps/web/components/login-form.test.tsx` > "submits email and password" times out at Vitest's 5 s default under load: it passed twelve runs in a row on its own and failed once while fifteen Turbo tasks were running in parallel. Untouched since M1 and nothing to do with payments; it is `userEvent` typing two fields character by character with no headroom. Give that one test an explicit timeout, or type into the fields directly.
+- `apps/web/components/login-form.test.tsx` > "submits email and password" times out at Vitest's 5 s default under load. Recorded here against one file; M6 hit the same failure on at least six other untouched files and the entry is generalised under **Deferred from M6** below, where it is stated as a mechanism rather than as a test.
 - A stale comment at `apps/api/src/lib/payments.test.ts:34` explains the `entityId` scope on `auditCount` by saying more than one test writes `payment.late` rows. After the final fix wave only one test does; it is `payment.overpaid` that two tests write now.
 
 ## Resolved in the final M4 fix wave
@@ -234,7 +234,7 @@ Noticed while building and reviewing the admin branch. Nothing here blocks the m
 
 **Storage and uploads**
 
-- An upload nobody confirms is an orphan, and there is no sweep. Four ways to make one: the browser completes its `PUT` and the tab closes before the confirmation; two photo changes race and the loser's object is superseded the moment it is confirmed; a post-commit `remove` of the previous object fails, in which case that object is orphaned for ever; and — the only one that fires on a timer — the scheduled demo reset. `packages/db/src/seed/run.ts` does `tx.delete(schema.menuItems)`, which bypasses `deleteItem`, the sole code path that removes an object, and `DEMO_RESET_INTERVAL_MINUTES` defaults to 60, so in the deployed demo every photograph uploaded in an hour is an unreferenced world-readable object at the end of it. A lifecycle rule on the `menu/` prefix, or a sweep that lists it against `image_url`, closes all four; making the reset itself delete the objects closes only the last. M6 work. See [ADR 0012](adr/0012-object-storage-uploads.md).
+- An upload nobody confirms is an orphan, and there is no sweep. Four ways to make one: the browser completes its `PUT` and the tab closes before the confirmation; two photo changes race and the loser's object is superseded the moment it is confirmed; a post-commit `remove` of the previous object fails, in which case that object is orphaned for ever; and — the only one that fires on a timer — the scheduled demo reset. `packages/db/src/seed/run.ts` does `tx.delete(schema.menuItems)`, which bypasses `deleteItem`, the sole code path that removes an object, and `DEMO_RESET_INTERVAL_MINUTES` defaults to 60, so in the deployed demo every photograph uploaded in an hour is an unreferenced world-readable object at the end of it. A lifecycle rule on the `menu/` prefix, or a sweep that lists it against `image_url`, closes all four; making the reset itself delete the objects closes only the last. See [ADR 0012](adr/0012-object-storage-uploads.md). **Still open after M6**, which answered the deployed half by removing it rather than by sweeping: the deployed demo configures no object storage at all and refuses uploads ([ADR 0014](adr/0014-the-demo-is-public.md)), so it makes no orphans. The local stack still does, and so would any future deployment that turns storage back on — which is what makes this a sweep that is owed rather than a defect that is gone.
 - Confirming a key that is already in use can delete the object it points at. A presigned `PUT` is reusable for its minute and signs no size, so re-confirming the current key runs `checkUpload` against a live object and deletes it if the second upload was too large.
 - `POST /api/menu/items/:id/photo-url` writes no audit row, so nothing records that a bucket-write URL was asked for. (It took a rate limit of twenty a minute per session in the M5 fix wave; the missing audit row is what is left.)
 - The 503 for an unconfigured store carries the `INTERNAL` error code, because `ERROR_CODES` has no `SERVICE_UNAVAILABLE`. `requireStorage` also runs before the id is validated, so a malformed id on a store-less deployment answers 503 rather than 400.
@@ -244,7 +244,7 @@ Noticed while building and reviewing the admin branch. Nothing here blocks the m
 **Concurrency and the database**
 
 - The optimistic-concurrency guard compares `updatedAt`, which migration 0005 pinned to millisecond precision. Two writes to the same row inside one millisecond are indistinguishable, so a genuinely stale write can win instead of getting a 409 — and for `reissueQr` that means the version moves by one while two audit rows each claim to have moved it from 1 to 2. Inherent to a timestamp-based guard; a version counter or `xmin` closes it properly, and closes it everywhere at once. Found independently by three reviewers.
-- `orders` has no index on `restaurant_id` at all — only `table_id`, `status`, `number` and `paid_at`. Every restaurant-scoped query in the API is paying for that, and the dashboard is only its loudest caller.
+- ~~`orders` has no index on `restaurant_id` at all.~~ Closed in M6 by migration `0006_orders-restaurant-idx.sql`, confirmed against a running container with `\d orders` rather than from the migration file alone.
 - Migration 0005 takes `ACCESS EXCLUSIVE` and rewrites `orders`, `order_items` and `payments` to change the timestamp precision. Harmless today, with no deployed environment; worth knowing before it ever meets a populated database.
 - The stale-write block — read `before`, guard the `UPDATE` on it, re-read to tell a 404 from a 409 — is written out twice in `tables-admin.ts` and three times in `menu-admin.ts`. One `staleWrite(db, restaurantId, id, noun)` helper would remove all five, the way `changedFields` was lifted into `lib/audit.ts`.
 - `loadMenu` keeps a `'USD'` fallback for a missing restaurant row — the last remnant of the literal M5 removed everywhere else. (`rush.ts` no longer hardcodes it; the M5 fix wave made it read the restaurant like every other write path.)
@@ -306,6 +306,100 @@ One pass over the whole branch before merge, from two reviews that found nothing
 - The Lighthouse gate audits `/admin/menu` and `/admin/tables` as well as the dashboard — six pages, still gated at 95 for accessibility.
 - The MinIO images are pinned (`minio/minio:RELEASE.2025-09-07T16-13-09Z`, `minio/mc:RELEASE.2025-08-13T08-35-41Z`).
 - Documents: `design-system/tabletap/MASTER.md` no longer describes the `--spacing` override Task 1 deleted; ADR 0012 no longer claims the application keeps objects and rows in step, and names the scheduled reset; the README states what CI has actually run, describes `GET /api/tables`'s real guard, and leads with the redirect guard rather than an unverified claim about cookies.
+
+## Deferred from M6
+
+Noticed while building and reviewing the polish-and-portfolio branch. What M6 **closed** is struck
+through where it stood on the lists above — the root containers, the missing `orders` index, the
+single shared rate-limit bucket — rather than repeated here.
+
+**Scope deliberately left for later milestones**
+
+- **A shared store for rate limits and Socket.io rooms, and its trigger is a second instance.** Both
+  are in-memory and therefore per process: two API instances never see each other's rooms, and each
+  rate limit becomes per instance. One machine per app is what makes them correct today, so the
+  trigger is precise — the day a second instance exists, they are wrong together. Redis is the
+  obvious answer for both. Merged here from the M1 and M3 lists, which each held half of it
+  ([ADR 0014](adr/0014-the-demo-is-public.md)).
+- **The orphan sweep for unconfirmed uploads** stands, and the entry under _Deferred from M5_ carries
+  the four ways to make one. M6 answered only the deployed half, by configuring no object storage and
+  refusing uploads.
+
+**The deployment**
+
+- **Cold start on the first page after idle.** A free Render service stops without traffic, and the
+  landing is `force-dynamic` and awaits `GET /api/demo/links` from the server, so the wait falls on
+  the first _page_ rather than the first press: 34 s cold against 0.6 s warm, measured 2026-09-06.
+  M6's answer is to say so in a line on the landing and in the README; a keep-alive ping was rejected
+  because it games the tier it depends on and would stop the reset-on-boot from ever running. The
+  fix that costs nothing is architectural rather than commercial: render the landing without the demo
+  block and fetch the links from the browser, so the page paints at once and only the cards wait.
+  That is a real change to a page whose first paint is the milestone's headline, which is why it is
+  written down rather than done at the end of a milestone.
+- **Vercel's edge runtime exposing `FORWARD_SECRET` to middleware is a platform fact nothing local
+  can measure.** It was established that a non-`NEXT_PUBLIC` variable read in `middleware.ts` is read
+  at runtime rather than inlined at build; whether the platform then supplies it to the edge function
+  is a different claim. The failure mode is the silent one — no headers sent, one bucket, nothing to
+  see — so check 5 in [the runbook](deploy.md) is the only thing that observes it, and it is marked
+  non-skippable for that reason.
+- **The middleware's degradation branch has no test and fails quietly.** With no secret it sends no
+  headers and every visitor shares one bucket, which is the safe direction and the invisible one.
+- **`nearestHop` signs whatever string it finds** in `x-forwarded-for` with no check that it is
+  shaped like an address, so it bounds nothing under the relay hypothesis. The middleware also does
+  not strip an inbound `x-tt-visitor` before setting its own — defence in depth rather than a hole,
+  since a forgery cannot verify.
+- **`docker-compose.yml` reads `FORWARD_SECRET` from the shell first while the API reads `.env`
+  only**, so a value exported in a shell gives the web a secret and the API none. A mismatch fails
+  silently in exactly the same way as an absent one.
+- **`clientKey` leaves two staff browsers behind one NAT sharing a bucket.** `staffKey` and
+  `guestKey` would split them but both fall back to the raw connection address when there is no
+  cookie, which is the 401 path the sign-in limit most needs to count. Same limitation
+  `POST /api/guest/claim` already carries.
+- **Every browser call to `/api/*` now pays an edge-middleware invocation.** Cheap, and it is a cost
+  the previous design did not have.
+
+**Tests and tooling**
+
+- **Web tests that drive `userEvent` time out at Vitest's 5000 ms default under Turbo saturation.**
+  Roughly sixteen occurrences across this milestone, on unrelated and untouched files each time, and
+  the signature is always the same line. It is not a defect in any of those tests: the worst offender
+  measured **263 ms in isolation against over 5000 ms saturated**, and `--concurrency=1` passes the
+  whole workspace. The honest fix is bounding test concurrency, not raising `testTimeout` — a raised
+  timeout would hide a genuine regression, where a bounded runner hides nothing. It was first written
+  down against one file in M4 and re-diagnosed most of a dozen times before being stated as a
+  mechanism.
+- **`pnpm e2e` and the Lighthouse audit are not in a task's own gate**, and a reviewer reads a diff.
+  M6 shipped user-visible UI that broke two Playwright specs and nothing caught it; an unrelated task
+  three tasks later ran e2e for its own reasons and found it. A task that adds user-visible UI should
+  run e2e whether or not its brief names it.
+- **Nothing re-checks that the arbitrary Tailwind variants still compile.** A class the scanner
+  misses is a silent no-op that no unit test can see; the M6 review caught one by reading the built
+  stylesheet in `.next`, which is not something CI does.
+- **The token validator's comment skip only skips a line whose trimmed text _starts_ with `//` or
+  `/*`**, so a trailing comment or a JSDoc continuation line is scanned. Pre-existing, and it applies
+  to the hex and px rules too; it now means prose that mentions a duration — "debounced by 300ms" —
+  fails the gate. It tripped the very file that introduced the duration rule.
+- Smaller: `fillOf` in `packages/ui/src/tokens.test.ts` ignores a `dark:bg-*` override where `inkOf`
+  honours the `dark:text-*` one, so a future status needing a different kitchen fill would be
+  measured on the wrong colour and pass; `menu/page.test.tsx` clears `localStorage` implying a reset
+  that does not happen, since `Entrance` keys off a module-level `Set`; `ConnectionBanner` reserves
+  the height of the shorter of its two strings, and the longer one could wrap at a narrow viewport;
+  `connection-banner.test.tsx` couples an assertion to React Testing Library's cleanup timing across
+  two renders in one test; `STATUS_STYLE` is public API purely so a test can read the real source
+  rather than a copy; and two tests in `apps/api/src/plugins/demo-reset.test.ts` build the same config
+  override verbatim.
+
+**Documents and identity**
+
+- **The landing screenshot in the README predates the cold-start notice** this milestone added: it
+  shows two notices where the site now shows three. It cannot be retaken until the branch is deployed,
+  which is the only honest order for it.
+- `apps/web/app/icon.svg`'s comment names `mark.tsx` but not `apple-icon.tsx`. Not a gap in practice —
+  the chain closes, because `icon.svg` points at `mark.tsx` and `mark.tsx` enumerates all three copies
+  of the geometry — so it is only worth touching if someone is in that file anyway.
+- [ADR 0004](adr/0004-api-behind-next-rewrite.md) still names a container host that is no longer the
+  deployment target. Left as it stands on purpose: a decision record is history, and M6's own
+  topology is in [ADR 0014](adr/0014-the-demo-is-public.md) and the M6 spec.
 
 ## Found on the live deployment, 2026-09-06
 
