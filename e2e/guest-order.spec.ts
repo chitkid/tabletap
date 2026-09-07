@@ -42,7 +42,12 @@ test('a guest orders from the landing page QR link and pays for it', async ({ pa
   await expect(page.getByText('2 × Margherita Flatbread')).toBeVisible();
   await expect(page.getByText('1 × House Lemonade')).toBeVisible();
   await expect(page.getByText('No basil')).toBeVisible();
-  await expect(page.getByText('Placed', { exact: true })).toBeVisible();
+  // Scoped to the badge, not to a landmark: the progress rail names all five stages, so the bare
+  // word matches its label too. What this line means is the order's *current* status, and the
+  // badge is the thing that carries it wherever on the page the rail ends up living.
+  await expect(
+    page.locator('[data-slot="status-badge"]').getByText('Placed', { exact: true }),
+  ).toBeVisible();
 
   // The receipt keeps a socket open, so `networkidle` never arrives there: retry the tap, the way
   // the menu does above, until the navigation it should have started actually starts.
@@ -66,7 +71,9 @@ test('a guest orders from the landing page QR link and pays for it', async ({ pa
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     `Order #${number} sent to the kitchen.`,
   );
-  await expect(page.getByText('Paid', { exact: true })).toBeVisible();
+  await expect(
+    page.locator('[data-slot="status-badge"]').getByText('Paid', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: /^Pay/ })).toHaveCount(0);
 });
 
@@ -100,7 +107,9 @@ test('a declined payment leaves the order waiting and offers another attempt', a
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     `Order #${number} is waiting for payment.`,
   );
-  await expect(page.getByText('Placed', { exact: true })).toBeVisible();
+  await expect(
+    page.locator('[data-slot="status-badge"]').getByText('Placed', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pay $4.00' })).toBeVisible();
 });
 
