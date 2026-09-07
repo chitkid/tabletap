@@ -498,10 +498,12 @@ deploys in the same order.
 ## 9. The post-deploy checks
 
 Seven blocks — six checks, and 5b, which hangs off check 5 rather than standing on its own. Run
-them all once, after the first deploy, **in the order given**: four of them count against the same
-rate-limit bucket — check 3, device A's run in check 5, 5b and check 6 — and would otherwise refuse
-each other for reasons that have nothing to do with what is being tested. Each says what a
-**correct** deployment returns.
+them all once, after the first deploy, **in the order given**: three of them count against the same
+rate-limit bucket — check 3, device A's run in check 5, and 5b, all of them `POST /api/guest/claim`
+through the rewrite and keyed on the laptop's own address — and would otherwise refuse each other
+for reasons that have nothing to do with what is being tested. Check 6 shares a bucket with none of
+them: it goes straight at the API on a different route, keyed on an address it supplies itself. Its
+place in the list is reading order, not arithmetic. Each says what a **correct** deployment returns.
 
 Check 5 is the one that cannot be skipped, for the reason given under it.
 
@@ -698,6 +700,16 @@ Vercel overwriting or appending that header rather than relaying one the client 
 assumption is inherited from an earlier milestone, it cannot be tested anywhere but on the real
 platform, and one loop tests it.
 
+**This one means nothing until check 5 has passed, and it will not tell you so.** With no working
+signature — `FORWARD_SECRET` missing on either side, or never reaching the middleware — no visitor
+headers are sent and the API falls back to `request.ip`, which for a request through the rewrite is
+whatever address Vercel's egress presents. If the twenty-one requests below leave through one egress
+address they share one bucket, the first twenty fill it, and the twenty-first is refused: **exactly
+the output this check calls correct**, produced by a deployment where the property does not exist at
+all. Check 5 is what establishes that the signature is in play; 5b only asks what the signature is
+computed over. Run them out of order and this does not fail, it passes — which is the worse of the
+two.
+
 **Wait sixty seconds after device A's run** — the window is a minute, and starting inside it means
 the leading requests below answer `429` for a reason that has nothing to do with the header. Then,
 from the laptop:
@@ -805,9 +817,13 @@ rather than proof, for the same reason B2 and B3 are: on a deployment that ignor
 three requests that happen to leave through one Cloudflare edge node reach `429` as well. B1 is
 still the line that carries a verdict either way.
 
-Add `-w '%{http_code}'` output of `x-ratelimit-remaining` if you want to watch it directly; reading
-the counter beats inferring it from status codes, which is how four earlier attempts at this check
-each produced an answer that did not survive its own control.
+To watch the counter directly rather than infer it from status codes, add `-D -` to each `curl`
+above: it dumps the response headers to stdout, where `x-ratelimit-remaining` is, while `-o
+/dev/null` keeps the body out of the way. **`-w` cannot do this** — its variables describe the
+transfer, not the response headers, so `-w '%{http_code}'` prints a status code and nothing else.
+(curl 7.83 and later also has `-w '%header{x-ratelimit-remaining}'`; `-D -` works everywhere.)
+Reading the counter beats inferring it, which is how four earlier attempts at this check each
+produced an answer that did not survive its own control.
 
 ### Changing an environment variable needs a redeploy, not a restart
 
