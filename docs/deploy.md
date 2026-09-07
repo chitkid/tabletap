@@ -798,7 +798,12 @@ can pick a bucket by writing the address they want into it.
 **Also a defect, in the other direction:** half A never reaching `429`, which means the signature
 never verifies and every visitor shares one bucket. The guard above has ruled out the likeliest
 cause, an unexported secret; what is left is the two platforms holding different values, so go back
-to step 6's digest comparison.
+to step 6's digest comparison. **Read half A the way check 5 asks you to read its own result**: A's
+failure is conclusive, because a deployment that verifies always refuses A's third request — a
+signed address is one stable key and the route allows two a minute. A's `429` is good evidence
+rather than proof, for the same reason B2 and B3 are: on a deployment that ignores the signature,
+three requests that happen to leave through one Cloudflare edge node reach `429` as well. B1 is
+still the line that carries a verdict either way.
 
 Add `-w '%{http_code}'` output of `x-ratelimit-remaining` if you want to watch it directly; reading
 the counter beats inferring it from status codes, which is how four earlier attempts at this check
