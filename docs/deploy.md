@@ -459,14 +459,18 @@ environment — `FORWARD_SECRET` and every other value you generated in step 4 �
 off your disk:
 
 ```sh
+# Two paths because `vercel pull` writes under whichever directory it ran in, and the `apps/web`
+# fallback below is the other place that can be. Run both, from the repository root.
 rm .vercel/.env.production.local
+rm apps/web/.vercel/.env.production.local
 ```
 
-**Run it from the same directory you ran `vercel pull` from** — the file is written under that
-directory's own `.vercel/`, so a reader who took the `apps/web` fallback below has
-`apps/web/.vercel/.env.production.local` instead and the command above will not touch it. No `-f`,
-deliberately: a "No such file or directory" here means you are in the wrong place and the secrets
-are still on disk somewhere else, which is worth being told.
+**Exactly one of those two should succeed**, and which one depends on where you ran `vercel pull`.
+No `-f`, deliberately, and the two outcomes read differently: one "No such file or directory" is the
+path you did not use and is expected, while **both** failing means the file is neither place, so the
+whole production environment — `FORWARD_SECRET` and every other value you generated in step 4 — is
+still in plaintext somewhere on your disk. That is worth being told rather than being silently
+tidied away, which is what `-f` would do to both cases at once.
 
 The workflow does the same three commands on a runner that is destroyed afterwards, so this is a
 first-deploy chore, not a recurring one. It comes back every time you run `vercel pull` by hand.
@@ -736,7 +740,26 @@ rather than hard: **a signed address is stable and a fallback address is not.** 
 to back, from one machine, inside a minute. `/api/demo/rush` allows two a minute, so three requests
 settle it.
 
+**Export the secret first.** This is the one place in the runbook that needs `FORWARD_SECRET` as a
+shell variable — step 4 puts it in two dashboards and step 6 deliberately keeps it out of the shell
+— and nothing so far has told you to. Unset, `openssl dgst -hmac ""` signs with an empty key without
+complaining and produces a well-formed **wrong** signature. Half A would then never reach `429`,
+which the last paragraph below reads as the signature never verifying: a correct deployment reported
+as broken, on the first run, for anyone who pastes the block as it stands.
+
 ```sh
+# The value you set on both platforms in step 4, revealed on either dashboard. It stays in this
+# shell. (That puts it in your shell history, like step 6's digests; clear it if that matters.)
+export FORWARD_SECRET='…'
+```
+
+The check itself is wrapped in a subshell so the guard's `exit` ends the check rather than your
+session:
+
+```sh
+(
+[ -n "$FORWARD_SECRET" ] || { echo 'FORWARD_SECRET is unset: export it above, or half A reads as broken'; exit 1; }
+
 # Half A: three requests, one address, correctly signed.
 addr=198.51.100.55
 sig=$(printf %s "$addr" | openssl dgst -sha256 -hmac "$FORWARD_SECRET" -r | cut -d' ' -f1)
@@ -750,19 +773,32 @@ for i in 1 2 3; do
   curl -s -o /dev/null -w "B$i %{http_code}
 " -X POST https://<api>/api/demo/rush     -H "x-tt-visitor: $addr"
 done
+)
 ```
 
-**Correct:** half A ends in a `429` and half B does not. Measured on this deployment: A returned
+**Correct:** half A ends in a `429`, and **B1 is not `429`**. Measured on this deployment: A returned
 `200, 409, 429` and B returned `409, 409, 409`. A's counter falls because the signature verifies and
 the signed address is one stable key; B's does not because the bare header is ignored and each
 request falls back to a different Cloudflare edge address. The `409`s are "a rush is already
 running", which is not what this check is about - only the `429`, and where it does and does not
 appear, carries the finding.
 
-**The defect:** half B also reaching `429`, which would mean the bare header keys the same bucket as
-a signed one, so anyone can pick a bucket. **Also a defect, in the other direction:** half A never
-reaching `429`, which would mean the signature never verifies and every visitor shares one bucket -
-check that `FORWARD_SECRET` is identical on both platforms.
+**Read B1, and not the rest of half B.** Half A has just exhausted the bucket for `198.51.100.55`.
+If the bare header were believed, B's _first_ request would land in that same exhausted bucket and
+be refused straight away, so a `429` there follows from the defect and from nothing else. B2 and B3
+are a different matter: `/api/demo/rush` allows two a minute, so three unsigned requests that happen
+to share one Cloudflare edge address exhaust that edge's bucket by themselves and the third is
+refused on a deployment where nothing is wrong. The measured `409, 409, 409` is one sample of a
+quantity that drifts, not a guarantee — reading half B as a whole is how this check would cry wolf.
+B1 is the one line immune to the drift the rest of the check is built on.
+
+**The defect:** `B1` answers `429`. The bare header keys the same bucket as a signed one, so anyone
+can pick a bucket by writing the address they want into it.
+
+**Also a defect, in the other direction:** half A never reaching `429`, which means the signature
+never verifies and every visitor shares one bucket. The guard above has ruled out the likeliest
+cause, an unexported secret; what is left is the two platforms holding different values, so go back
+to step 6's digest comparison.
 
 Add `-w '%{http_code}'` output of `x-ratelimit-remaining` if you want to watch it directly; reading
 the counter beats inferring it from status codes, which is how four earlier attempts at this check
