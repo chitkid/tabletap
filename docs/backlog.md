@@ -245,7 +245,7 @@ Noticed while building and reviewing the admin branch. Nothing here blocks the m
 
 - The optimistic-concurrency guard compares `updatedAt`, which migration 0005 pinned to millisecond precision. Two writes to the same row inside one millisecond are indistinguishable, so a genuinely stale write can win instead of getting a 409 — and for `reissueQr` that means the version moves by one while two audit rows each claim to have moved it from 1 to 2. Inherent to a timestamp-based guard; a version counter or `xmin` closes it properly, and closes it everywhere at once. Found independently by three reviewers.
 - ~~`orders` has no index on `restaurant_id` at all.~~ Closed in M6 by migration `0006_orders-restaurant-idx.sql`, confirmed against a running container with `\d orders` rather than from the migration file alone.
-- Migration 0005 takes `ACCESS EXCLUSIVE` and rewrites `orders`, `order_items` and `payments` to change the timestamp precision. Harmless today, with no deployed environment; worth knowing before it ever meets a populated database.
+- Migration 0005 takes `ACCESS EXCLUSIVE` and rewrites eight tables to change the timestamp precision — `restaurants`, `tables`, `menu_categories`, `menu_items`, `guest_sessions`, `order_items`, `orders` and `payments`, every table that goes through the shared `timestamps` helper. (`audit_log` and the four better-auth tables declare their own and are untouched.) Harmless today, with no deployed environment; worth knowing before it ever meets a populated database. The count read "three" here until the M6 fix wave read the migration file, and `docs/case-study.md` had inherited it.
 - The stale-write block — read `before`, guard the `UPDATE` on it, re-read to tell a 404 from a 409 — is written out twice in `tables-admin.ts` and three times in `menu-admin.ts`. One `staleWrite(db, restaurantId, id, noun)` helper would remove all five, the way `changedFields` was lifted into `lib/audit.ts`.
 - `loadMenu` keeps a `'USD'` fallback for a missing restaurant row — the last remnant of the literal M5 removed everywhere else. (`rush.ts` no longer hardcodes it; the M5 fix wave made it read the restaurant like every other write path.)
 
@@ -344,19 +344,56 @@ single shared rate-limit bucket — rather than repeated here.
   non-skippable for that reason.
 - **The middleware's degradation branch has no test and fails quietly.** With no secret it sends no
   headers and every visitor shares one bucket, which is the safe direction and the invisible one.
-- **`nearestHop` signs whatever string it finds** in `x-forwarded-for` with no check that it is
-  shaped like an address, so it bounds nothing under the relay hypothesis. The middleware also does
-  not strip an inbound `x-tt-visitor` before setting its own — defence in depth rather than a hole,
-  since a forgery cannot verify.
-- **`docker-compose.yml` reads `FORWARD_SECRET` from the shell first while the API reads `.env`
-  only**, so a value exported in a shell gives the web a secret and the API none. A mismatch fails
-  silently in exactly the same way as an absent one.
+- **Local Compose is spoofable through the front door, and the earlier "closed" was measured against
+  the back one.** Closing the API's published port answered a host-side caller writing its own
+  `x-forwarded-for` straight at the API. The web's port 3000 is still published with no proxy in
+  front; Next fills `x-forwarded-for` only when it is absent; `nearestHop` (`apps/web/middleware.ts`)
+  takes the last entry with no check that it is shaped like an address; and `normalizeIP` returns a
+  non-IP string unchanged. So a host-side caller sends whatever it likes, **the web signs it**, the
+  API verifies the signature and keys on it — an unlimited supply of buckets, through the other door.
+  An IP-shape check on `nearestHop` is worth having and bounds the key space, but it does not close
+  this: under the relay hypothesis an attacker supplies valid addresses. What carries the property
+  off a private network is the platform assumption check 5b in [the runbook](deploy.md) tests, not a
+  shape check. Trigger: anything that can reach the Compose stack's web port, which today is the
+  laptop it runs on.
+- **The middleware does not strip an inbound `x-tt-visitor` before setting its own.** Verified inert
+  in all four configurations — `Headers.set` replaces rather than appends when the secret is set, and
+  the API ignores both headers when it is not — so this is defence in depth rather than a hole. Worth
+  the one line so the property does not rest on a reader re-deriving it.
+- **The sign-in rate limit has no `keyGenerator`.** `apps/api/src/plugins/auth.ts` declares ten a
+  minute on `POST /api/auth/sign-in/email` and lets it key on the plugin default. It is the route
+  [ADR 0014](adr/0014-the-demo-is-public.md)'s Context names by its symptom, and the one route the M6
+  hardening did not convert while `guest/claim`, `demo/links`, `demo/rush` and `socket-token` all
+  took `clientKey`. After the pivot it is not even per deployment: one bucket per Cloudflare edge
+  node, shared between strangers and re-rollable by retrying. `clientKey` plus a test is the fix.
+  Trigger: any credential-stuffing attempt against the deployed demo.
+- **`docker-compose.yml` reads `FORWARD_SECRET` from the shell for the web (`${FORWARD_SECRET:-}`)
+  and from `.env` for the API (`env_file`).** Harmless on the documented path, where `.env.example`
+  is copied to `.env` and nothing is exported — but a value exported in a shell gives the two sides
+  different secrets, and a mismatch fails as silently as an absent one: nothing verifies, everyone
+  shares a bucket, no log line anywhere. The obvious fix is wrong: the same interpolation on the
+  `api` service would resolve to `''` with the shell unset and override the `.env` value. Both sides
+  should read one source.
 - **`clientKey` leaves two staff browsers behind one NAT sharing a bucket.** `staffKey` and
   `guestKey` would split them but both fall back to the raw connection address when there is no
   cookie, which is the 401 path the sign-in limit most needs to count. Same limitation
   `POST /api/guest/claim` already carries.
 - **Every browser call to `/api/*` now pays an edge-middleware invocation.** Cheap, and it is a cost
   the previous design did not have.
+
+**The design system**
+
+- **Two duration token families, with colliding names and different values.** `--duration-fast: 120ms`
+  and `--duration-base: 180ms` are generated into `packages/ui/tokens.css` from
+  `assets/design-tokens.json` and consumed as `duration-(--duration-fast)` by `button`, `badge`,
+  `input`, `textarea` and `sheet`. M6 added `--motion-fast: 180ms`, `--motion-base: 280ms`,
+  `--motion-stagger`, `--motion-ease` and `--motion-instant` **by hand** to `packages/ui/theme.css`,
+  whose own first line says values live in the generated file. So the system has a "fast" that is
+  120 ms and a "fast" that is 180 ms, in two files, one generated and one not — and `validate-tokens`
+  cannot see the second, because it scans `apps/` and `packages/ui/src` only. Either family can be
+  the one that survives; both cannot. No task owned it, because Task 3's brief did not mention the
+  family that already existed. Trigger: the next component that wants a transition and has to choose
+  a name, or the first reader who takes one "fast" for the other.
 
 **Tests and tooling**
 
@@ -372,28 +409,40 @@ single shared rate-limit bucket — rather than repeated here.
   M6 shipped user-visible UI that broke two Playwright specs and nothing caught it; an unrelated task
   three tasks later ran e2e for its own reasons and found it. A task that adds user-visible UI should
   run e2e whether or not its brief names it.
-- **Nothing re-checks that the arbitrary Tailwind variants still compile.** A class the scanner
-  misses is a silent no-op that no unit test can see; the M6 review caught one by reading the built
-  stylesheet in `.next`, which is not something CI does.
+- **The milestone's headline accessibility fix has no automated protection, and the two gaps that
+  leave it open are complementary.** Nothing in CI's `check` job runs `next build`, and Tailwind v4
+  emits nothing rather than erroring for a variant it cannot resolve, so a removed or mistyped `dark:`
+  arbitrary variant compiles to no rule with every gate green. `packages/ui/src/tokens.test.ts`
+  cannot cover it from the other side either: `fillOf`'s `(?:^|\s)bg-` prefix cannot match a
+  `dark:bg-*` override, so it measures the light fill against the dark palette, where `inkOf` does
+  honour the `dark:text-*` one. Neither gap covers the other, and the cooking badge returning to
+  1.60:1 on the kitchen board would pass the whole suite. A grep of the emitted CSS in the
+  `compose-e2e` job closes most of it — the M6 review caught one class by reading the built
+  stylesheet in `.next` by hand, which is not something CI does. Trigger: the next edit to a `dark:`
+  arbitrary variant, which is where the fix lives.
+- **`ConnectionBanner` reserves the height of the shorter of its two strings.** The offline string is
+  about 23% longer than the connecting one and wraps between roughly 360 and 430 px of viewport,
+  which includes common phones, so an offline↔online transition shifts the page there — the shift the
+  reserved band exists to prevent. **The one-word fix is wrong:** reserving `MESSAGE.offline` instead
+  trades a rare shift for one on connecting→online, which runs on every load. Reserve the maximum of
+  both.
 - **The token validator's comment skip only skips a line whose trimmed text _starts_ with `//` or
   `/*`**, so a trailing comment or a JSDoc continuation line is scanned. Pre-existing, and it applies
   to the hex and px rules too; it now means prose that mentions a duration — "debounced by 300ms" —
   fails the gate. It tripped the very file that introduced the duration rule.
-- Smaller: `fillOf` in `packages/ui/src/tokens.test.ts` ignores a `dark:bg-*` override where `inkOf`
-  honours the `dark:text-*` one, so a future status needing a different kitchen fill would be
-  measured on the wrong colour and pass; `menu/page.test.tsx` clears `localStorage` implying a reset
-  that does not happen, since `Entrance` keys off a module-level `Set`; `ConnectionBanner` reserves
-  the height of the shorter of its two strings, and the longer one could wrap at a narrow viewport;
-  `connection-banner.test.tsx` couples an assertion to React Testing Library's cleanup timing across
-  two renders in one test; `STATUS_STYLE` is public API purely so a test can read the real source
-  rather than a copy; and two tests in `apps/api/src/plugins/demo-reset.test.ts` build the same config
-  override verbatim.
+- Smaller: `menu/page.test.tsx` clears `localStorage` implying a reset that does not happen, since
+  `Entrance` keys off a module-level `Set`; `connection-banner.test.tsx` couples an assertion to
+  React Testing Library's cleanup timing across two renders in one test; `STATUS_STYLE` is public API
+  purely so a test can read the real source rather than a copy; and two tests in
+  `apps/api/src/plugins/demo-reset.test.ts` build the same config override verbatim (`:47` and `:89`).
 
 **Documents and identity**
 
-- **The landing screenshot in the README predates the cold-start notice** this milestone added: it
-  shows two notices where the site now shows three. It cannot be retaken until the branch is deployed,
-  which is the only honest order for it.
+- **`docs/screenshots/landing.png` predates the cold-start notice** this milestone added: it shows two
+  notices where the site now shows three, and the M6 fix wave then widened the third to render on the
+  API-did-not-answer path as well. It cannot be retaken until the branch is deployed, which is the
+  only honest order for it. Nothing in the README is false meanwhile — the alt text says "the demo
+  notices" and states no count.
 - `apps/web/app/icon.svg`'s comment names `mark.tsx` but not `apple-icon.tsx`. Not a gap in practice —
   the chain closes, because `icon.svg` points at `mark.tsx` and `mark.tsx` enumerates all three copies
   of the geometry — so it is only worth touching if someone is in that file anyway.
