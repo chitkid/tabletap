@@ -217,7 +217,7 @@ pnpm db:seed -- --if-empty           # prints the twelve guest URLs it signs
 pnpm dev                             # web on :3000, api on :4000
 ```
 
-`pnpm test` needs none of that — the suite runs on PGlite in memory: 660 tests across the five packages (shared 52, db 17, ui 39, api 317, web 235).
+`pnpm test` needs none of that — the suite runs on PGlite in memory: 662 tests across the five packages (shared 52, db 17, ui 39, api 317, web 237).
 
 ## Scripts
 
