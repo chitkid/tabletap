@@ -304,7 +304,10 @@ One pass over the whole branch before merge, from two reviews that found nothing
 - `isPhotoKeyFor` has a table-driven unit test at the port level, over the shapes that would pass a `startsWith` check.
 - `week-bars.test.tsx` no longer accepts `min-h-0` for the zero-day baseline; `playwright.config.ts` states `workers: 1` with the reason; `qrVersionOf` in `e2e/admin.spec.ts` reads an absent `v` claim as version 1, per ADR 0013.
 - The Lighthouse gate audits `/admin/menu` and `/admin/tables` as well as the dashboard — six pages, still gated at 95 for accessibility.
-- The MinIO images are pinned (`minio/minio:RELEASE.2025-09-07T16-13-09Z`, `minio/mc:RELEASE.2025-08-13T08-35-41Z`).
+- The MinIO images are pinned (`quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z`,
+  `quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z`). They moved to quay.io on 2026-09-13: Docker Hub
+  answers 404 for both repositories now, and the pull failure is instant and blames the commit
+  rather than the registry.
 - Documents: `design-system/tabletap/MASTER.md` no longer describes the `--spacing` override Task 1 deleted; ADR 0012 no longer claims the application keeps objects and rows in step, and names the scheduled reset; the README states what CI has actually run, describes `GET /api/tables`'s real guard, and leads with the redirect guard rather than an unverified claim about cookies.
 
 ## Deferred from M6
