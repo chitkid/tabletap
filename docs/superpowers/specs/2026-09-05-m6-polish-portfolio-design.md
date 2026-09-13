@@ -1,6 +1,6 @@
 # M6 Polish + Portfolio — Design Spec
 
-Date: 2026-09-05. Status: approved by the owner on 2026-09-05; implementation plan written and executed on `feat/m6-polish`. Not merged — the whole-branch review has not run.
+Date: 2026-09-05. Status: approved by the owner on 2026-09-05; implemented on `feat/m6-polish` and merged into `main` on 2026-09-07 (fast-forward, 54 commits) after a whole-branch review and one fix wave. The demo is live at https://tabletap-web.vercel.app.
 Project: TableTap — QR table ordering with a real-time kitchen display (portfolio full-stack project).
 Milestone: M6 of six, and the last. Builds on M1 Foundation, M2 Guest flow + demo landing, M3 Kitchen display, M4 Payments and M5 Admin (all merged into `main`). The master brief remains the permanent context; this spec covers M6 only.
 
