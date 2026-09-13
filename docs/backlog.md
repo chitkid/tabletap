@@ -441,11 +441,6 @@ single shared rate-limit bucket — rather than repeated here.
 
 **Documents and identity**
 
-- **`docs/screenshots/landing.png` predates the cold-start notice** this milestone added: it shows two
-  notices where the site now shows three, and the M6 fix wave then widened the third to render on the
-  API-did-not-answer path as well. It cannot be retaken until the branch is deployed, which is the
-  only honest order for it. Nothing in the README is false meanwhile — the alt text says "the demo
-  notices" and states no count.
 - `apps/web/app/icon.svg`'s comment names `mark.tsx` but not `apple-icon.tsx`. Not a gap in practice —
   the chain closes, because `icon.svg` points at `mark.tsx` and `mark.tsx` enumerates all three copies
   of the geometry — so it is only worth touching if someone is in that file anyway.
