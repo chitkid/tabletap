@@ -9,6 +9,7 @@ import {
   Input,
   Label,
 } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { authClient } from '../lib/auth-client';
 
@@ -29,15 +30,25 @@ export interface AuthClientLike {
 
 type Status = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'error'; message: string };
 
-/** Brand voice: name what happened and what to do, no apology. */
-const MESSAGE_BY_STATUS: Record<number, string> = {
-  401: "That email and password don't match.",
-  429: 'Too many attempts. Wait a minute and try again.',
+/**
+ * The refusals this form owns, as **dictionary keys** rather than sentences: a table of English
+ * built here and rendered through a variable is English on screen that no JSX text node carries,
+ * which is the shape `apps/web/i18n/no-orphan-strings.test.ts` exists to refuse.
+ *
+ * better-auth answers a wrong password in English over the wire (`result.error.message`); this
+ * form has never quoted it and still does not. It reads only the HTTP status, which is a number,
+ * and says the rest itself — so a guest's word for a refusal is the copy contract's, not the
+ * auth library's. Brand voice: name what happened and what to do, no apology.
+ */
+const MESSAGE_KEY_BY_STATUS: Record<number, 'wrongCredentials' | 'rateLimited'> = {
+  401: 'wrongCredentials',
+  429: 'rateLimited',
 };
-const UNREACHABLE = "Can't reach the server. Check the connection and try again.";
 
-function messageFor(status?: number): string {
-  return (status === undefined ? undefined : MESSAGE_BY_STATUS[status]) ?? UNREACHABLE;
+/** A thrown fetch carries no status at all, and an unmapped one is no more legible than none. */
+function messageKeyFor(httpStatus?: number): 'wrongCredentials' | 'rateLimited' | 'unreachable' {
+  if (httpStatus === undefined) return 'unreachable';
+  return MESSAGE_KEY_BY_STATUS[httpStatus] ?? 'unreachable';
 }
 
 /** The seeded credentials the landing hands over for a one-click demo sign-in. */
@@ -58,6 +69,7 @@ export function LoginForm({
   next: string;
   navigate?: (href: string) => void;
 }) {
+  const t = useTranslations('login');
   const session = client.useSession();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const errorId = useId();
@@ -79,21 +91,20 @@ export function LoginForm({
       .email({ email: demo.email, password: demo.password })
       .then((result) => {
         if (result.error) {
-          setStatus({ kind: 'error', message: messageFor(result.error.status) });
+          setStatus({ kind: 'error', message: t(messageKeyFor(result.error.status)) });
           return;
         }
         setStatus({ kind: 'idle' });
         session.refetch?.();
       })
-      .catch(() => setStatus({ kind: 'error', message: UNREACHABLE }));
-  }, [client, demo, session]);
+      .catch(() => setStatus({ kind: 'error', message: t('unreachable') }));
+  }, [client, demo, session, t]);
 
   if (session.data) {
     return (
-      <p
-        role="status"
-        aria-live="polite"
-      >{`Signed in as ${session.data.user.name}. Opening the kitchen…`}</p>
+      <p role="status" aria-live="polite">
+        {t('signedInAs', { name: session.data.user.name })}
+      </p>
     );
   }
 
@@ -107,13 +118,13 @@ export function LoginForm({
         password: String(data.get('password') ?? ''),
       });
       if (result.error) {
-        setStatus({ kind: 'error', message: messageFor(result.error.status) });
+        setStatus({ kind: 'error', message: t(messageKeyFor(result.error.status)) });
         return;
       }
       setStatus({ kind: 'idle' });
       session.refetch?.();
     } catch {
-      setStatus({ kind: 'error', message: UNREACHABLE });
+      setStatus({ kind: 'error', message: t('unreachable') });
     }
   }
 
@@ -121,18 +132,18 @@ export function LoginForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Staff sign in</CardTitle>
-        <CardDescription>
-          Use the demo accounts from the README. The kitchen board opens after sign-in.
-        </CardDescription>
+        <CardTitle>{t('heading')}</CardTitle>
+        <CardDescription>{t('text')}</CardDescription>
       </CardHeader>
       <CardContent>
         {demo && submitting ? (
-          <p role="status" aria-live="polite">{`Signing in as ${demo.name}…`}</p>
+          <p role="status" aria-live="polite">
+            {t('signingInAs', { name: demo.name })}
+          </p>
         ) : (
           <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('email')}</Label>
               <Input
                 id="email"
                 name="email"
@@ -143,7 +154,7 @@ export function LoginForm({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('password')}</Label>
               <Input
                 id="password"
                 name="password"
@@ -159,7 +170,7 @@ export function LoginForm({
               {status.kind === 'error' ? status.message : ''}
             </p>
             <Button type="submit" disabled={submitting} aria-busy={submitting}>
-              {submitting ? 'Signing in…' : 'Sign in'}
+              {submitting ? t('submitting') : t('submit')}
             </Button>
           </form>
         )}

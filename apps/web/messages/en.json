@@ -309,6 +309,19 @@
       }
     }
   },
+  "login": {
+    "heading": "Staff sign in",
+    "text": "Enter your work email and password.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "signingInAs": "Signing in as {name}…",
+    "signedInAs": "Signed in as {name}. Opening the staff area…",
+    "wrongCredentials": "That email and password don't match. Check them and try again.",
+    "rateLimited": "Too many sign-in attempts. Wait a minute and try again.",
+    "unreachable": "Can't reach the server. Check the connection and try again."
+  },
   "common": {
     "notFound": {
       "heading": "Nothing here.",

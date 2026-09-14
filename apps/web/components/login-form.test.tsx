@@ -1,7 +1,33 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor, type RenderOptions } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { IntlMessageFormat } from 'intl-messageformat';
+import { NextIntlClientProvider } from 'next-intl';
+import type { ReactElement, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import ru from '../messages/ru.json';
 import { LoginForm, type AuthClientLike } from './login-form';
+
+const withIntl = ({ children }: { children: ReactNode }) => (
+  <NextIntlClientProvider locale="ru" messages={ru}>
+    {children}
+  </NextIntlClientProvider>
+);
+const render = (ui: ReactElement, options?: RenderOptions) =>
+  rtlRender(ui, { wrapper: withIntl, ...options });
+
+/**
+ * Every word here is read out of `messages/ru.json`, never retyped: the sign-in copy binds «и» and
+ * «не» to the word after them with U+00A0, and a hand-typed plain space would make these
+ * assertions stop asserting while still passing. `getByRole(…, { name })` compares the accessible
+ * name with an identity normaliser, so it takes the dictionary's bytes as they are;
+ * `toHaveTextContent` and `getByText` collapse U+00A0 to a plain space in the *element* and leave
+ * the expected string alone, so those take `plain()`.
+ */
+const L = ru.login;
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const fill = (message: string, values: Record<string, string>) =>
+  String(new IntlMessageFormat(message, 'ru-RU').format(values));
 
 function makeClient(over: Partial<AuthClientLike> = {}): AuthClientLike {
   return {
@@ -12,45 +38,56 @@ function makeClient(over: Partial<AuthClientLike> = {}): AuthClientLike {
   };
 }
 
+const typeCredentials = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.type(screen.getByLabelText(L.email), 'a@b.c');
+  await user.type(screen.getByLabelText(L.password), 'x');
+  await user.click(screen.getByRole('button', { name: L.submit }));
+};
+
 describe('LoginForm', () => {
   it('submits email and password', async () => {
+    const user = userEvent.setup();
     const client = makeClient();
     render(<LoginForm client={client} next="/kitchen" />);
-    await userEvent.type(screen.getByLabelText('Email'), 'kitchen@littlefurnace.demo');
-    await userEvent.type(screen.getByLabelText('Password'), 'tabletap-demo');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await user.type(screen.getByLabelText(L.email), 'kitchen@littlefurnace.demo');
+    await user.type(screen.getByLabelText(L.password), 'tabletap-demo');
+    await user.click(screen.getByRole('button', { name: L.submit }));
     expect(client.signIn.email).toHaveBeenCalledWith({
       email: 'kitchen@littlefurnace.demo',
       password: 'tabletap-demo',
     });
   });
-  it('shows the brand-voice message on a 401', async () => {
+  it('says a wrong password in the contract’s words, not in better-auth’s', async () => {
+    const user = userEvent.setup();
     const client = makeClient({
-      signIn: { email: vi.fn(async () => ({ error: { status: 401, message: 'Invalid' } })) },
+      // better-auth answers in English over the wire. The form reads the status and says the rest
+      // itself, so this English must not reach the screen — Task 12 owns what the API does send.
+      signIn: {
+        email: vi.fn(async () => ({ error: { status: 401, message: 'Invalid password' } })),
+      },
     });
     render(<LoginForm client={client} next="/kitchen" />);
-    await userEvent.type(screen.getByLabelText('Email'), 'a@b.c');
-    await userEvent.type(screen.getByLabelText('Password'), 'x');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await typeCredentials(user);
     const alert = await screen.findByRole('status');
-    expect(alert).toHaveTextContent("That email and password don't match.");
-    expect(screen.getByLabelText('Password')).toHaveAttribute('aria-describedby', alert.id);
+    expect(alert).toHaveTextContent(plain(L.wrongCredentials));
+    expect(alert.textContent).not.toContain('Invalid password');
+    expect(screen.getByLabelText(L.password)).toHaveAttribute('aria-describedby', alert.id);
   });
-  it('names the rate limit on a 429', async () => {
+  it('names the rate limit on a 429, and not the same sentence as a wrong password', async () => {
+    const user = userEvent.setup();
     const client = makeClient({
       signIn: {
         email: vi.fn(async () => ({ error: { status: 429, message: 'Too many requests' } })),
       },
     });
     render(<LoginForm client={client} next="/kitchen" />);
-    await userEvent.type(screen.getByLabelText('Email'), 'a@b.c');
-    await userEvent.type(screen.getByLabelText('Password'), 'x');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Too many attempts. Wait a minute and try again.',
-    );
+    await typeCredentials(user);
+    const alert = await screen.findByRole('status');
+    expect(alert).toHaveTextContent(plain(L.rateLimited));
+    expect(alert.textContent).not.toContain(plain(L.wrongCredentials));
   });
-  it('shows a network message on other failures', async () => {
+  it('shows the network message when the request never reached a status', async () => {
+    const user = userEvent.setup();
     const client = makeClient({
       signIn: {
         email: vi.fn(async () => {
@@ -59,14 +96,11 @@ describe('LoginForm', () => {
       },
     });
     render(<LoginForm client={client} next="/kitchen" />);
-    await userEvent.type(screen.getByLabelText('Email'), 'a@b.c');
-    await userEvent.type(screen.getByLabelText('Password'), 'x');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      "Can't reach the server. Check the connection and try again.",
-    );
+    await typeCredentials(user);
+    expect(await screen.findByRole('status')).toHaveTextContent(plain(L.unreachable));
   });
   it('disables the button while submitting', async () => {
+    const user = userEvent.setup();
     let resolve!: (v: { error: null }) => void;
     const client = makeClient({
       signIn: {
@@ -79,12 +113,10 @@ describe('LoginForm', () => {
       },
     });
     render(<LoginForm client={client} next="/kitchen" />);
-    await userEvent.type(screen.getByLabelText('Email'), 'a@b.c');
-    await userEvent.type(screen.getByLabelText('Password'), 'x');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(screen.getByRole('button', { name: 'Signing in…' })).toBeDisabled();
+    await typeCredentials(user);
+    expect(screen.getByRole('button', { name: L.submitting })).toBeDisabled();
     resolve({ error: null });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: L.submit })).toBeEnabled());
   });
   it('navigates to `next` once the session resolves', async () => {
     const navigate = vi.fn();
@@ -96,7 +128,7 @@ describe('LoginForm', () => {
     });
     render(<LoginForm client={client} next="/kitchen" navigate={navigate} />);
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Signed in as Тимофей Басов. Opening the kitchen…',
+      plain(fill(L.signedInAs, { name: 'Тимофей Басов' })),
     );
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/kitchen'));
   });
@@ -114,7 +146,9 @@ describe('LoginForm', () => {
         }}
       />,
     );
-    expect(screen.getByRole('status')).toHaveTextContent('Signing in as Тимофей Басов…');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      plain(fill(L.signingInAs, { name: 'Тимофей Басов' })),
+    );
     await waitFor(() =>
       expect(email).toHaveBeenCalledWith({
         email: 'kitchen@littlefurnace.demo',
@@ -134,7 +168,7 @@ describe('LoginForm', () => {
         demo={{ email: 'x@y.z', password: 'p', name: 'X' }}
       />,
     );
-    expect(await screen.findByText("That email and password don't match.")).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+    expect(await screen.findByText(plain(L.wrongCredentials))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: L.submit })).toBeInTheDocument();
   });
 });
