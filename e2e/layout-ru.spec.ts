@@ -11,14 +11,24 @@ import ru from '../apps/web/messages/ru.json';
  * can see them is a browser with the strings on screen. So: real geometry, at 375 px and 1280 px,
  * against the dictionary's own words.
  *
- * Every assertion here is a comparison between two measured numbers or a count of distinct
- * top edges — never a class list. Reverting any one of the four fixes turns exactly one of them
- * red, and each was proved that way before this file was committed; the figures are in
- * `.superpowers/sdd/2026-09-14-russian-localisation/task-10-report.md`.
+ * Every *layout* assertion here is a comparison between two measured numbers or a count of
+ * distinct top edges — never a class list. (Two assertions in this file are not layout: the
+ * seeded basket total is confirmed with `toContainText('11 510')`, and the parsed order number
+ * with `not.toBeNaN()` — both guard the fixture the layout checks then run against, not geometry.)
+ * Four checks were each proved by reverting the one fix they guard and watching it go red — R3,
+ * R4, R8 and R6 — with the figures in
+ * `.superpowers/sdd/2026-09-14-russian-localisation/task-10-report.md`. Two more stand as a net
+ * rather than a proof of a fix: the landing's sideways-scroll loop guards Task 4's replacement of
+ * the section the audit found already broken in English, and the basket-bar check guards a site
+ * this task measured clean and deliberately left alone. Both are worth having; neither has a
+ * revert of its own that turns it red.
  *
- * Selectors come from `messages/ru.json`, never from the screen: `getByRole(…, { name })` matches
- * the accessible name with an identity normaliser, so a hand-typed «В наличии» with an ordinary
- * space in place of the dictionary's U+00A0 would silently match nothing.
+ * Every *string from the interface* comes from `messages/ru.json`, never typed against the
+ * screen: `getByRole(…, { name })` matches the accessible name with an identity normaliser, so a
+ * hand-typed «В наличии» with an ordinary space in place of the dictionary's U+00A0 would silently
+ * match nothing. Seed data — `FIRST_CATEGORY`, the dish names passed to `addDish` — is named
+ * directly instead, because it is fixture data the seed script owns, not interface copy the
+ * dictionary owns.
  */
 
 const GUEST = ru.guest;
@@ -127,10 +137,14 @@ test('the guest surface holds every row it puts side by side', async ({ page }) 
     ).toBeLessThanOrEqual((await boxOf(bar)).top);
   }
 
-  // The terminal. Pay and Decline are one row inside a `max-w-sm` card, and the base button is
-  // `shrink-0 whitespace-nowrap`, so a label that outgrows its share of the row used to widen its
-  // own column and push the card open. 320 px carries this one: at 375 px the four-figure total
-  // the comment in `demo-terminal.tsx` was written against still fits.
+  // The terminal. Pay and Decline are one row inside a `max-w-sm` card. `grid-cols-2` is
+  // `repeat(2, minmax(0, 1fr))` — its minimum is 0, so it never widened to push the card open.
+  // What outgrew its box was the label, inside its own button's content box: `shrink-0
+  // whitespace-nowrap` on the base button means a label that needs more room than that box has
+  // just overflows it in place. At 375 px the five-figure total needed only 1.22 px per side more
+  // than its button had — real, but into the button's own padding, nothing clipped, no visible
+  // break. 320 px carries the visible one, where the same label runs past the button's painted
+  // edge.
   await page.setViewportSize({ width: PHONE, height: 900 });
   await page.getByRole('button', { name: GUEST.basket.open }).click();
   await page.getByRole('link', { name: GUEST.basket.checkout }).click();
@@ -165,7 +179,7 @@ test('the guest surface holds every row it puts side by side', async ({ page }) 
           inner: el.getBoundingClientRect().width - inset,
         };
       });
-      expect(fit.label, `a label ran past its button at ${width}px`).toBeLessThanOrEqual(
+      expect(fit.label, `a label ran past its content box at ${width}px`).toBeLessThanOrEqual(
         fit.inner + 0.02,
       );
     }
@@ -262,18 +276,22 @@ test('the admin row keeps its controls on one line and its switch one width', as
   // The category editor's caption became visible, and `ROW_LINE` says that costs the row no
   // height: "a table whose lines change size when a cell becomes an input jumps under the hand
   // that pressed Edit". The caption sits beside the input rather than above it for that reason,
-  // so the open row has to measure exactly what the closed one did.
-  const closed = page.getByRole('row').filter({ hasText: FIRST_CATEGORY }).first();
-  const closedHeight = (await boxOf(closed)).height;
-  await closed.getByRole('button', { name: ADMIN.actions.edit }).click();
-  const categoryName = page.getByLabel(ADMIN.menu.categoryName);
-  await categoryName.waitFor();
-  const opened = page.getByRole('row').filter({ has: page.getByLabel(ADMIN.menu.categoryName) });
+  // so the open row has to measure exactly what the closed one did — at the *same* width, since a
+  // `closedHeight` taken once and reused for every width would still pass if the closed row's own
+  // height ever differed by width and the open row grew to match it rather than its own closed
+  // baseline. Open, measure, close again inside the loop so each width checks itself.
+  const closedRow = page.getByRole('row').filter({ hasText: FIRST_CATEGORY }).first();
   for (const width of [PHONE, DESKTOP]) {
     await page.setViewportSize({ width, height: 900 });
+    const closedHeight = (await boxOf(closedRow)).height;
+    await closedRow.getByRole('button', { name: ADMIN.actions.edit }).click();
+    const categoryName = page.getByLabel(ADMIN.menu.categoryName);
+    await categoryName.waitFor();
+    const opened = page.getByRole('row').filter({ has: page.getByLabel(ADMIN.menu.categoryName) });
     expect((await boxOf(opened)).height, `the open category row at ${width}px`).toBe(closedHeight);
+    await page.getByRole('button', { name: ADMIN.actions.cancel }).first().click();
+    await categoryName.waitFor({ state: 'detached' });
   }
-  await page.getByRole('button', { name: ADMIN.actions.cancel }).first().click();
 
   await page.getByRole('button', { name: ADMIN.actions.edit }).nth(1).click();
   const toggle = page.getByRole('switch', { name: ADMIN.menu.available });
