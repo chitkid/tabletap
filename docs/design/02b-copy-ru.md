@@ -93,63 +93,71 @@ Russian breaks: «1 заказ», «2 заказа», «5 заказов» needs
 
 ## The landing, in full
 
-Working from the owner's draft, with the changes noted.
+**Superseded on 2026-09-14 by the owner's instruction that the site must read as a real
+restaurant's, not as a demonstration of a project.** What follows is the approved version; the
+earlier draft — three role cards, the demo notices, the rush control and a technology list — is
+gone, and the reasons are recorded under «Что убрано» below so the removal does not read as an
+oversight.
 
-**`apps/web/messages/ru.json` is the authoritative artifact for typography, not this file.** It
-carries the non-breaking spaces (U+00A0) this section describes below — before short prepositions
-and conjunctions (на, в, с, и, от, по, без, под, со, как, или…) and between a number and its noun
-(«стол 7», «60 минут») — and this file has been updated to match it, so the two agree rather than
-quietly diverging. If they ever disagree again, the dictionary wins; fix this file to match it, not
-the other way round.
+**`<title>`** — «Little Furnace — заказ со стола по QR-коду»
 
-**`<title>`** — «TableTap — заказ по QR-коду и живая доска заказов на кухне»
+The product's name is not in the title any more. A restaurant's page is titled with the
+restaurant's name; TableTap is what the place runs on, and the repository is where that is
+explained.
 
-**Description** — «Гость сканирует код на столе, выбирает блюда и оформляет заказ. Кухня видит его
-в тот же момент. Демо открыто, без регистрации.»
+**Description** — «Отсканируйте код на столе, выберите блюда и оформите заказ. Кухня получает его
+сразу, ждать официанта не нужно.»
 
-**Hero.** The owner's line is kept almost intact; it is already the thesis, and the direction's
-display face is set in uppercase, so it is written to survive that:
+**Header.** The restaurant's name on the left, «Вход для сотрудников» on the right.
 
-> ## Заказ со стола.
+**Hero.**
+
+> ## Заказ со стола.
 >
-> ## Через секунду он на кухне.
+> ## Через секунду он на кухне.
 
-The draft's «Кухня видит его в тот же момент» is the more literal sentence and the weaker one — «в
-тот же момент» is an abstraction, «через секунду» is a measurement, and this product has the
-measurement: 34 мс от оплаты до доски. The subtitle carries it:
+The owner's draft read «Кухня видит его в тот же момент». «В тот же момент» is an abstraction and
+«через секунду» is a measurement, and this product has the measurement — 34 ms from payment to the
+board. Subtitle:
 
-> Гость нажимает — тикет печатается на кухне. Ниже это можно сделать самому.
+> Отсканируйте код на столе, выберите блюда и оформите заказ. Ждать официанта не нужно — кухня
+> получает заказ сразу.
 
-**Role cards.**
-
-| Карточка | Текст                                                                                  | Кнопка                   |
-| -------- | -------------------------------------------------------------------------------------- | ------------------------ |
-| Гость    | Отсканируйте код телефоном или откройте стол 7 прямо здесь.                            | Открыть стол 7 как гость |
-| Кухня    | Тикеты появляются в момент заказа. Откроется живая доска под учётной записью повара.   | Открыть доску кухни      |
-| Админ    | Меню, столы, QR-коды и итоги дня. Откроется панель под учётной записью администратора. | Открыть панель админа    |
-
-Changed from the draft: «сотрудника кухни» → «повара» (shorter, and it is a person rather than a
-role title); «итоги дня» kept over «отчёт» because the admin screen is a day, not a report.
-
-**Notices.**
-
-- «Оплата в демо-режиме: без карты и без денег.»
-- «Демо-данные сбрасываются каждые 60 минут.»
-- «На бесплатном тарифе кухня засыпает, когда никого нет, поэтому первая страница после затишья
-  может открываться до минуты.» — this line already exists in English and is measured (34 s cold,
-  0.6 s warm); the Russian keeps the measurement rather than softening it.
-
-**Час пик.** Button «Устроить час пик», under it «Двенадцать заказов за минуту, чтобы доске было чем
-заняться.»
+**The guest's one action** — a single button, «Открыть меню стола 7».
 
 **«Как это работает»** — the one place numbering is earned, because the content is a sequence:
 
-1. Отсканируйте QR-код на столе
-2. Выберите блюда и добавьте заметку
+1. Отсканируйте QR-код на столе
+2. Выберите блюда и добавьте заметку
 3. Оформите заказ
-4. Следите за статусом на телефоне
+4. Следите за статусом на телефоне
 
-**Footer** — «Исходный код, решения и разбор проекта — в README репозитория.»
+**«Часы работы»** — понедельник–четверг 12:00 — 23:00, пятница и суббота 12:00 — 01:00,
+воскресенье 12:00 — 22:00.
+
+**The back of house.** A band at the foot of the page, inverted — dark ground, light text — under
+the heading «Служебная зона», with the line «Для сотрудников зала и кухни. Вход по учётной записи.»
+and two controls: «Доска кухни» and «Панель администратора».
+
+The inversion is the only one on the page and it is where inversion means something: the front of
+house and the back of house are separated on screen the way they are separated in the building. The
+owner asked for a **visible** staff entrance, so it is a band and a header link rather than a
+footnote.
+
+## Что убрано, и что с этим делать
+
+Everything that gave the demonstration away is gone: the demo-mode notice, the reset notice, the
+cold-start notice, «Устроить час пик» and its caption, the technology list, the repository link and
+the three role cards.
+
+**Two of those described real behaviour, and deleting the words does not delete the behaviour.**
+They are replaced by explanations at the moment they apply, which is the honest form:
+
+- **The hourly reset.** No banner. When an order is gone, its own screen says so: «Этот заказ больше
+  не активен. Отсканируйте код на столе, чтобы начать заново.» The guest reads it once, when it is
+  true, instead of being warned in advance about something that may never happen to them.
+- **The cold start.** No warning. A loading state that reserves its space and does not pretend to be
+  instant. No promise the product does not keep.
 
 ## What is not settled here
 
