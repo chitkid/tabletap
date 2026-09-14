@@ -308,7 +308,13 @@
       }
     }
   },
-  "common": {},
+  "common": {
+    "notFound": {
+      "heading": "Nothing here.",
+      "text": "The link may be old or mistyped.",
+      "home": "Back to the start"
+    }
+  },
   "status": {
     "guest": {
       "draft": "Waiting for payment",

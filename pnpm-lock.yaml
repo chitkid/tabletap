@@ -132,7 +132,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@fontsource/bricolage-grotesque':
+      '@fontsource/pt-sans-narrow':
         specifier: 5.3.0
         version: 5.3.0
       '@tabletap/shared':
@@ -1302,8 +1302,8 @@ packages:
   '@fastify/swagger@9.8.1':
     resolution: {integrity: sha512-VpHMnqZTY8iBZYJE8WWkbKPrXIYWy2rDfIf5qLr6DzZSpQYZ+KxQVcJFiq/AMlvNwI4gCBd66++iUlxXXGT0IQ==}
 
-  '@fontsource/bricolage-grotesque@5.3.0':
-    resolution: {integrity: sha512-MdOVb/5in11IfN/IQJOExMuu6AroCIQbirl0yX7NUvKk+h0HYIKfGaVAXRS/gCPil4aFxWhjZnOw28tUwv7tFw==}
+  '@fontsource/pt-sans-narrow@5.3.0':
+    resolution: {integrity: sha512-MVVT3W4L5TCuzSZAhsRQRWTGBhDOarcSBQ0PuuSJ44me4gMWRzz01waS/3XebrRKEyrSobted3E4aI2uudR/Og==}
 
   '@formatjs/ecma402-abstract@2.3.6':
     resolution: {integrity: sha512-HJnTFeRM2kVFVr5gr5kH1XP6K0JcJtE7Lzvtr3FS/so5f1kpsqqqxy5JF+FRaO6H2qmcMfAUIox7AJteieRtVw==}
@@ -6426,7 +6426,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@fontsource/bricolage-grotesque@5.3.0': {}
+  '@fontsource/pt-sans-narrow@5.3.0': {}
 
   '@formatjs/ecma402-abstract@2.3.6':
     dependencies:
