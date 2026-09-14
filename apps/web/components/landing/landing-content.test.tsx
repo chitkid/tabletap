@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { IntlMessageFormat } from 'intl-messageformat';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -44,6 +45,10 @@ const withProvider = (ui: ReactElement) => (
  * Built from its code point rather than pasted as an invisible literal, so it survives diffs.
  */
 const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const fill = (message: string, values: Record<string, string | number>) =>
+  String(new IntlMessageFormat(message, 'ru-RU').format(values));
+const L = ru.landing;
 
 describe('LandingContent', () => {
   it('does not advertise itself as a demonstration', () => {
@@ -63,21 +68,18 @@ describe('LandingContent', () => {
 
   it('offers the guest one action and the staff a visible door', () => {
     render(withProvider(<LandingContent links={links} />));
-    expect(screen.getByRole('link', { name: `Открыть меню стола${NBSP}7` })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: fill(L.guestCta, { table: 7 }) })).toHaveAttribute(
       'href',
       '/t/abc.def.ghi',
     );
-    expect(screen.getByRole('link', { name: `Вход для${NBSP}сотрудников` })).toHaveAttribute(
-      'href',
-      '/login',
-    );
-    expect(screen.getByRole('link', { name: 'Доска кухни' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: L.staffEntrance })).toHaveAttribute('href', '/login');
+    expect(screen.getByRole('link', { name: L.staff.kitchen })).toHaveAttribute(
       'href',
       '/login?demo=kitchen',
     );
     // With `next`, or the door signs an admin in and drops them on the kitchen board, which is
     // what `/login` defaults to.
-    expect(screen.getByRole('link', { name: 'Панель администратора' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: L.staff.admin })).toHaveAttribute(
       'href',
       '/login?demo=admin&next=/admin',
     );
@@ -85,22 +87,20 @@ describe('LandingContent', () => {
 
   it('reads as the restaurant, headline and hours included', () => {
     render(withProvider(<LandingContent links={links} />));
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Little Furnace');
-    // A `name` regex is matched against the raw accessible name too, NBSP and all - the dictionary
-    // binds «на» to «кухне», so a plain space here finds nothing. Demonstrated, not assumed: this
-    // line failed exactly that way before the NBSP went in.
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(L.brand);
+    // The accessible name is compared raw, U+00A0 and all - the dictionary binds «на» to «кухне»,
+    // and this line failed exactly that way before the NBSP went in. Both halves of the headline,
+    // because the second one alone is a sentence the first one's absence would not disturb.
     expect(
-      screen.getByRole('heading', { name: new RegExp(`Через секунду он на${NBSP}кухне`) }),
+      screen.getByRole('heading', { name: `${L.hero.line1}${L.hero.line2}` }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Как это работает' })).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(
-      ru.landing.howItWorks.steps,
-    );
-    expect(screen.getByRole('heading', { name: 'Часы работы' })).toBeInTheDocument();
-    // `toHaveTextContent` collapses U+00A0 to a plain space before matching, so this plain space
-    // is correct as written; do not "fix" it to the NBSP the dictionary carries.
-    expect(screen.getByRole('heading', { name: 'Часы работы' }).parentElement).toHaveTextContent(
-      'пятница и суббота',
+    expect(screen.getByRole('heading', { name: L.howItWorks.heading })).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(L.howItWorks.steps);
+    const hours = screen.getByRole('heading', { name: L.hours.heading });
+    // `toHaveTextContent` collapses U+00A0 in the element and not in the expected string, hence
+    // `plain()`; the day and its hours are asserted as the pair the page actually shows.
+    expect(hours.parentElement).toHaveTextContent(
+      plain(`${L.hours.weekend}${L.hours.weekendTime}`),
     );
   });
 
@@ -111,17 +111,17 @@ describe('LandingContent', () => {
       // The one inversion on the page. `dark` is what re-points every semantic colour token at
       // the night set (packages/ui/tokens.css); losing the class is a silent loss of the band.
       expect(band).toHaveClass('dark');
-      expect(band).toHaveTextContent('Служебная зона');
-      expect(band).toContainElement(screen.getByRole('link', { name: 'Доска кухни' }));
-      expect(band).toContainElement(screen.getByRole('link', { name: 'Панель администратора' }));
+      expect(band).toHaveTextContent(plain(L.staff.heading));
+      expect(band).toContainElement(screen.getByRole('link', { name: L.staff.kitchen }));
+      expect(band).toContainElement(screen.getByRole('link', { name: L.staff.admin }));
       unmount();
     }
   });
 
   it('drops the guest action, and only that, when the demo links are missing', () => {
     render(withProvider(<LandingContent links={null} />));
-    expect(screen.queryByRole('link', { name: new RegExp('Открыть меню стола') })).toBeNull();
-    expect(screen.getByRole('link', { name: `Вход для${NBSP}сотрудников` })).toBeVisible();
+    expect(screen.queryByRole('link', { name: fill(L.guestCta, { table: 7 }) })).toBeNull();
+    expect(screen.getByRole('link', { name: L.staffEntrance })).toBeVisible();
     expect(screen.queryByRole('status')).toBeNull();
   });
 
@@ -132,7 +132,7 @@ describe('LandingContent', () => {
     const said = 'The demo landing needs an active table 7. Restore it in the admin.';
     render(withProvider(<LandingContent links={null} notice={said} />));
     expect(screen.getByRole('status')).toHaveTextContent(said);
-    expect(screen.queryByRole('link', { name: new RegExp('Открыть меню стола') })).toBeNull();
+    expect(screen.queryByRole('link', { name: fill(L.guestCta, { table: 7 }) })).toBeNull();
   });
 
   it('hands the page to a first-paint entrance, as its grandchildren', () => {

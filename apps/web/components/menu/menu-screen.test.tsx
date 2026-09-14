@@ -2,9 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DEFAULT_PLATE_KIND, type MenuResponse, type PlateKind } from '@tabletap/shared';
 import { Plate } from '@tabletap/ui';
+import { IntlMessageFormat } from 'intl-messageformat';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { formatCents } from '../../lib/money';
 import ru from '../../messages/ru.json';
 import { MenuScreen } from './menu-screen';
 
@@ -15,6 +17,20 @@ const withProvider = (ui: ReactElement) => (
     {ui}
   </NextIntlClientProvider>
 );
+
+/**
+ * Every word below is read out of `messages/ru.json`. «Стол 7» and the basket's count both bind a
+ * number to its noun with U+00A0, and the guest surface is full of the same byte: `getByRole(…,
+ * { name })` matches with an identity normaliser and needs it, while `getByText` and
+ * `toHaveTextContent` collapse it in the element and leave the expected string alone - hence
+ * `plain()`.
+ */
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const fill = (message: string, values: Record<string, string | number>) =>
+  String(new IntlMessageFormat(message, 'ru-RU').format(values));
+const M = ru.guest.menu;
+const B = ru.guest.basket;
 
 const U = (n: number) => `018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f${n.toString(16).padStart(2, '0')}`;
 const menu: MenuResponse = {
@@ -66,27 +82,31 @@ describe('MenuScreen', () => {
   it('renders sections with navigation, builds a basket and opens the sheet', async () => {
     render(withProvider(<MenuScreen menu={menu} tableId="t1" tableNumber={7} />));
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Little Furnace');
-    // `guest.table` binds the number to «Стол» with U+00A0; `getByText` collapses it, so this
-    // fixture carries a plain space on purpose.
-    expect(screen.getByText('Стол 7')).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Разделы меню' })).toBeInTheDocument();
+    expect(screen.getByText(plain(fill(ru.guest.table, { number: 7 })))).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: M.sections })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Напитки' })).toHaveAttribute(
       'href',
       '#category-' + U(4),
     );
-    expect(screen.queryByRole('region', { name: 'Корзина' })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить «Хачапури по-аджарски»' }));
+    expect(screen.queryByRole('region', { name: B.region })).toBeNull();
     await userEvent.click(
-      screen.getByRole('button', { name: 'Добавить ещё одну порцию «Хачапури по-аджарски»' }),
+      screen.getByRole('button', { name: fill(M.addDish, { name: 'Хачапури по-аджарски' }) }),
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить «Морс из клюквы»' }));
-    // `basketItems` binds the count to its noun with a non-breaking space, but `toHaveTextContent`
-    // collapses U+00A0 to a plain space - this plain space is correct as is.
-    expect(screen.getByRole('region', { name: 'Корзина' })).toHaveTextContent(
-      '3 позиции · 1 640 ₽',
+    await userEvent.click(
+      screen.getByRole('button', { name: fill(M.addOneMore, { name: 'Хачапури по-аджарски' }) }),
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Открыть корзину' }));
-    expect(screen.getByRole('dialog', { name: 'Ваша корзина' })).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: fill(M.addDish, { name: 'Морс из клюквы' }) }),
+    );
+    // The bar's whole summary, not a fragment of it: `toHaveTextContent` is a substring match, and
+    // «3 позиции» alone would also pass on «13 позиций». The count comes through ICU - three forms
+    // in Russian, which is the case a binary rule gets wrong - and the money through the same
+    // formatter the bar uses, so this asserts the figure rather than re-deciding its shape.
+    expect(screen.getByRole('region', { name: B.region })).toHaveTextContent(
+      plain(`${fill(ru.guest.basketItems, { n: 3 })} · ${formatCents(164_000, 'RUB')}`),
+    );
+    await userEvent.click(screen.getByRole('button', { name: B.open }));
+    expect(screen.getByRole('dialog', { name: B.title })).toBeInTheDocument();
   });
 
   /**
@@ -142,16 +162,18 @@ describe('MenuScreen', () => {
 
   it('returns focus to the basket bar however the sheet is closed', async () => {
     render(withProvider(<MenuScreen menu={menu} tableId="t1" tableNumber={7} />));
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить «Морс из клюквы»' }));
-    const viewBasket = screen.getByRole('button', { name: 'Открыть корзину' });
+    await userEvent.click(
+      screen.getByRole('button', { name: fill(M.addDish, { name: 'Морс из клюквы' }) }),
+    );
+    const viewBasket = screen.getByRole('button', { name: B.open });
 
     await userEvent.click(viewBasket);
-    expect(screen.getByRole('dialog', { name: 'Ваша корзина' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: B.title })).toBeInTheDocument();
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(document.activeElement).toBe(viewBasket));
 
     await userEvent.click(viewBasket);
-    await userEvent.click(screen.getByRole('button', { name: 'Продолжить выбор' }));
+    await userEvent.click(screen.getByRole('button', { name: B.keepBrowsing }));
     await waitFor(() => expect(document.activeElement).toBe(viewBasket));
   });
 });

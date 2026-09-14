@@ -16,6 +16,11 @@ const withProvider = (ui: ReactElement) => (
   </NextIntlClientProvider>
 );
 
+/** `getByRole(…, { name })` keeps U+00A0; `getByText` and `toHaveTextContent` collapse it. */
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const C = ru.guest.claim;
+
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -35,7 +40,7 @@ describe('ClaimTable', () => {
       ),
     );
     render(withProvider(<ClaimTable token="abc" />));
-    expect(screen.getByRole('status')).toHaveTextContent('Ищем ваш стол…');
+    expect(screen.getByRole('status')).toHaveTextContent(plain(C.finding));
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/menu'));
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe('/api/guest/claim');
   });
@@ -69,11 +74,11 @@ describe('ClaimTable', () => {
       );
     vi.stubGlobal('fetch', f);
     render(withProvider(<ClaimTable token="abc" />));
-    // `getByText` collapses the U+00A0 binding «у» to its noun, so this fixture is a plain space.
-    expect(
-      await screen.findByText('Срок действия QR-кода истёк. Попросите у сотрудников новый.'),
-    ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Попробовать ещё раз' }));
+    expect(await screen.findByText(plain(C.expired))).toBeInTheDocument();
+    // The expired code and the invalid one are two different sentences, and a screen that said the
+    // wrong one would still find an element: this refuses the other reading of the same failure.
+    expect(screen.queryByText(plain(C.invalid))).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: C.retry }));
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/menu'));
   });
   it('maps the other failures', async () => {
@@ -82,9 +87,12 @@ describe('ClaimTable', () => {
       vi.fn(async () => json(404, { error: { code: 'NOT_FOUND', message: 'x' } })),
     );
     render(withProvider(<ClaimTable token="abc" />));
-    expect(await screen.findByText('Этот стол сейчас недоступен.')).toBeInTheDocument();
+    expect(await screen.findByText(plain(C.notFound))).toBeInTheDocument();
     // Try again cannot help a table that is gone: there has to be a way off this screen. The name
     // is read from the dictionary because `getByRole` does not collapse its U+00A0.
-    expect(screen.getByRole('link', { name: ru.guest.claim.home })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: C.home })).toHaveAttribute('href', '/');
+    // And not the sentence for a code that never was valid: both are 4xx, and a screen saying the
+    // wrong one of the two would still find an element for a query that only looked for any text.
+    expect(screen.queryByText(plain(C.invalid))).toBeNull();
   });
 });

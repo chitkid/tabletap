@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { IntlMessageFormat } from 'intl-messageformat';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { formatCents } from '../../lib/money';
 import ru from '../../messages/ru.json';
 import { DishCard } from './dish-card';
 
@@ -12,6 +14,13 @@ const withProvider = (ui: ReactElement) => (
     {ui}
   </NextIntlClientProvider>
 );
+
+/** `getByRole(…, { name })` keeps U+00A0; `getByText` collapses it in the element only. */
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const fill = (message: string, values: Record<string, string | number>) =>
+  String(new IntlMessageFormat(message, 'ru-RU').format(values));
+const M = ru.guest.menu;
 
 const item = {
   id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f60',
@@ -40,19 +49,19 @@ describe('DishCard', () => {
         />,
       ),
     );
-    // `getByText` collapses the U+00A0 Intl puts before the symbol, so this fixture is a plain
-    // space on purpose.
-    expect(screen.getByText('690 ₽')).toBeInTheDocument();
+    expect(screen.getByText(plain(formatCents(69_000, 'RUB')))).toBeInTheDocument();
     // The nine allergen names come from the shared `allergens` namespace, the same one the admin's
     // menu editor reads. `item.allergens` holds the enum — nine English identifiers — and printing
     // it directly is what «Содержит gluten, dairy» was.
     const list = [ru.allergens.gluten, ru.allergens.dairy].join(', ');
-    expect(screen.getByText(ru.guest.menu.allergens.replace('{list}', list))).toBeInTheDocument();
+    expect(screen.getByText(plain(fill(M.allergens, { list })))).toBeInTheDocument();
     expect(screen.queryByText(/gluten/)).toBeNull();
     // The plate repeats the heading beside it, so it is decoration, not an image worth naming.
     expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
     expect(screen.queryByRole('img')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить «Хачапури по-аджарски»' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: fill(M.addDish, { name: item.name }) }),
+    );
     expect(onAdd).toHaveBeenCalled();
     rerender(
       withProvider(
@@ -67,7 +76,7 @@ describe('DishCard', () => {
       ),
     );
     expect(
-      screen.getByRole('button', { name: 'Добавить ещё одну порцию «Хачапури по-аджарски»' }),
+      screen.getByRole('button', { name: fill(M.addOneMore, { name: item.name }) }),
     ).toBeInTheDocument();
   });
   it('marks a sold-out dish and offers no button', () => {
@@ -83,8 +92,8 @@ describe('DishCard', () => {
         />,
       ),
     );
-    expect(screen.getByText('Сегодня закончилось')).toBeInTheDocument();
-    expect(screen.getByText('Аллергены не указаны')).toBeInTheDocument();
+    expect(screen.getByText(plain(M.soldOut))).toBeInTheDocument();
+    expect(screen.getByText(plain(M.noAllergens))).toBeInTheDocument();
     expect(screen.queryByRole('button')).toBeNull();
   });
   /**

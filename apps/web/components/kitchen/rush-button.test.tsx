@@ -26,12 +26,14 @@ const NBSP = String.fromCharCode(0xa0);
 /** `getByRole(…, { name })` does not collapse U+00A0; `toHaveTextContent` does. */
 const plain = (s: string) => s.split(NBSP).join(' ');
 const START = ru.kitchen.rush.start;
+const planned = (n: number) =>
+  String(new IntlMessageFormat(ru.kitchen.rush.planned, 'ru-RU').format({ n }));
 
 describe('the planned-orders count', () => {
-  // Nothing here goes through @testing-library/dom, so nothing normalises whitespace: the ICU
-  // message binds the number to its noun with a real U+00A0 and the fixtures say so.
-  const format = (n: number) =>
-    new IntlMessageFormat(ru.kitchen.rush.planned, 'ru-RU').format({ n });
+  // The one place in this file that states the Russian rather than deriving it, because deriving
+  // it here would be the dictionary asserting about itself. Nothing below goes through
+  // @testing-library/dom, so nothing normalises whitespace: the ICU message binds the number to
+  // its noun with a real U+00A0 and the fixtures say so.
   // 11 and 21 are the pair that catches a naive rule: 21 takes the same form as 1, and 11 does not.
   it.each([
     [1, `1${NBSP}заказ`],
@@ -41,7 +43,7 @@ describe('the planned-orders count', () => {
     [21, `21${NBSP}заказ`],
     [101, `101${NBSP}заказ`],
   ])('declines the noun after %i', (n, expected) => {
-    expect(format(n)).toBe(`${expected} за ближайшую минуту.`);
+    expect(planned(n)).toBe(`${expected} за ближайшую минуту.`);
   });
 });
 
@@ -57,7 +59,7 @@ describe('RushButton', () => {
       '/api/demo/rush',
       expect.objectContaining({ init: expect.objectContaining({ method: 'POST' }) }),
     );
-    expect(await screen.findByRole('status')).toHaveTextContent('12 заказов за ближайшую минуту.');
+    expect(await screen.findByRole('status')).toHaveTextContent(plain(planned(12)));
     expect(screen.getByRole('button', { name: START })).toBeDisabled();
   });
   it('declines the noun for the count the API actually sent', async () => {
@@ -67,7 +69,7 @@ describe('RushButton', () => {
       .mockResolvedValue({ started: true, durationSeconds: 60, ordersPlanned: 21 });
     render(<RushButton fetcher={fetcher} />);
     await user.click(screen.getByRole('button', { name: START }));
-    expect(await screen.findByRole('status')).toHaveTextContent('21 заказ за ближайшую минуту.');
+    expect(await screen.findByRole('status')).toHaveTextContent(plain(planned(21)));
   });
   it('says when a rush is already running', async () => {
     const user = userEvent.setup();

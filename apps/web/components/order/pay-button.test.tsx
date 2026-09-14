@@ -21,7 +21,10 @@ const withProvider = (ui: ReactElement) => (
  * carry the real U+00A0 `Intl.NumberFormat` puts before the currency symbol. Composed rather than
  * typed, because an invisible byte in a hand-written fixture drifts silently.
  */
-const PAY_28 = ru.guest.pay.pay.replace('{amount}', formatCents(2800, 'USD'));
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const P = ru.guest.pay;
+const PAY_28 = P.pay.replace('{amount}', formatCents(2800, 'USD'));
 
 describe('PayButton', () => {
   it('opens a payment session and follows the url the API answers with', async () => {
@@ -89,7 +92,7 @@ describe('PayButton', () => {
       ),
     );
     await user.click(screen.getByRole('button', { name: PAY_28 }));
-    const busy = await screen.findByRole('button', { name: 'Открываем оплату…' });
+    const busy = await screen.findByRole('button', { name: P.opening });
     expect(busy).toBeDisabled();
     // The second press the name promises. fireEvent rather than user-event, which refuses to
     // click through `pointer-events: none`: the point here is that the disabled button itself
@@ -142,9 +145,7 @@ describe('PayButton', () => {
       ),
     );
     await user.click(screen.getByRole('button', { name: PAY_28 }));
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Не удалось открыть оплату. Попробуйте ещё раз.',
-    );
+    expect(await screen.findByRole('status')).toHaveTextContent(plain(P.failed));
     expect(screen.getByRole('button', { name: PAY_28 })).toBeEnabled();
     expect(navigate).not.toHaveBeenCalled();
   });

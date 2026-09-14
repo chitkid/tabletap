@@ -65,14 +65,14 @@ function cnBase(source: string, what: string): string {
 describe('the menu’s cold start', () => {
   it('says what it is doing instead of showing a wordless grey page', () => {
     render(withProvider(<MenuLoading />));
-    expect(screen.getByRole('status')).toHaveTextContent('Открываем меню…');
+    expect(screen.getByRole('status')).toHaveTextContent(ru.guest.menu.loading);
   });
 
   it('puts the word inside the box the heading will take, so nothing moves when the menu lands', () => {
     render(withProvider(<MenuLoading />));
     // h-9 is 2.25rem, exactly the line box of the `text-3xl` h1 that replaces it. The line is
     // centred inside that box rather than sizing it, so the copy cannot change the height.
-    const line = screen.getByText('Открываем меню…');
+    const line = screen.getByText(ru.guest.menu.loading);
     expect(line.className).toContain('h-9');
     expect(line.className).not.toMatch(/\bmin-h-/);
   });

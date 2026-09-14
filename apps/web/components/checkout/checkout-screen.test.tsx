@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { MenuResponse } from '@tabletap/shared';
+import { IntlMessageFormat } from 'intl-messageformat';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +10,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
 import ru from '../../messages/ru.json';
 import { CheckoutScreen } from './checkout-screen';
 import { addItem, cartStorageKey } from '../../lib/cart';
+import { formatCents } from '../../lib/money';
 
 // `useTranslations` resolves through `NextIntlClientProvider` in every environment vitest runs in.
 const withProvider = (ui: ReactElement) => (
@@ -16,6 +18,19 @@ const withProvider = (ui: ReactElement) => (
     {ui}
   </NextIntlClientProvider>
 );
+
+/**
+ * Every word is read out of `messages/ru.json`: the checkout's copy binds «к», «с», «в» and «и» to
+ * the word after them with U+00A0. `getByRole(…, { name })` needs that byte; `getByText`,
+ * `getByLabelText` and `toHaveTextContent` collapse it in the element only, so those take
+ * `plain()`.
+ */
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const fill = (message: string, values: Record<string, string>) =>
+  String(new IntlMessageFormat(message, 'ru-RU').format(values));
+const C = ru.guest.checkout;
+const B = ru.guest.basket;
 
 const U = (n: number) => `018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f${n.toString(16).padStart(2, '0')}`;
 const menu: MenuResponse = {
@@ -94,10 +109,10 @@ describe('CheckoutScreen', () => {
     );
     render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
     expect(screen.getByText('2 × Морс из клюквы')).toBeInTheDocument();
-    expect(screen.getByText('Итого')).toBeInTheDocument();
-    expect(screen.getByText('13 $')).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText('Заметка к заказу'), 'No ice');
-    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
+    expect(screen.getByText(plain(C.total))).toBeInTheDocument();
+    expect(screen.getByText(plain(formatCents(1300, 'USD')))).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(plain(C.noteLabel)), 'No ice');
+    await userEvent.click(screen.getByRole('button', { name: C.submit }));
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith(`/orders/${U(9)}`));
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
     expect(url).toBe('/api/orders');
@@ -127,12 +142,12 @@ describe('CheckoutScreen', () => {
       .mockResolvedValueOnce(json(201, orderBody));
     vi.stubGlobal('fetch', f);
     render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
-    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
-    expect(
-      await screen.findByText('Сегодня закончилось. Уберите из корзины, чтобы продолжить.'),
-    ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Убрать «Раф с облепихой»' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
+    await userEvent.click(screen.getByRole('button', { name: C.submit }));
+    expect(await screen.findByText(plain(B.soldOutLine))).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: fill(B.removeDish, { name: 'Раф с облепихой' }) }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: C.submit }));
     await vi.waitFor(() => expect(f).toHaveBeenCalledTimes(2));
     const keys = f.mock.calls.map((c) =>
       new Headers((c[1] as RequestInit).headers).get('idempotency-key'),
@@ -149,7 +164,7 @@ describe('CheckoutScreen', () => {
       vi.fn(async () => json(201, orderBody)),
     );
     render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
-    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
+    await userEvent.click(screen.getByRole('button', { name: C.submit }));
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith(`/orders/${U(9)}`));
     const headers = new Headers(vi.mocked(fetch).mock.calls[0]?.[1]?.headers);
     expect(headers.get('idempotency-key')).toMatch(
@@ -162,16 +177,15 @@ describe('CheckoutScreen', () => {
       vi.fn(async () => json(409, { error: { code: 'CONFLICT', message: 'x' } })),
     );
     render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
-    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
-    expect(
-      await screen.findByText(
-        'Эта корзина уже отправлена с другого стола. Вернитесь в меню и начните заново.',
-      ),
-    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: C.submit }));
+    expect(await screen.findByText(plain(C.conflict))).toBeInTheDocument();
+    // The four refusals this screen owns are four different sentences; naming one and refusing
+    // its nearest neighbour is what keeps this from passing on any of them.
+    expect(screen.queryByText(plain(C.validationFailed))).toBeNull();
   });
   it('keeps the status line in the layout while it is empty', () => {
     render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
-    expect(screen.getByRole('status')).toHaveTextContent('');
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
   it('sends an ended session back to the start and explains other failures', async () => {
     vi.stubGlobal(
@@ -179,7 +193,7 @@ describe('CheckoutScreen', () => {
       vi.fn(async () => json(401, { error: { code: 'UNAUTHORIZED', message: 'x' } })),
     );
     render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
-    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
+    await userEvent.click(screen.getByRole('button', { name: C.submit }));
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/session-ended'));
   });
   it('redirects to the menu when the basket is empty', () => {

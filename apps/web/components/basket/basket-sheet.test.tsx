@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { IntlMessageFormat } from 'intl-messageformat';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { formatCents } from '../../lib/money';
 import ru from '../../messages/ru.json';
 import { BasketSheet } from './basket-sheet';
 
@@ -12,6 +14,17 @@ const withProvider = (ui: ReactElement) => (
     {ui}
   </NextIntlClientProvider>
 );
+
+/**
+ * `getByRole(…, { name })` compares an accessible name with an identity normaliser and needs the
+ * dictionary's real U+00A0; `getByText` collapses that byte in the element and leaves the expected
+ * string alone, so it takes `plain()`.
+ */
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const fill = (message: string, values: Record<string, string>) =>
+  String(new IntlMessageFormat(message, 'ru-RU').format(values));
+const B = ru.guest.basket;
 
 const line = (name: string, quantity: number, cents: number, available = true) => ({
   menuItemId: name,
@@ -46,17 +59,13 @@ describe('BasketSheet', () => {
         />,
       ),
     );
-    expect(screen.getByRole('dialog', { name: 'Ваша корзина' })).toBeInTheDocument();
-    expect(screen.getByText('8 $')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Убрать «Морс из клюквы»' }));
-    expect(onRemove).toHaveBeenCalledWith('Морс из клюквы');
-    // `getByRole`'s name matcher runs an identity normaliser, so «Перейти к оформлению» has to
-    // carry the real U+00A0 the dictionary binds the preposition with. Read from the dictionary
-    // rather than retyped, because an invisible byte typed by hand drifts silently.
-    expect(screen.getByRole('link', { name: ru.guest.basket.checkout })).toHaveAttribute(
-      'href',
-      '/checkout',
+    expect(screen.getByRole('dialog', { name: B.title })).toBeInTheDocument();
+    expect(screen.getByText(plain(formatCents(800, 'USD')))).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: fill(B.removeDish, { name: 'Морс из клюквы' }) }),
     );
+    expect(onRemove).toHaveBeenCalledWith('Морс из клюквы');
+    expect(screen.getByRole('link', { name: B.checkout })).toHaveAttribute('href', '/checkout');
   });
   it('shows the empty state and flags a sold-out line', () => {
     const { rerender } = render(
@@ -72,8 +81,8 @@ describe('BasketSheet', () => {
       ),
     );
     // An empty basket is an invitation, not a statement of absence - docs/design/02b-copy-ru.md.
-    expect(screen.getByText('В корзине пока пусто. Выберите блюдо в меню.')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: ru.guest.basket.checkout })).toBeNull();
+    expect(screen.getByText(plain(B.empty))).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: B.checkout })).toBeNull();
     rerender(
       withProvider(
         <BasketSheet
@@ -86,8 +95,6 @@ describe('BasketSheet', () => {
         />,
       ),
     );
-    expect(
-      screen.getByText('Сегодня закончилось. Уберите из корзины, чтобы продолжить.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText(plain(B.soldOutLine))).toBeInTheDocument();
   });
 });

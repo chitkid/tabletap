@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { OrderDto } from '@tabletap/shared';
+import { IntlMessageFormat } from 'intl-messageformat';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -22,7 +23,12 @@ const withProvider = (ui: ReactElement) => (
  * carry the real U+00A0 `Intl.NumberFormat` puts before the currency symbol. Composed rather than
  * typed, because an invisible byte in a hand-written fixture drifts silently.
  */
-const PAY_28 = ru.guest.pay.pay.replace('{amount}', formatCents(2800, 'USD'));
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const fill = (message: string, values: Record<string, string | number>) =>
+  String(new IntlMessageFormat(message, 'ru-RU').format(values));
+const P = ru.guest.pay;
+const PAY_28 = fill(P.pay, { amount: formatCents(2800, 'USD') });
 
 const order: OrderDto = {
   id: 'o1',
@@ -57,16 +63,17 @@ describe('DemoTerminal', () => {
         <DemoTerminal order={order} currency="USD" fetcher={vi.fn()} navigate={vi.fn()} />,
       ),
     );
-    // `toHaveTextContent` and `getByText` collapse U+00A0, so these fixtures carry plain spaces.
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Стол 7 · Заказ № 42');
-    expect(screen.getByText('28 $')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      plain(fill(P.terminalHeading, { table: 7, number: 42 })),
+    );
+    expect(screen.getByText(plain(formatCents(2800, 'USD')))).toBeInTheDocument();
     // The terminal keeps promising that nothing is charged, which is the one sentence the
     // "read as a real restaurant's" clean-up must not be read to take away: the others announced
     // a demonstration, this one stops a person believing they were charged 28 $. Composed from
     // the dictionary rather than typed, so it cannot drift from it by a character.
-    expect(screen.getByText(ru.guest.pay.disclaimer)).toBeInTheDocument();
+    expect(screen.getByText(plain(P.disclaimer))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: PAY_28 })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Отклонить' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: P.decline })).toBeInTheDocument();
   });
 
   it('settles the attempt as paid and returns to the order', async () => {
@@ -96,9 +103,9 @@ describe('DemoTerminal', () => {
         <DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />,
       ),
     );
-    await user.click(screen.getByRole('button', { name: 'Отклонить' }));
+    await user.click(screen.getByRole('button', { name: P.decline }));
     expect(bodyOf(fetcher.mock.calls[0]?.[1])).toEqual({ orderId: 'o1', outcome: 'declined' });
-    expect(await screen.findByText('Оплата отклонена.')).toHaveAttribute('role', 'status');
+    expect(await screen.findByText(plain(P.declined))).toHaveAttribute('role', 'status');
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/orders/o1?paid=0'));
   });
 
@@ -131,11 +138,9 @@ describe('DemoTerminal', () => {
       ),
     );
     await user.click(screen.getByRole('button', { name: PAY_28 }));
-    expect(
-      await screen.findByText('Не удалось связаться с терминалом. Попробуйте ещё раз.'),
-    ).toHaveAttribute('role', 'status');
+    expect(await screen.findByText(plain(P.unreachable))).toHaveAttribute('role', 'status');
     expect(screen.getByRole('button', { name: PAY_28 })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Отклонить' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: P.decline })).toBeEnabled();
     expect(navigate).not.toHaveBeenCalled();
   });
 
@@ -148,9 +153,9 @@ describe('DemoTerminal', () => {
       ),
     );
     await user.click(screen.getByRole('button', { name: PAY_28 }));
-    expect(await screen.findByText('Проводим оплату…')).toBeInTheDocument();
+    expect(await screen.findByText(plain(P.taking))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: PAY_28 })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Отклонить' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: P.decline })).toBeDisabled();
   });
 
   it('comes back usable when the browser hands the page back', async () => {
@@ -168,8 +173,8 @@ describe('DemoTerminal', () => {
     // to be taking a payment that finished. Both are stale, and both have to go.
     restoreFromBackForwardCache();
     expect(screen.getByRole('button', { name: PAY_28 })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Отклонить' })).toBeEnabled();
-    expect(screen.queryByText('Проводим оплату…')).toBeNull();
+    expect(screen.getByRole('button', { name: P.decline })).toBeEnabled();
+    expect(screen.queryByText(plain(P.taking))).toBeNull();
   });
 
   it('does not offer a keypad key to anyone reading the page', () => {

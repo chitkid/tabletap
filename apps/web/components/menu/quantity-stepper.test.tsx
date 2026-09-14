@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { IntlMessageFormat } from 'intl-messageformat';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -15,6 +16,12 @@ const withProvider = (ui: ReactElement) => (
   </NextIntlClientProvider>
 );
 
+/** Both labels are accessible names, which `getByRole` matches byte for byte - so they are
+ *  composed from `guest.menu` rather than retyped with the ёлочки and the spacing by hand. */
+const fill = (message: string, values: Record<string, string>) =>
+  String(new IntlMessageFormat(message, 'ru-RU').format(values));
+const M = ru.guest.menu;
+
 describe('QuantityStepper', () => {
   it('labels both buttons with the dish name and shows the value', async () => {
     const onChange = vi.fn();
@@ -24,11 +31,11 @@ describe('QuantityStepper', () => {
     // The dish name is an appositive in ёлочки rather than an inflected object, so a name the
     // dictionary cannot decline still reads as Russian.
     await userEvent.click(
-      screen.getByRole('button', { name: 'Добавить ещё одну порцию «Хачапури по-аджарски»' }),
+      screen.getByRole('button', { name: fill(M.addOneMore, { name: 'Хачапури по-аджарски' }) }),
     );
     expect(onChange).toHaveBeenCalledWith(3);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Убрать одну порцию «Хачапури по-аджарски»' }),
+      screen.getByRole('button', { name: fill(M.removeOne, { name: 'Хачапури по-аджарски' }) }),
     );
     expect(onChange).toHaveBeenCalledWith(1);
     // The basket bar announces the totals; a live count on every card would make one tap
@@ -37,6 +44,6 @@ describe('QuantityStepper', () => {
   });
   it('disables plus at the maximum', () => {
     render(withProvider(<QuantityStepper name="x" value={20} onChange={() => undefined} />));
-    expect(screen.getByRole('button', { name: 'Добавить ещё одну порцию «x»' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: fill(M.addOneMore, { name: 'x' }) })).toBeDisabled();
   });
 });
