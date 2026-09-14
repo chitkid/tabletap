@@ -154,7 +154,7 @@ the three role cards.
 They are replaced by explanations at the moment they apply, which is the honest form:
 
 - **The hourly reset.** No banner. When an order is gone, its own screen says so: «Этот заказ больше
-  не активен. Отсканируйте код на столе, чтобы начать заново.» The guest reads it once, when it is
+  не активен. Отсканируйте код на столе, чтобы начать заново.» The guest reads it once, when it is
   true, instead of being warned in advance about something that may never happen to them.
 - **The cold start.** No warning. A loading state that reserves its space and does not pretend to be
   instant. No promise the product does not keep.
