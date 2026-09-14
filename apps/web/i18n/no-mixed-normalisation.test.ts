@@ -29,6 +29,21 @@ import { describe, expect, it } from 'vitest';
  * refuse the one combination that is silently unfalsifiable. The reverse mistake (a raw
  * U+00A0-bearing needle handed to `toHaveTextContent`) fails loudly on the first run and needs no
  * gate.
+ *
+ * **What it does NOT see.** This is a textual match over each call's source text, not semantic
+ * analysis, and a guard that hides its own reach is the very habit it was written against. Each of
+ * these was confirmed to slip past, silently and with no signal that anything was skipped:
+ *
+ * - the raw property aliased first — `const t = el.textContent; expect(t)…`;
+ * - a normaliser under any name but `plain`, because that name is hardcoded in the pattern;
+ * - the two arguments reversed, raw needle against normalised subject;
+ * - bracket access, `el['textContent']`, because the pattern wants a literal dot;
+ * - anything positioned after a syntax error earlier in the same file — `ts.createSourceFile`
+ *   recovers silently rather than throwing, so the tail is simply not scanned. Such a file fails
+ *   lint and typecheck in the same gate run, which is what makes this one tolerable.
+ *
+ * So a green run here means the plainest spelling of the mistake is absent, not that the mistake
+ * is. Widen the pattern when a real case escapes it; do not read it as coverage it does not have.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
