@@ -21,15 +21,26 @@ import { describe, expect, it } from 'vitest';
  * `noAccess` without naming what it refused. Those coincidences are an access-control property —
  * they are what stops a caller telling "does not exist" from "exists, not yours", and "no such
  * table" from "not yours to edit". Splitting such a key by call site, in the ordinary course of
- * making a refusal more helpful, would reopen the oracle while every other test stayed green. This
- * is the thing that goes red when someone does.
+ * making a refusal more helpful, would reopen the oracle while every other test stayed green.
  *
- * **Seen red before it was believed**, all four times, in the working tree and then reverted:
+ * **The bijection alone does not see that, and this file used to claim it did.** A bijection is a
+ * relation, and a relation is preserved by any relabelling: a call site that changes its key *and*
+ * its sentence together makes a group of size one on each side and is invisible to both
+ * `disagreements` assertions. Changing both together is not an exotic edit — it is what "make this
+ * refusal more helpful" looks like. The third assertion, against `SHARED`, is what actually goes
+ * red, and it is an external anchor rather than another relation for exactly that reason.
+ *
+ * **Seen red before it was believed**, six times, in the working tree and then reverted:
  * rewording one of `routes/menu.ts`'s twenty `noAccess` refusals to "You may not edit the menu."
  * failed the first; re-keying `lib/payments.ts`'s "Order not found." to `tableNotFound` failed the
  * second (and the first, since that key then carried two sentences too); and after the walk was
  * widened, giving `GENERIC_4XX[403]` its own key `frameworkForbidden` failed the second while
- * rewording it under the shared key failed the first.
+ * rewording it under the shared key failed the first. The two that prove the third:
+ * `routes/orders.ts:74` — the cross-guest order read — re-keyed to `orderNotYours` with its own
+ * sentence, and the same line re-keyed to the *existing* `orderNotFound` with its *existing*
+ * sentence, which is the variant `tsc` cannot catch either because both halves already exist. The
+ * first left this file at 5 passed before the third assertion; both fail it now, and neither
+ * touches the other five.
  *
  * ## Two ways a refusal is written here, and both are read
  *
@@ -162,6 +173,78 @@ function collect(files: readonly string[]): { pairs: Raise[]; computed: Raise[] 
 const { pairs, computed } = collect(sourceFilesUnder(SRC));
 
 /**
+ * **Where every deliberately shared refusal is raised, and how many times, transcribed.**
+ *
+ * The two `disagreements` assertions below are a *relation* — each groups the pairs by one half
+ * and fails only when a group disagrees on the other. A change that moves **both halves at once**
+ * makes a group of size one on each side and is invisible to both. That is not an exotic edit: it
+ * is the ordinary course of making a refusal more helpful, which is the exact thing the header
+ * above says "goes red when someone does". It did not.
+ *
+ * Proved on the real file: at `routes/orders.ts:74` — the cross-guest order read, the one IDOR
+ * boundary a guest can reach — replacing `'noAccess', 'You do not have access to this.'` with
+ * `'orderNotYours', 'This order belongs to another guest.'` turned `GET /api/orders/<someone
+ * else's id>` into a plain existence oracle and left this file at **5 passed**. A bijection is
+ * preserved by any relabelling; it cannot see one.
+ *
+ * So this is the external anchor, and it is by **file and count**, not by file alone. `noAccess` is
+ * raised five times inside `routes/orders.ts`; a set of filenames still contains that file after
+ * one of the five moves away, and the mutation above would still pass. The count does not. By file
+ * rather than by line so that editing a comment is not a gate failure.
+ *
+ * Maintaining it is the point rather than the cost: adding a route that answers `noAccess` is a
+ * decision about what a caller can tell apart, and it should cost one line here.
+ */
+const SHARED: Record<string, Record<string, number>> = {
+  categoryNotFound: { 'lib/menu-admin.ts': 2 },
+  itemChanged: { 'lib/menu-admin.ts': 2 },
+  itemNotFound: { 'lib/menu-admin.ts': 3 },
+  noAccess: {
+    'lib/transitions.ts': 1,
+    'plugins/error-handler.ts': 1,
+    'plugins/rbac.ts': 1,
+    'routes/menu.ts': 8,
+    'routes/orders.ts': 5,
+    'routes/payments.ts': 1,
+    'routes/tables.ts': 4,
+  },
+  orderNotAwaitingPayment: { 'lib/payments.ts': 1, 'routes/payments.ts': 1 },
+  orderNotFound: {
+    'lib/payments.ts': 1,
+    'lib/transitions.ts': 1,
+    'routes/orders.ts': 1,
+    'routes/payments.ts': 1,
+  },
+  restaurantNotConfigured: {
+    'lib/dashboard.ts': 1,
+    'lib/restaurant.ts': 1,
+    'routes/tables.ts': 1,
+  },
+  routeNotFound: { 'plugins/auth.ts': 1, 'plugins/error-handler.ts': 1 },
+  signInRequired: {
+    'lib/restaurant.ts': 1,
+    'plugins/error-handler.ts': 1,
+    'plugins/rbac.ts': 1,
+    'routes/socket-token.ts': 1,
+  },
+  tableChanged: { 'lib/tables-admin.ts': 2 },
+  tableNotFound: { 'lib/tables-admin.ts': 2, 'routes/tables.ts': 1 },
+  validationFailed: { 'lib/errors.ts': 1, 'plugins/error-handler.ts': 1 },
+};
+
+/** Every key raised more than once, and where — the shape `SHARED` is transcribed against. */
+const sitesByKey = (): Record<string, Record<string, number>> => {
+  const all: Record<string, Record<string, number>> = {};
+  for (const raise of pairs) {
+    const sites = (all[raise.key] ??= {});
+    sites[raise.file] = (sites[raise.file] ?? 0) + 1;
+  }
+  return Object.fromEntries(
+    Object.entries(all).filter(([, sites]) => Object.values(sites).reduce((a, b) => a + b, 0) > 1),
+  );
+};
+
+/**
  * Everything that shares `by` but disagrees on `of`, with the call sites that disagree — the fix
  * is never obvious from the two values alone, and a finding that does not say where is a second
  * search rather than a report.
@@ -218,6 +301,17 @@ describe('every refusal’s key and sentence', () => {
    */
   it('never splits one sentence across two keys', () => {
     expect(disagreements('message', 'key')).toEqual([]);
+  });
+
+  /**
+   * And the half neither `disagreements` can see: a call site that changes its key **and** its
+   * sentence together. See `SHARED` above for the measurement and for why it counts sites rather
+   * than listing files.
+   */
+  it('keeps every deliberately shared refusal shared, whatever it is reworded to', () => {
+    // Whole-object equality in both directions: a key that stops being shared vanishes from the
+    // left-hand side, and a key that starts being shared appears on it.
+    expect(sitesByKey()).toEqual(SHARED);
   });
 
   /**
