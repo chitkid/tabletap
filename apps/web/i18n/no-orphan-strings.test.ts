@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { latinLeft } from './latin';
 
 /**
  * The gate against orphan strings: Latin text still reachable by a guest or a member of staff on a
@@ -48,8 +49,23 @@ import { beforeAll, describe, expect, it } from 'vitest';
  *   of set-equality tests in `apps/web/lib/api.test.ts` (every key the API can send has a Russian
  *   sentence and an English one, and no sentence is dead copy) plus the bijection test in
  *   `apps/api/src/lib/errors.test.ts`. None of the three reads a *sentence*: a key whose Russian
- *   was left in English would pass all of them, and so would a wrong-but-consistent key. The
- *   sentences are held by the tests that render them, one surface at a time.
+ *   was left in English would pass all of them, and so would a wrong-but-consistent key.
+ *
+ * - **The dictionary itself.** `apps/web/messages/ru.json` is not a component source and is in none
+ *   of the three walks below, so every string this milestone moved into it left this gate at the
+ *   same time. This header used to end the paragraph above with "the sentences are held by the
+ *   tests that render them, one surface at a time" — which was false, and false in the way Task 11
+ *   had already diagnosed: those tests read `ru.json` on **both** sides of their comparison, so
+ *   they move with it. Measured: six leaves turned into English — the landing hero's two lines,
+ *   `guest.menu.add`, `guest.menu.soldOut`, `admin.actions.edit`, `admin.actions.save` — left all
+ *   309 web tests green while the same English one file over turned this gate red on the spot.
+ *
+ *   What holds them now is **`i18n/dictionary.test.ts`**, which walks every leaf of `ru.json`
+ *   itself: Latin prose (this file's own `latinLeft`, over the same `ALLOWED` list, now shared in
+ *   `i18n/latin.ts`), the copy contract's mechanisable rules, and key parity with `en.json`.
+ *   `i18n/glossary.test.ts` holds the seventeen strings whose *wording* a contract fixes. What
+ *   neither holds is whether a Russian sentence is the *right* Russian sentence; that is the copy
+ *   owner's, and it is why the contract is a document.
  *
  * - **Modules that are not components.** `apps/web/lib/**`, `apps/api/**` and `packages/shared/**`
  *   are not walked. The one user-visible English sentence that used to live there —
@@ -111,29 +127,6 @@ const WEB = resolve(HERE, '..');
 const ROOT = resolve(WEB, '../..');
 const posix = (p: string) => p.split('\\').join('/');
 
-/**
- * «TableTap» is the product, «Little Furnace» the restaurant, and a technology is called what its
- * makers call it — docs/design/02b-copy-ru.md, «Терминология». Typeface names are in the same
- * class: `opengraph-image.tsx` registers its faces with Satori by name. Nothing else belongs here;
- * an addition to this list is a decision that a Russian reader will meet a Latin word.
- */
-const ALLOWED = [
-  'TableTap',
-  'Little Furnace',
-  'Next.js',
-  'Fastify',
-  'Drizzle',
-  'Postgres',
-  'Playwright',
-  'Docker Compose',
-  'PT Sans Narrow Latin',
-  'PT Sans Narrow',
-  'JPEG',
-  'PNG',
-  'WebP',
-  'QR',
-];
-
 /** Attributes whose value is read out or shown to somebody, as opposed to consumed by the browser. */
 const TEXT_ATTRS = new Set([
   'aria-label',
@@ -172,14 +165,6 @@ const ERROR_CONSTRUCTORS = new Set([
 
 /** Props whose value is a class list, an id or a seed — never a word on screen. */
 const SKIP_PROPS = new Set(['className', 'class', 'seed', 'id', 'htmlFor', 'key']);
-
-/** Strip the allow-listed names, then ask whether any Latin is left. Longest first, so that
- *  «PT Sans Narrow Latin» is spent before «PT Sans Narrow» can leave «Latin» behind. */
-function latinLeft(text: string): boolean {
-  let rest = text;
-  for (const name of ALLOWED) rest = rest.split(name).join(' ');
-  return /[A-Za-z]{2}/.test(rest);
-}
 
 /** A bare Latin word: letters, one optional internal apostrophe, optional trailing punctuation.
  *  A Tailwind token («min-h-7», «text-sm»), a route, a media type or a header name is not one. */
@@ -383,7 +368,18 @@ beforeAll(() => {
   surfaces = [...sourcesUnder(join(WEB, 'app')), ...sourcesUnder(join(WEB, 'components')), ...ui];
 }, 60_000);
 
-describe('the orphan-string gate', () => {
+/**
+ * An explicit timeout on the whole block, because vitest's default is 5 s and these are not 5 s
+ * bodies: `scan()` asks the type checker for the type at every JSX expression on four surfaces, and
+ * the checker works lazily, so the cost of the whole program lands in whichever test touches it
+ * first rather than in `beforeAll`. Alone the file takes ~6 s; inside the full web suite, on a
+ * machine running anything else, two reviewers measured 14 s and 21 s and got **308/309 with this
+ * gate red** while a third got 309 on the same tree. A gate whose margin is negative under load is
+ * not a gate — it is a coin toss that two people read as two different answers. Sixty seconds is
+ * far over the worst measurement and still far under a hang. On the block rather than on the first
+ * test, so that reordering the three cannot move the cost onto one that has no allowance.
+ */
+describe('the orphan-string gate', { timeout: 60_000 }, () => {
   it('finds no Latin text a guest or a member of staff can reach, anywhere on the four surfaces', () => {
     // First that the program actually holds every file the walk found. `scan()` iterates the
     // program and filters by the wanted set, so a file the program never loaded is silently not
