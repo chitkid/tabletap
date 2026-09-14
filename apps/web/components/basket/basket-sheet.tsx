@@ -43,7 +43,8 @@ export function BasketSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        showCloseButton={false}
+        // No corner close button: this sheet closes with «Продолжить выбор» in its own footer,
+        // which says what closing it means. `closeLabel` left off is what leaves it out.
         aria-describedby={DESCRIPTION_ID}
         className="mx-auto max-w-2xl"
         // Radix restores focus to its own `SheetTrigger`, and this sheet has none: it is opened

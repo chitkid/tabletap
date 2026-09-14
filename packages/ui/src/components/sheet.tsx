@@ -38,11 +38,18 @@ function SheetContent({
   className,
   children,
   side = 'right',
-  showCloseButton = true,
+  closeLabel,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left';
-  showCloseButton?: boolean;
+  /**
+   * The corner close button's accessible name, and the switch that draws it at all. A boolean
+   * `showCloseButton` used to turn it on with `aria-label="Close"` baked in here — a package with
+   * no dictionary cannot name a control in the product's language, and a default in English is
+   * English on screen that no surface asked for. Same reasoning as `StatusBadge`'s required
+   * `label`: the word belongs to the caller, who has one.
+   */
+  closeLabel?: string;
 }) {
   return (
     <SheetPortal>
@@ -61,9 +68,9 @@ function SheetContent({
         {...props}
       >
         {children}
-        {showCloseButton && (
+        {closeLabel !== undefined && (
           <SheetPrimitive.Close
-            aria-label="Close"
+            aria-label={closeLabel}
             className="absolute top-2 right-2 inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors duration-(--duration-fast) hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none disabled:pointer-events-none"
           >
             {/* An inline glyph rather than an icon dependency: two strokes in `currentColor`. */}
