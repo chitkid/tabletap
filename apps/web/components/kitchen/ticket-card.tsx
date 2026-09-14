@@ -141,8 +141,19 @@ export function TicketCard({
             </Button>
           ) : null}
           {cancellable && confirming ? (
-            <span role="group" aria-label={confirmLabel} className="flex items-center gap-2">
-              <span>{confirmLabel}</span>
+            /* The question and its two answers wrap, and the question takes a line of its own —
+               the treatment `qr-actions.tsx:67,84` already gives the same shape. Without it the
+               three parts are one unbreakable line: measured at 375 px the group ran 370.5 px
+               inside a 327 px card, overhanging it by 62 px and making the whole board scroll
+               sideways by 37 px, and at 1280 px it ran 8.9 px past the card's content box into
+               its padding. Nothing here relaxes the button base — a button still never wraps its
+               own label; only the row around them does. */
+            <span
+              role="group"
+              aria-label={confirmLabel}
+              className="flex flex-wrap items-center gap-2"
+            >
+              <span className="basis-full">{confirmLabel}</span>
               <Button
                 ref={confirmRef}
                 type="button"

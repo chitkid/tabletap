@@ -44,6 +44,19 @@ const M = ru.admin.menu;
 const ACT = ru.admin.actions;
 const R = ru.admin.refusal;
 
+/**
+ * The word the availability switch is showing. Both words live in the control at all times so it
+ * is always as wide as the wider of them; the spare one carries `invisible`, which reserves its
+ * box and draws nothing. jsdom computes no Tailwind, so the class is what says which is which —
+ * and reading the shown word through it is the only way this file can tell the two states apart,
+ * because `textContent` now holds both.
+ */
+const shownWord = (toggle: HTMLElement) =>
+  [...toggle.querySelectorAll('span')]
+    .filter((span) => !span.className.split(/\s+/).includes('invisible'))
+    .map((span) => span.textContent)
+    .join('');
+
 /** What `MenuTable` does for a row: it owns the dish, and it owns which row is open. */
 function Harness({
   initial = dish,
@@ -264,7 +277,9 @@ describe('MenuRow', () => {
 
     const toggle = screen.getByRole('switch', { name: M.available });
     expect(toggle).toBeChecked();
-    expect(toggle).toHaveTextContent(plain(M.available));
+    // The dictionary's own bytes, not `plain()`: this reads `textContent` rather than going
+    // through a query, and nothing normalises the U+00A0 inside «В наличии» on the way.
+    expect(shownWord(toggle)).toBe(M.available);
 
     await user.click(toggle);
 
@@ -273,7 +288,32 @@ describe('MenuRow', () => {
     // переключатель, выключен" - a double negative, to the operators least able to afford one.
     expect(screen.getByRole('switch', { name: M.available })).toBe(toggle);
     expect(toggle).not.toBeChecked();
-    expect(toggle).toHaveTextContent(plain(M.soldOut));
+    expect(shownWord(toggle)).toBe(M.soldOut);
+  });
+
+  it('keeps both words inside the switch, so pressing it changes no width', async () => {
+    const user = userEvent.setup();
+    render(<Harness fetcher={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
+    const toggle = screen.getByRole('switch', { name: M.available });
+
+    // The reservation itself, not the class that implements it: «Закончилось» is 15.43 px wider
+    // than «В наличии», and a control that renders only the word it is currently showing is that
+    // much narrower in one state than the other — which moves its column under the operator's
+    // hand. Both words are always in the control; one of them is only hidden.
+    //
+    // A whole-value comparison rather than a pair of "contains" assertions: the old test asked
+    // `toHaveTextContent`, which is a substring match, so once both words were in the element it
+    // passed in both states and had stopped asserting anything. `e2e/layout-ru.spec.ts` measures
+    // the width this reserves; this is the part jsdom can see.
+    const words = () => [...toggle.querySelectorAll('span')].map((span) => span.textContent);
+    // Code points before the value comparison, the way `tables-table.test.tsx` orders its own
+    // NBSP guard: «В наличии» binds its two words with U+00A0, and a `toEqual` whose only
+    // difference is that byte prints «В наличии» against «В наличии» and cannot be read.
+    expect(words().map((word) => [...(word ?? '')].some((c) => c === NBSP))).toEqual([true, false]);
+    expect(words()).toEqual([M.available, M.soldOut]);
+    await user.click(toggle);
+    expect(words()).toEqual([M.available, M.soldOut]);
   });
 
   it('restores on cancel without asking the server anything', async () => {

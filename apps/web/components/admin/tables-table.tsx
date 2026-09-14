@@ -282,9 +282,18 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
       </td>
       {/* A minimum the three controls fit on one line in. The first column is `w-full` and takes
           everything it is allowed to, so without this the controls column collapses to the width
-          of its widest button, `Reissue QR` wraps under the other two in every row, and the
-          confirmation's sentence wraps four times in a column too narrow to read it in. */}
-      <td className="min-w-80 px-3 text-right">
+          of its widest button, «Перевыпустить QR-код» wraps under the other two in every row, and
+          the confirmation's sentence wraps four times in a column too narrow to read it in.
+
+          `min-w-md` (448 px), not the `min-w-80` (320 px) this was tuned to against `Edit` /
+          `Deactivate` / `Reissue QR`.
+          Measured in Chromium with the Russian labels on screen: «Изменить» 100.66 px,
+          «Отключить» 107.47 px, «Перевыпустить QR-код» 192.05 px, two 8 px gaps — 416.18 px of
+          controls against the 296 px the old minimum left them, so the third button sat under the
+          other two and the row stood 97 px tall against `ROW_LINE`'s 56 px, at 375 px and at
+          1280 px alike. The measurement is what settles this: Task 7 estimated the same
+          conclusion from character counts and said plainly that it had not measured. */}
+      <td className="min-w-md px-3 text-right">
         {/* Mounted by the press, before there is anything to say: the refusal belongs beside the
             control that was refused, and a live region that appears with its text already in it may
             never be announced. It sits outside `QrActions` rather than among the controls it hands

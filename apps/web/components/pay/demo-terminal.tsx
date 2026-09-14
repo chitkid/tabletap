@@ -140,13 +140,24 @@ export function DemoTerminal({
             outlived every other sentence that said what the deployment is. */}
         <p className="text-center text-sm text-muted-foreground">{t('disclaimer')}</p>
 
-        {/* Two equal columns, and the padding is trimmed from the button default: on the
-            narrowest phone a column is barely wider than the label, and a four-figure total
-            such as «Оплатить 2 300 ₽» needs more room than `px-4` leaves it. */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Two equal buttons that stack rather than overflow, and the padding is trimmed from the
+            button default: on the narrowest phone a column is barely wider than the label, and a
+            four-figure total such as «Оплатить 2 300 ₽» needs more room than `px-4` leaves it.
+
+            A wrapping row rather than `grid-cols-2`, because a grid column cannot give up: the
+            base button is `shrink-0 whitespace-nowrap`, so a label that outgrows its column widens
+            the column instead of wrapping, and the card overflows. Measured at 320 px with a
+            five-figure total, «Оплатить 11 510 ₽» ran 3 px past its own button.
+
+            `grow basis-0` is the equal-columns idiom, so the two stay exactly the same width while
+            there is room — 146.5 px each at 375 px and 151 px each at 1280 px, the same numbers
+            the grid gave — and a row too narrow to hold both at their own minimum breaks between
+            them instead of overflowing. Decline sits beside Pay at the same size wherever it fits,
+            and under it where it does not. Neither ever wraps its own label. */}
+        <div className="flex flex-wrap gap-2">
           <Button
             type="button"
-            className="px-3"
+            className="grow basis-0 px-3"
             disabled={busy !== null}
             aria-busy={busy === 'paid' || undefined}
             onClick={() => void settle('paid')}
@@ -156,7 +167,7 @@ export function DemoTerminal({
           <Button
             type="button"
             variant="secondary"
-            className="px-3"
+            className="grow basis-0 px-3"
             disabled={busy !== null}
             aria-busy={busy === 'declined' || undefined}
             onClick={() => void settle('declined')}

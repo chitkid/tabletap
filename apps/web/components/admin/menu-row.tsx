@@ -271,16 +271,37 @@ function EditRow({
           {/* The name is the thing being switched and never moves; `aria-checked` carries the
               state. Named from the word inside it, an unavailable dish would announce as
               "Sold out, switch, off" - a double negative, to the operators least able to
-              afford one. The visible word still says which way the switch is set. */}
+              afford one. The visible word still says which way the switch is set.
+
+              Both words are in the button and occupy the same grid cell, so the control is always
+              as wide as the wider of them and pressing it changes no width. `ROW_LINE` fixes the
+              vertical axis for exactly this reason — "a table whose lines change size when a cell
+              becomes an input jumps under the hand that pressed Edit" — and the horizontal axis
+              was left open. Measured: «В наличии» 104.63 px against «Закончилось» 120.06 px, so a
+              toggle moved the control 15.43 px and its column 6 px, at 375 px and 1280 px alike.
+              `invisible` rather than a conditional: a word that is not rendered reserves nothing,
+              and the reservation is the whole point. The button's `aria-label` names it, so
+              neither span is read out, and `visibility: hidden` keeps the spare one out of the
+              accessibility tree as well. */}
           <Button
             type="button"
             role="switch"
             aria-label={t('available')}
             variant={draft.isAvailable ? 'outline' : 'secondary'}
             aria-checked={draft.isAvailable}
+            // The spare border closes the last 2 px: `outline` draws one and `secondary` does not,
+            // so without it the control still changed width when it changed variant, after both
+            // words were already reserved. Measured, and only visible once the words stopped
+            // moving.
+            className={cn('inline-grid', draft.isAvailable || 'border border-transparent')}
             onClick={() => change({ isAvailable: !draft.isAvailable })}
           >
-            {draft.isAvailable ? t('available') : t('soldOut')}
+            <span className={cn('col-start-1 row-start-1', draft.isAvailable || 'invisible')}>
+              {t('available')}
+            </span>
+            <span className={cn('col-start-1 row-start-1', draft.isAvailable && 'invisible')}>
+              {t('soldOut')}
+            </span>
           </Button>
         </td>
         <RowActions busy={busy} onSave={() => void save()} onCancel={onCancel} />
