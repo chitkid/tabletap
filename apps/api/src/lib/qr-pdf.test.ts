@@ -1,10 +1,25 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import type { TableDto } from '@tabletap/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { renderQrSheet } from './qr-pdf';
 
 const WEB_ORIGIN = 'http://localhost:3000';
+
+/**
+ * The committed faces, read from the directory the module itself reads them from, so a test that
+ * corrupts one corrupts the real file rather than a copy that has drifted from it.
+ */
+const BRAND_FONTS = fileURLToPath(new URL('../../public/fonts/', import.meta.url));
+const FACES = ['PT_Sans-Narrow-Web-Regular.ttf', 'PT_Sans-Narrow-Web-Bold.ttf'] as const;
+
+/** Whitespace flattened, so a heading bound with U+00A0 and a typed label compare as one name. */
+const NBSP = String.fromCharCode(0xa0);
+const flat = (text: string): string => text.split(NBSP).join(' ').trim();
 
 function tablesFor(count: number): TableDto[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -126,7 +141,12 @@ function decoderFor(objects: Map<number, string>, font: string): (hex: string) =
       return text;
     };
   }
-  // No `/ToUnicode`: a built-in font, read through its `/Encoding`. One byte per character.
+  // No `/ToUnicode`: a built-in font, which a reader decodes through its declared `/Encoding`,
+  // one byte per character. Only WinAnsi is implemented, because that is the encoding pdfkit
+  // writes for a built-in face and the one this sheet was defective in; anything else is left
+  // visibly unresolved rather than guessed at, so a font this helper does not understand can
+  // never be mistaken for a font that drew the right characters.
+  if (!/\/Encoding\s*\/WinAnsiEncoding/.test(font)) return (hex) => '\uFFFD'.repeat(hex.length / 2);
   const winAnsi = new TextDecoder('windows-1252');
   return (hex) => winAnsi.decode(Buffer.from(hex, 'hex'));
 }
@@ -176,9 +196,11 @@ describe('renderQrSheet', () => {
   it('draws Russian a reader resolves back to the characters it was given', async () => {
     const buffer = await renderQrSheet({
       restaurant: { name: 'Little Furnace' },
-      // The seed's own label, with the plain space a person types, beside a Latin restaurant name:
-      // one sheet has to draw both scripts, so one face has to cover both.
-      tables: [{ id: randomUUID(), number: 7, label: 'Стол 7', seats: 2, isActive: true }],
+      // A label that says something the number does not, so this card draws both of its lines.
+      // The plain spaces in it are a person’s, beside a Latin restaurant name and a heading
+      // bound with U+00A0: one sheet has to draw both scripts and both spaces, so one face has
+      // to cover both and nothing may normalise either.
+      tables: [{ id: randomUUID(), number: 7, label: 'Терраса у окна', seats: 2, isActive: true }],
       tokenFor,
       webOrigin: WEB_ORIGIN,
     });
@@ -196,7 +218,7 @@ describe('renderQrSheet', () => {
     // mojibake is standing where it should have been.
     const sheet = drawn.join(' | ');
     expect(sheet).toContain('Стол\u00a07');
-    expect(sheet).toContain('Стол 7');
+    expect(sheet).toContain('Терраса у окна');
     expect(sheet).toContain('Little Furnace');
     expect(sheet).toContain('Отсканируйте код камерой телефона, выберите блюда и оформите заказ.');
     // The running head, dated the way a Russian reader writes a date rather than in ISO.
@@ -226,7 +248,7 @@ describe('renderQrSheet', () => {
       webOrigin: WEB_ORIGIN,
     });
     expect(drawnText(buffer).join(' ')).toContain(
-      'Добавьте стол или включите отключённый — и распечатайте лист заново.',
+      'Добавьте стол или включите отключённый — и распечатайте QR-коды заново.',
     );
   });
 
@@ -298,20 +320,91 @@ describe('renderQrSheet', () => {
     }
   });
 
+  it('prints a table’s name once when the label only repeats it', async () => {
+    // The seed names every table «Стол N», which is exactly what the heading says now that the
+    // heading is Russian, so an unguarded card prints the same words twice. Three shapes at once:
+    // the seed’s own label, the same label with the heading’s non-breaking space instead of a
+    // plain one, and an empty label - none of them may add a second line.
+    for (const label of ['Стол 7', 'Стол\u00a07', '']) {
+      const buffer = await renderQrSheet({
+        restaurant: { name: 'Little Furnace' },
+        tables: [{ id: randomUUID(), number: 7, label, seats: 2, isActive: true }],
+        tokenFor,
+        webOrigin: WEB_ORIGIN,
+      });
+      const named = drawnText(buffer).filter((run) => flat(run) === flat(`Стол\u00a07`));
+      expect(named, JSON.stringify(label)).toHaveLength(1);
+      expect(named[0], JSON.stringify(label)).toBe('Стол\u00a07');
+    }
+  });
+
+  it('keeps the label when it says something the number does not, and trims one too long for the card', async () => {
+    // The guard above must not eat a real name. And a label wider than the card is drawn with
+    // `lineBreak: false`, so without `ellipsis` it runs straight through the dashed cut line -
+    // «Банкетный зал…» measures 243.5 pt at 10 pt in a 229.6 pt box, and Russian names run longer
+    // than the English ones this width was chosen against.
+    const long = 'Банкетный зал на втором этаже у панорамного окна с видом на реку';
+    const buffer = await renderQrSheet({
+      restaurant: { name: 'Little Furnace' },
+      tables: [
+        { id: randomUUID(), number: 7, label: 'Терраса', seats: 2, isActive: true },
+        { id: randomUUID(), number: 8, label: long, seats: 2, isActive: true },
+      ],
+      tokenFor,
+      webOrigin: WEB_ORIGIN,
+    });
+    const drawn = drawnText(buffer);
+    expect(drawn).toContain('Терраса');
+    // Joined before the assertion: pdfkit splits an over-long line into more than one run, so a
+    // label that overflows the card is still absent from every run read on its own - which is
+    // exactly how this defect hides from a test that looks at runs one at a time.
+    expect(drawn.join('')).not.toContain(long);
+    const trimmed = drawn.find((run) => run.startsWith('Банкетный'));
+    expect(trimmed?.endsWith('…')).toBe(true);
+    expect(trimmed?.length).toBeLessThan(long.length);
+  });
+
   it('refuses to print at all when the brand face is not there to embed', async () => {
     // Deliberately not a fallback. The built-in faces carry no Cyrillic, so a sheet drawn in one is
     // not a sheet with worse typography - it is six cards of mojibake, glued to six tables, that
     // nobody notices until a guest cannot read one. A deployment missing the file is a packaging
     // fault, and a 500 an admin reports beats a printable that looks fine until it is on paper.
+    const signer = vi.fn(tokenFor);
     await expect(
       renderQrSheet({
         restaurant: { name: 'Little Furnace' },
         tables: tablesFor(2),
-        tokenFor,
+        tokenFor: signer,
         webOrigin: WEB_ORIGIN,
         brandFontDir: '/nowhere',
       }),
     ).rejects.toThrow(/brand font/i);
+    // And nothing is half-done: a token signed for a sheet that is never built is a live code
+    // handed out for nothing. This is the invariant `renderQrSheet` claims, so it is pinned.
+    expect(signer).not.toHaveBeenCalled();
+  });
+
+  it('refuses the same way when the face is there but cannot be parsed', async () => {
+    // pdfkit's `registerFont` only records the path - fontkit parses on the first `.font()` - so a
+    // truncated or half-copied file used to pass registration and surface later as an anonymous
+    // `TypeError: Cannot read properties of undefined (reading 'offsets')` thrown from inside the
+    // header, after every token had been signed. Both faces are selected while the file is still
+    // able to say which one is broken, which is what this pins.
+    const directory = mkdtempSync(join(tmpdir(), 'qr-sheet-corrupt-'));
+    for (const face of FACES)
+      writeFileSync(join(directory, face), readFileSync(join(BRAND_FONTS, face)).subarray(0, 4096));
+    const signer = vi.fn(tokenFor);
+    await expect(
+      renderQrSheet({
+        restaurant: { name: 'Little Furnace' },
+        tables: tablesFor(2),
+        tokenFor: signer,
+        webOrigin: WEB_ORIGIN,
+        brandFontDir: directory,
+      }),
+    ).rejects.toThrow(/brand font/i);
+    expect(signer).not.toHaveBeenCalled();
+    rmSync(directory, { recursive: true, force: true });
   });
 
   it('answers a readable one-page sheet when the restaurant has no tables to print', async () => {

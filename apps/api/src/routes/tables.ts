@@ -35,7 +35,9 @@ const OkResponseSchema = z.object({ ok: z.literal(true) });
  * Two names because the header has room for two, and the difference is the localisation. `filename`
  * is the ASCII fallback the syntax has always allowed and nothing more; `filename*` is RFC 5987's
  * form — percent-encoded UTF-8 — and it is the one every current browser actually saves the file
- * under, so the admin gets «little-furnace-QR-коды-14.09.2026.pdf» rather than a transliteration.
+ * under, so the admin gets «little-furnace-QR-коды-2026-09-14.pdf» rather than a transliteration —
+ * the same stem and the same day as the fallback, differing by the one translated word, so a
+ * client that honours only `filename` saves the same file rather than a visibly different one.
  * Percent-encoding is also what keeps this safe: the header stays pure ASCII whatever the slug is,
  * and the five characters `encodeURIComponent` leaves alone are escaped by hand because RFC 5987's
  * `attr-char` does not include them.
@@ -48,7 +50,13 @@ function asciiStem(slug: string): string {
   return safe === '' ? 'tabletap' : safe;
 }
 
-function sheetDisposition(slug: string, printedOn: string): string {
+/**
+ * Exported for its own test: this is the guard that keeps a restaurant name out of the response
+ * headers, and a guard no test can reach is a guard nobody will notice breaking. No route writes
+ * a slug today, so the hostile input it is pinned against is theoretical - which is exactly when
+ * a security property stops being exercised by accident.
+ */
+export function sheetDisposition(slug: string, printedOn: string): string {
   const stem = asciiStem(slug);
   const russian = encodeURIComponent(qrSheet.fileName(stem, printedOn)).replace(
     /['()!*]/g,

@@ -11,6 +11,7 @@ import {
   TablesResponseSchema,
 } from '@tabletap/shared';
 import { claimTable, createTestApp, signInAs } from '../test/helpers';
+import { sheetDisposition } from './tables';
 
 describe('tables routes', () => {
   let ctx: Awaited<ReturnType<typeof createTestApp>>;
@@ -297,7 +298,7 @@ describe('admin table routes', () => {
     expect(disposition).toMatch(/^[\u0020-\u007e]+$/);
     const encoded = /filename\*=UTF-8''(\S+)$/.exec(disposition)?.[1] ?? '';
     expect(decodeURIComponent(encoded)).toBe(
-      `little-furnace-QR-коды-${new Date().toISOString().slice(0, 10).split('-').reverse().join('.')}.pdf`,
+      `little-furnace-QR-коды-${new Date().toISOString().slice(0, 10)}.pdf`,
     );
     const body = res.rawPayload;
     expect(body.subarray(0, 5).toString('latin1')).toBe('%PDF-');
@@ -334,5 +335,39 @@ describe('admin table routes', () => {
       payload: { token },
     });
     expect(claim.statusCode).toBe(200);
+  });
+
+  describe('the name the sheet is downloaded under', () => {
+    // The route builds this header from the restaurant slug, and the seeded slug is already
+    // ASCII-clean, so the end-to-end test above would stay green if the raw slug were dropped
+    // into the header. This is the guard on its own, against input no route can write today:
+    // `asciiStem` is an allow-list rather than an escape, and it feeds **both** parameters, so
+    // the ASCII fallback - the likelier hole in this pattern - is closed at the same point as
+    // the percent-encoded one.
+    const hostile = [
+      ['carriage returns', 'evil\r\nX-Injected: yes'],
+      ['a closing quote', 'ev"; filename="pwned.exe'],
+      ['a parameter separator', 'a;b'],
+      ['already-encoded CRLF', 'a%0d%0aX-Injected:%20yes'],
+      ['the characters encodeURIComponent keeps', "a'()!*b"],
+      ['nothing that survives', '«»'],
+      ['a wholly Cyrillic slug', 'Тёплая веранда'],
+    ] as const;
+
+    for (const [what, slug] of hostile)
+      it(`answers one filename and one filename* in printable ASCII for ${what}`, () => {
+        const header = sheetDisposition(slug, '2026-09-14');
+        // Nothing outside printable ASCII, so nothing that can end a header line or start one.
+        expect(header, slug).toMatch(/^[\u0020-\u007e]+$/);
+        expect(header.match(/filename=/g), slug).toHaveLength(1);
+        expect(header.match(/filename\*=/g), slug).toHaveLength(1);
+        expect(header, slug).toMatch(
+          /^attachment; filename="[a-z0-9-]+-qr-codes-2026-09-14\.pdf"; filename\*=UTF-8''[A-Za-z0-9%.~_-]+$/,
+        );
+        // And the two still name one file: same stem, same day, one translated word apart.
+        const stem = /filename="([a-z0-9-]+)-qr-codes-/.exec(header)?.[1] ?? '';
+        const encoded = /filename\*=UTF-8''(\S+)$/.exec(header)?.[1] ?? '';
+        expect(decodeURIComponent(encoded), slug).toBe(`${stem}-QR-коды-2026-09-14.pdf`);
+      });
   });
 });

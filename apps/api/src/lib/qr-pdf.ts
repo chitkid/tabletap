@@ -20,6 +20,12 @@ const QR_SIZE = 45 * MM;
 /** Rendered at ~290 dpi for the 45 mm it is printed at, so the modules stay crisp on paper. */
 const QR_PIXELS = 512;
 /**
+ * The band a card gives its label: one 10 pt line between the heading and the code. It caps the
+ * text as well as advancing past it, so a label too long for the card is ellipsised rather than
+ * printed through the cut line, and the QR below stays on the grid whatever the label says.
+ */
+const LABEL_BAND = 16;
+/**
  * The sheet's ink, as RGB triples. A PDF resolves no CSS, so the design tokens cannot be
  * referenced the way a screen does it; these are the neutral ramp printed on white paper, and
  * they are written as numbers rather than hex because the token check reads a hex literal in
@@ -66,6 +72,16 @@ const FACES = {
  * which is also what makes them visible to a file tracer — a path assembled from a variable is not.
  */
 const FONT_DIRECTORIES = ['./fonts/', '../../public/fonts/'] as const;
+
+/**
+ * Whitespace flattened, for the one comparison on this sheet that is between a string this app
+ * wrote and a string a person typed. A twin of `apps/web/components/admin/tables-table.tsx:39`,
+ * which makes the same comparison between the same two strings on screen; it is copied rather than
+ * shared because an API cannot import a Next component, and a `@tabletap/shared` helper for two
+ * lines would be the third place to look rather than the first.
+ */
+const NBSP = String.fromCharCode(0xa0);
+const flat = (text: string): string => text.split(NBSP).join(' ').trim();
 
 /**
  * Generic in the table so a caller may hand over rows that carry more than the DTO - the route
@@ -118,20 +134,32 @@ function brandFaces(override: string | undefined): SheetFonts {
   );
 }
 
-/** Registers both faces on the document under the names the drawing code asks for. */
+/**
+ * Registers both faces on the document under the names the drawing code asks for, and **reads them
+ * while it can still say so.**
+ *
+ * `registerFont` does not open the file - it records the path, and fontkit parses on the first
+ * `.font()` - so wrapping only the registration caught nothing. A truncated or half-copied face
+ * went through here silently and surfaced later as `TypeError: Cannot read properties of undefined
+ * (reading 'offsets')` from inside `drawHeader`: no mention of a font, after every token had been
+ * signed, and with the collector promise left pending because the document never ends. Selecting
+ * each face here forces the parse into this try, where it becomes the sentence an operator can act
+ * on, before a single token is signed.
+ */
 function registerFonts(doc: PDFKit.PDFDocument, faces: SheetFonts): SheetFonts {
+  const names: SheetFonts = { regular: 'brand', bold: 'brandBold' };
   try {
-    doc.registerFont('brand', faces.regular);
-    doc.registerFont('brandBold', faces.bold);
+    doc.registerFont(names.regular, faces.regular);
+    doc.registerFont(names.bold, faces.bold);
+    doc.font(names.regular);
+    doc.font(names.bold);
   } catch (cause) {
     throw new Error(
-      `Brand font unreadable: ${faces.regular} or ${faces.bold} is not a usable TTF.`,
-      {
-        cause,
-      },
+      `Brand font unreadable: ${faces.regular} or ${faces.bold} is not a TTF pdfkit can parse.`,
+      { cause },
     );
   }
-  return { regular: 'brand', bold: 'brandBold' };
+  return names;
 }
 
 /**
@@ -200,18 +228,37 @@ function drawCard(
   const left = box.x + 16;
   let y = box.y + 20;
 
+  const heading = qrSheet.table(table.number);
   doc
     .font(fonts.bold)
     .fontSize(24)
     .fillColor(INK.strong)
-    .text(qrSheet.table(table.number), left, y, { width: contentWidth, align: 'center' });
+    .text(heading, left, y, { width: contentWidth, align: 'center' });
   y += 30;
-  doc
-    .font(fonts.regular)
-    .fontSize(10)
-    .fillColor(INK.muted)
-    .text(table.label, left, y, { width: contentWidth, align: 'center', lineBreak: false });
-  y += 16;
+  // The label earns its line only when it says something the number does not. The seed names every
+  // table «Стол N», which is also what the heading above now says in Russian, so on the demo's own
+  // data an unguarded card would print the same three characters twice - the defect
+  // `apps/web/components/admin/tables-table.tsx:264-271` already decided against for the identical
+  // pair of strings in the admin's table list. Flattened on both sides before comparing, because
+  // the heading binds its number with U+00A0 and a typed label carries an ordinary space, and one
+  // invisible byte is not a different name. The advance is unconditional: suppressing the text
+  // must not move the QR off the grid, or a card would stop lining up with the ones beside it.
+  if (table.label !== '' && flat(table.label) !== flat(heading))
+    doc.font(fonts.regular).fontSize(10).fillColor(INK.muted).text(table.label, left, y, {
+      width: contentWidth,
+      align: 'center',
+      // Capped to the band the card gives it, with an ellipsis when it does not fit. A label is
+      // free text and Russian names run longer than the English ones this width was chosen
+      // against - «Банкетный зал на втором этаже у панорамного окна с видом на реку» measures
+      // 243.5 pt at 10 pt in a 229.6 pt box - and neither of the obvious options handles it on
+      // its own: `lineBreak: false` draws the overflow straight through the card's cut line, and
+      // `ellipsis` alone does nothing, because pdfkit applies it when a *height* runs out rather
+      // than a width (`pdfkit/js/pdfkit.js:4040`). Giving it this band is what turns the second
+      // line it would have wrapped onto into «…» on the first.
+      height: LABEL_BAND,
+      ellipsis: true,
+    });
+  y += LABEL_BAND;
 
   const qrX = box.x + (box.width - QR_SIZE) / 2;
   doc.image(qr, qrX, y, { width: QR_SIZE, height: QR_SIZE });
@@ -232,9 +279,23 @@ function drawCard(
  */
 export async function renderQrSheet<T extends TableDto>(input: QrSheetInput<T>): Promise<Buffer> {
   const { restaurant, tables, tokenFor, webOrigin } = input;
-  // Resolved before anything is drawn and before a single token is signed: a sheet that cannot be
-  // set in the brand face is not printed at all, so it must not be half-printed either.
-  const faces = brandFaces(input.brandFontDir);
+
+  const doc = new PDFDocument({
+    size: 'A4',
+    autoFirstPage: false,
+    // Zero margins: every position on this sheet is computed, and a non-zero bottom margin would
+    // let a line of text at the foot of the last card add a page pdfkit alone decided to add.
+    margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    info: { Title: qrSheet.title(restaurant.name), Author: 'TableTap' },
+  });
+  // Found, and read, before anything is drawn and before a single token is signed: a sheet that
+  // cannot be set in the brand face is not printed at all, so it must not be half-printed either -
+  // and a token signed for a sheet that never gets built is a code handed out for nothing.
+  // `collect` subscribes only after this, so a refusal here leaves no promise waiting on a
+  // document that will never end.
+  const fonts = registerFonts(doc, brandFaces(input.brandFontDir));
+  const collected = collect(doc);
+
   // Signed and rendered before a byte of PDF is written: a card is never half-drawn because a
   // signer rejected, and pdfkit's own API is synchronous once the document is under way.
   const cards = await Promise.all(
@@ -250,16 +311,6 @@ export async function renderQrSheet<T extends TableDto>(input: QrSheetInput<T>):
     }),
   );
 
-  const doc = new PDFDocument({
-    size: 'A4',
-    autoFirstPage: false,
-    // Zero margins: every position on this sheet is computed, and a non-zero bottom margin would
-    // let a line of text at the foot of the last card add a page pdfkit alone decided to add.
-    margins: { top: 0, bottom: 0, left: 0, right: 0 },
-    info: { Title: qrSheet.title(restaurant.name), Author: 'TableTap' },
-  });
-  const collected = collect(doc);
-  const fonts = registerFonts(doc, faces);
   const printed = new Date().toISOString().slice(0, 10);
 
   const gridTop = MARGIN + HEADER_HEIGHT;
