@@ -38,9 +38,12 @@ import { describe, expect, it } from 'vitest';
  * - a normaliser under any name but `plain`, because that name is hardcoded in the pattern;
  * - the two arguments reversed, raw needle against normalised subject;
  * - bracket access, `el['textContent']`, because the pattern wants a literal dot;
- * - anything positioned after a syntax error earlier in the same file — `ts.createSourceFile`
- *   recovers silently rather than throwing, so the tail is simply not scanned. Such a file fails
- *   lint and typecheck in the same gate run, which is what makes this one tolerable.
+ * - part of a file after a syntax error earlier in it, unpredictably. `ts.createSourceFile`
+ *   recovers rather than throwing, and how much of the tail survives depends on the error:
+ *   measured, an unterminated string left the following call visible and still caught, while an
+ *   unclosed brace (`function oops( {`) lost everything after it. So this is not "the tail is
+ *   skipped" and not "recovery handles it" — it is either, without saying which. Tolerable only
+ *   because such a file fails lint and typecheck in the same gate run.
  *
  * So a green run here means the plainest spelling of the mistake is absent, not that the mistake
  * is. Widen the pattern when a real case escapes it; do not read it as coverage it does not have.

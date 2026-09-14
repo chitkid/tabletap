@@ -67,6 +67,12 @@ Compose. The section that lists them is **«На чём построено»**.
   noun: not «Заказ», not «Кухня».
 - The verb on the button is the verb in the result: «Оформить заказ» → «Заказ оформлен».
 - Errors say what happened and what to do. They do not apologise and they are never vague.
+  - One exception, approved by the owner on 2026-09-14: **the Stripe webhook's
+    invalid-signature refusal says what happened and not what to do.** The rule assumes a reader
+    who can act on it. Here the addressee is Stripe, a machine, and the only human who can read
+    the response is whoever forged the request — a remedy addressed to them is a hint to an
+    attacker. `Проверьте ключ вебхука` is not to be restored. The person who can act reads the
+    log line, which is English and unchanged.
 - «Ёлочки» for quotes, «—» for dashes, «ё» is used. Non-breaking spaces before short prepositions
   and inside «стол 7», «12 заказов», «1 250 ₽».
 - Empty states are an invitation, not a statement of absence.
