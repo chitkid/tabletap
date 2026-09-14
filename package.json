@@ -8,8 +8,10 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint lint:e2e",
+    "typecheck": "turbo run typecheck typecheck:e2e",
+    "lint:e2e": "eslint e2e playwright.config.ts",
+    "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json",
     "test": "turbo run test",
     "e2e": "playwright test",
     "lighthouse": "node scripts/lighthouse-audit.mjs",

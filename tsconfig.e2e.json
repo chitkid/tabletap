@@ -1,0 +1,17 @@
+{
+  "//": [
+    "The end-to-end suite is not a workspace package - it is a directory at the root that",
+    "Playwright runs - so `turbo run typecheck` never reached it. It has its own config rather",
+    "than joining one of the apps' because it belongs to neither: it imports the web app's",
+    "dictionary and the shared package's types while running in Node under Playwright, with",
+    "Playwright's own globals. Every strictness flag comes from tsconfig.base.json unchanged -",
+    "`strict`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax` - so a spec is held to what the",
+    "rest of the repository is held to."
+  ],
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": ["e2e/**/*.ts", "playwright.config.ts"]
+}

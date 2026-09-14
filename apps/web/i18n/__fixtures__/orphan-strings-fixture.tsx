@@ -49,7 +49,10 @@ export function OrphanFixture({
         ×
       </button>
 
-      {/* Case 3: an English `alt` and an English `title`, both on the same element. */}
+      {/* Case 3: an English `alt` and an English `title`, both on the same element. A bare `<img>`
+          because `alt` is the attribute under test and this file is never rendered; reaching for
+          `next/image` here would pull a renderer into a fixture that exists to be parsed. */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- parsed, never rendered */}
       <img src="/plate.png" alt="A plate of food" title="Today's special" />
 
       {/* Case 4: an English `placeholder`. */}

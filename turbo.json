@@ -9,6 +9,17 @@
     "dev": { "cache": false, "persistent": true },
     "lint": {},
     "typecheck": {},
+    "//#lint:e2e": { "inputs": ["e2e/**", "playwright.config.ts", "eslint.config.js"] },
+    "//#typecheck:e2e": {
+      "inputs": [
+        "e2e/**",
+        "playwright.config.ts",
+        "tsconfig.e2e.json",
+        "tsconfig.base.json",
+        "apps/web/messages/**",
+        "packages/*/src/**"
+      ]
+    },
     "test": { "outputs": [] },
     "generate": { "cache": false },
     "migrate": { "cache": false },
