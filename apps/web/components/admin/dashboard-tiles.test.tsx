@@ -18,15 +18,15 @@ describe('DashboardTiles', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
     expect(within(tileFor('Orders')).getByText('42')).toBeInTheDocument();
-    expect(within(tileFor('Revenue')).getByText('$1,284.50')).toBeInTheDocument();
+    expect(within(tileFor('Revenue')).getByText('1 285 $')).toBeInTheDocument();
     expect(within(tileFor('Average time to ready')).getByText('7m 12s')).toBeInTheDocument();
     expect(within(tileFor('Open tickets')).getByText('3')).toBeInTheDocument();
   });
 
   it("counts the money in the restaurant's own currency, not in dollars", () => {
     render(<DashboardTiles today={today} currency="EUR" />);
-    expect(within(tileFor('Revenue')).getByText('€1,284.50')).toBeInTheDocument();
-    expect(screen.queryByText('$1,284.50')).toBeNull();
+    expect(within(tileFor('Revenue')).getByText('1 285 €')).toBeInTheDocument();
+    expect(screen.queryByText('1 285 $')).toBeNull();
   });
 
   it('reads a sub-minute average in seconds alone', () => {

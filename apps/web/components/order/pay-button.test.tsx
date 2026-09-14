@@ -19,7 +19,7 @@ describe('PayButton', () => {
         navigate={navigate}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Pay $28.00' }));
+    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
     expect(fetcher).toHaveBeenCalledWith(
       '/api/orders/o1/payment',
       expect.objectContaining({ init: expect.objectContaining({ method: 'POST' }) }),
@@ -40,7 +40,7 @@ describe('PayButton', () => {
         navigate={navigate}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Pay $28.00' }));
+    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/cs_test'),
     );
@@ -64,7 +64,7 @@ describe('PayButton', () => {
         navigate={navigate}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Pay $28.00' }));
+    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
     const busy = await screen.findByRole('button', { name: 'Opening payment…' });
     expect(busy).toBeDisabled();
     // The second press the name promises. fireEvent rather than user-event, which refuses to
@@ -89,12 +89,12 @@ describe('PayButton', () => {
         navigate={navigate}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Pay $28.00' }));
+    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/pay/o1'));
     // Pressing Back from the terminal restores this page with the state it left with, which is
     // mid-navigation. Without the reset the only way to pay is disabled, for good.
     restoreFromBackForwardCache();
-    const pay = screen.getByRole('button', { name: 'Pay $28.00' });
+    const pay = screen.getByRole('button', { name: 'Pay 28 $' });
     expect(pay).toBeEnabled();
     await user.click(pay);
     expect(fetcher).toHaveBeenCalledTimes(2);
@@ -113,11 +113,11 @@ describe('PayButton', () => {
         navigate={navigate}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Pay $28.00' }));
+    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
     expect(await screen.findByRole('status')).toHaveTextContent(
       "Couldn't start the payment. Try again.",
     );
-    expect(screen.getByRole('button', { name: 'Pay $28.00' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Pay 28 $' })).toBeEnabled();
     expect(navigate).not.toHaveBeenCalled();
   });
 });

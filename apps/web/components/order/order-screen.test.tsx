@@ -41,7 +41,7 @@ describe('OrderScreen', () => {
     expect(screen.getByText('Table 7')).toBeInTheDocument();
     expect(screen.getByText('Placed')).toBeInTheDocument();
     expect(screen.getByText('2 × Margherita Flatbread')).toBeInTheDocument();
-    expect(screen.getByText('$24.00')).toBeInTheDocument();
+    expect(screen.getByText('24 $')).toBeInTheDocument();
     expect(screen.getByText('No basil')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to menu' })).toHaveAttribute('href', '/menu');
   });
@@ -58,7 +58,7 @@ describe('OrderScreen', () => {
   });
   it('offers to pay while the order is waiting for payment', () => {
     render(<OrderScreen order={{ ...order, totalCents: 2800 }} currency="USD" />);
-    expect(screen.getByRole('button', { name: 'Pay $28.00' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pay 28 $' })).toBeInTheDocument();
   });
   it('takes an injected pay control, so a receipt can be driven without a network', async () => {
     const user = userEvent.setup();
@@ -79,7 +79,7 @@ describe('OrderScreen', () => {
         }
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Pay $28.00' }));
+    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
     expect(fetcher).toHaveBeenCalledWith(
       '/api/orders/o1/payment',
       expect.objectContaining({ init: expect.objectContaining({ method: 'POST' }) }),
@@ -91,7 +91,7 @@ describe('OrderScreen', () => {
       <OrderScreen
         order={{ ...order, status: 'paid' }}
         currency="USD"
-        onPay={<button type="button">Pay $28.00</button>}
+        onPay={<button type="button">Pay 28 $</button>}
       />,
     );
     expect(screen.queryByRole('button', { name: /^Pay/ })).toBeNull();

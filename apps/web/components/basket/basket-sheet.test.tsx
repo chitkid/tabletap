@@ -35,7 +35,7 @@ describe('BasketSheet', () => {
       />,
     );
     expect(screen.getByRole('dialog', { name: 'Your basket' })).toBeInTheDocument();
-    expect(screen.getByText('$8.00')).toBeInTheDocument();
+    expect(screen.getByText('8 $')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Remove House Lemonade' }));
     expect(onRemove).toHaveBeenCalledWith('House Lemonade');
     expect(screen.getByRole('link', { name: 'Go to checkout' })).toHaveAttribute(

@@ -5,7 +5,7 @@ export const restaurants = pgTable('restaurants', {
   id: id(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
-  currency: text('currency').notNull().default('USD'),
+  currency: text('currency').notNull().default('RUB'),
   timezone: text('timezone').notNull().default('UTC'),
   ...timestamps,
 });

@@ -80,7 +80,7 @@ export const payments = pgTable(
     providerSessionId: text('provider_session_id'),
     providerPaymentIntentId: text('provider_payment_intent_id'),
     amountCents: integer('amount_cents').notNull(),
-    currency: text('currency').notNull().default('USD'),
+    currency: text('currency').notNull().default('RUB'),
     status: paymentStatusEnum('status').notNull().default('pending'),
     ...timestamps,
   },

@@ -122,7 +122,7 @@ describe('MenuRow', () => {
       init: { method: 'PATCH', body: JSON.stringify({ name: 'Margherita', priceCents: 1350 }) },
     });
     expect(await screen.findByText('Margherita')).toBeInTheDocument();
-    expect(screen.getByText('$13.50')).toBeInTheDocument();
+    expect(screen.getByText('14 $')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
   });
 

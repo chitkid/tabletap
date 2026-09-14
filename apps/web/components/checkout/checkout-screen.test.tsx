@@ -84,7 +84,7 @@ describe('CheckoutScreen', () => {
     render(<CheckoutScreen menu={menu} tableId="t1" />);
     expect(screen.getByText('2 × House Lemonade')).toBeInTheDocument();
     expect(screen.getByText('Total')).toBeInTheDocument();
-    expect(screen.getByText('$12.50')).toBeInTheDocument();
+    expect(screen.getByText('13 $')).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Note for the kitchen'), 'No ice');
     await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith(`/orders/${U(9)}`));

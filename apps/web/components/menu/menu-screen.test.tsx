@@ -64,7 +64,7 @@ describe('MenuScreen', () => {
       screen.getByRole('button', { name: 'Add one more Margherita Flatbread' }),
     );
     await userEvent.click(screen.getByRole('button', { name: 'Add House Lemonade' }));
-    expect(screen.getByRole('region', { name: 'Basket' })).toHaveTextContent('3 items · $28.00');
+    expect(screen.getByRole('region', { name: 'Basket' })).toHaveTextContent('3 items · 28 $');
     await userEvent.click(screen.getByRole('button', { name: 'View basket' }));
     expect(screen.getByRole('dialog', { name: 'Your basket' })).toBeInTheDocument();
   });

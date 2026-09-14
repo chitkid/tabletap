@@ -28,7 +28,7 @@ describe('DishCard', () => {
         onSetQuantity={() => undefined}
       />,
     );
-    expect(screen.getByText('$12.00')).toBeInTheDocument();
+    expect(screen.getByText('12 $')).toBeInTheDocument();
     expect(screen.getByText('Contains gluten, dairy')).toBeInTheDocument();
     // The plate repeats the heading beside it, so it is decoration, not an image worth naming.
     expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
