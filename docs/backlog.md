@@ -76,6 +76,17 @@ deliberately not, so nobody re-derives it.
   or a decision about whether «и» is bound at all — the contract binds _prepositions_, and «и» is a
   conjunction, so the landing is the side that is arguably over-applying the rule.
 
+- **`apps/api/src/lib/rush.ts`'s six Russian notes are the third home of user-visible text and have
+  no language pin.** They reach a cook's board verbatim, and `rush.test.ts:28` asserts
+  `dto.note === RUSH_NOTES[Math.floor(0.2 * RUSH_NOTES.length)]` — both sides out of the same
+  constant, which is the self-referential shape the dictionary gate was built to escape. Measured by
+  the merge review: replacing all six with English left `rush.test.ts` 7/7 green. Lower stakes than
+  the dictionary, because these are _simulated guest_ text rather than copy this product says — a
+  real note would be whatever a real guest typed — which is why `lib/ru.ts`'s header names them as
+  the deliberate exception to "interface copy lives here". The one-line repair, if it is ever wanted:
+  `expect(RUSH_NOTES.every((n) => /\p{Script=Cyrillic}/u.test(n))).toBe(true)`. Left out of the merge
+  wave because no review ruled on it and a merge gate is the wrong place to widen scope.
+
 - **Nine Minors ruled SHIP by the merge review, listed so they are not rediscovered one at a time.**
   `.gitattributes` has `*.woff2 binary` matching zero tracked files while the two `.woff` faces this
   milestone added match no binary rule; `qrcode` and `@types/qrcode` are dead dependencies since
