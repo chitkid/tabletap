@@ -287,8 +287,17 @@ describe('admin table routes', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toBe('application/pdf');
-    expect(res.headers['content-disposition']).toMatch(
-      /^attachment; filename="little-furnace-qr-codes-\d{4}-\d{2}-\d{2}\.pdf"$/,
+    // Two names in one header: the ASCII fallback the syntax has always allowed, and RFC 5987's
+    // form, which is the one a browser actually saves the file under. Percent-encoded, so the
+    // header stays pure ASCII however the restaurant is named.
+    const disposition = String(res.headers['content-disposition']);
+    expect(disposition).toMatch(
+      /^attachment; filename="little-furnace-qr-codes-\d{4}-\d{2}-\d{2}\.pdf"; filename\*=UTF-8''\S+$/,
+    );
+    expect(disposition).toMatch(/^[\u0020-\u007e]+$/);
+    const encoded = /filename\*=UTF-8''(\S+)$/.exec(disposition)?.[1] ?? '';
+    expect(decodeURIComponent(encoded)).toBe(
+      `little-furnace-QR-коды-${new Date().toISOString().slice(0, 10).split('-').reverse().join('.')}.pdf`,
     );
     const body = res.rawPayload;
     expect(body.subarray(0, 5).toString('latin1')).toBe('%PDF-');

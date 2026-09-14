@@ -6,7 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDemoProvider } from '../payments/demo';
 import type { PaymentProvider, SettleInput } from '../payments/types';
 import { claimTable, createTestApp } from '../test/helpers';
-import { checkoutLineName, settlePayment, startPayment } from './payments';
+import { settlePayment, startPayment } from './payments';
+import { checkoutLineName } from './ru';
 
 describe('payments', () => {
   let ctx: Awaited<ReturnType<typeof createTestApp>>;

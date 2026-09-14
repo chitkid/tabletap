@@ -1,8 +1,10 @@
 import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 import type { TableDto } from '@tabletap/shared';
+import { qrSheet } from './ru';
 
 /** PostScript points per millimetre: the sheet is specified in millimetres, PDF works in points. */
 const MM = 72 / 25.4;
@@ -17,7 +19,6 @@ const CARDS_PER_PAGE = COLUMNS * ROWS;
 const QR_SIZE = 45 * MM;
 /** Rendered at ~290 dpi for the 45 mm it is printed at, so the modules stay crisp on paper. */
 const QR_PIXELS = 512;
-const INSTRUCTION = 'Scan with your phone camera to see the menu and order.';
 /**
  * The sheet's ink, as RGB triples. A PDF resolves no CSS, so the design tokens cannot be
  * referenced the way a screen does it; these are the neutral ramp printed on white paper, and
@@ -32,14 +33,39 @@ const INK: Record<'strong' | 'muted' | 'body' | 'rule', [number, number, number]
 };
 
 /**
- * The brand text face, embedded only if a real TTF is on disk. `@fontsource/ibm-plex-sans` ships
- * woff and woff2 only, neither of which pdfkit can embed, so today this finds nothing and the
- * sheet prints in Helvetica; dropping a TTF in under one of these names is all it takes to switch.
+ * **The brand display face, as TrueType, because a PDF cannot be drawn in anything else here.**
+ *
+ * pdfkit embeds TTF, OTF, TTC and DFONT and nothing else — not woff, not woff2 — so
+ * `@fontsource/pt-sans-narrow`, which ships woff and woff2 only, is of no use to this file and
+ * neither is the pair of subsets `apps/web/app` keeps for the Open Graph card. Without a readable
+ * TTF pdfkit falls back to Helvetica: `/Type1 /WinAnsiEncoding`, one byte per character, and not
+ * one Cyrillic glyph anywhere in it. That fallback is what printed «Стол 7» as `B␔BCä; 7`.
+ *
+ * These two files are ParaType's PT Sans Narrow, unmodified, as Google Fonts releases it
+ * (`google/fonts@main:ofl/ptsansnarrow`), under the SIL Open Font License 1.1 — the licence text
+ * is beside them in `pt-sans-narrow-OFL.txt`. The face is the brand's display face for the reason
+ * `docs/brand-guidelines.md` gives for choosing it over Bricolage Grotesque: ParaType drew it from
+ * Cyrillic, and it is the face of Russian printed forms and timetables. A card on a table that
+ * says which table it is, printed and cut, *is* a Russian printed form.
+ *
+ * The Google release is one file per weight, with latin, latin-ext, cyrillic and cyrillic-ext in
+ * each, which is what lets one face set «Стол 7» and «Little Furnace» on the same card. IBM Plex
+ * Sans, the brand's body face, is a variable font in the same release and is deliberately not used
+ * here: one family covering both scripts at both weights is fewer moving parts on a sheet whose
+ * only job is to be legible on paper.
  */
-const BRAND_FONT_FILES = [
-  '@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.ttf',
-  '@fontsource/ibm-plex-sans/files/ibm-plex-sans-all-400-normal.ttf',
-];
+const FACES = {
+  regular: 'PT_Sans-Narrow-Web-Regular.ttf',
+  bold: 'PT_Sans-Narrow-Web-Bold.ttf',
+} as const;
+
+/**
+ * Where those two files are, in either layout this module runs in. `tsup` copies `public/` into
+ * `dist/`, so the bundle finds them beside itself; `tsx`, `vitest` and `next`-free local runs find
+ * them where they are committed. Both candidates are `import.meta.url`-relative string literals,
+ * which is also what makes them visible to a file tracer — a path assembled from a variable is not.
+ */
+const FONT_DIRECTORIES = ['./fonts/', '../../public/fonts/'] as const;
 
 /**
  * Generic in the table so a caller may hand over rows that carry more than the DTO - the route
@@ -52,12 +78,8 @@ export interface QrSheetInput<T extends TableDto = TableDto> {
   /** Signs one table token; the route passes the same signer the guest link is built from. */
   tokenFor: (table: T) => Promise<string>;
   webOrigin: string;
-  /**
-   * Overrides the brand font lookup. `null` forces the built-in face; a path that is not there is
-   * treated as absent rather than as a failure, which is what the sheet needs on a machine with
-   * no font package installed.
-   */
-  brandFontPath?: string | null;
+  /** Overrides the directory the brand faces are read from. Only the tests pass it. */
+  brandFontDir?: string;
 }
 
 interface SheetFonts {
@@ -65,35 +87,51 @@ interface SheetFonts {
   bold: string;
 }
 
-/** The brand TTF's path, or null when no readable one is installed. */
-function resolveBrandFont(): string | null {
-  const require = createRequire(import.meta.url);
-  for (const spec of BRAND_FONT_FILES) {
-    try {
-      const path = require.resolve(spec);
-      if (existsSync(path)) return path;
-    } catch {
-      // Not installed: try the next name, then fall back to the built-in face.
-    }
+/**
+ * The two brand faces, or a refusal to draw anything at all.
+ *
+ * **Deliberately not a fallback.** This used to degrade to Helvetica on the reasoning that a sheet
+ * of QR codes is an operational necessity and staff cannot seat a guest without one. That
+ * reasoning was measured and found wrong the moment the data went Russian: Helvetica does not
+ * degrade the typography here, it replaces every label on the sheet with mojibake, and six cards
+ * of mojibake cut out and put on six tables is not a working sheet that looks worse — it is a
+ * broken one that nobody notices until a guest is holding it. The file is committed in this
+ * repository and copied into the image by the build, so its absence is a packaging fault, and a
+ * 500 an admin reports the first time they print beats a download that looks fine until it is on
+ * paper.
+ */
+function brandFaces(override: string | undefined): SheetFonts {
+  const directories =
+    override === undefined
+      ? FONT_DIRECTORIES.map((directory) => fileURLToPath(new URL(directory, import.meta.url)))
+      : [override];
+  for (const directory of directories) {
+    const regular = join(directory, FACES.regular);
+    const bold = join(directory, FACES.bold);
+    // Both or neither: one weight present and the other missing is a half-packaged image, and a
+    // sheet set entirely in bold is not the degradation anyone would have chosen.
+    if (existsSync(regular) && existsSync(bold)) return { regular, bold };
   }
-  return null;
+  throw new Error(
+    `Brand font missing: ${FACES.regular} and ${FACES.bold} are not in any of ${directories.join(', ')}. ` +
+      'The QR sheet cannot draw Cyrillic without them and will not print in a face that cannot.',
+  );
 }
 
-/**
- * Registers the brand face when one is genuinely readable, and answers the built-in Helvetica pair
- * otherwise. A sheet of QR codes is an operational necessity - staff cannot seat a guest without
- * it - so a missing or unreadable font degrades the typography and never the printing.
- */
-function chooseFonts(doc: PDFKit.PDFDocument, path: string | null): SheetFonts {
-  const fallback: SheetFonts = { regular: 'Helvetica', bold: 'Helvetica-Bold' };
-  if (path === null || !existsSync(path)) return fallback;
+/** Registers both faces on the document under the names the drawing code asks for. */
+function registerFonts(doc: PDFKit.PDFDocument, faces: SheetFonts): SheetFonts {
   try {
-    doc.registerFont('brand', path);
-    // One weight is all a font file gives us; the display sizes carry the hierarchy instead.
-    return { regular: 'brand', bold: 'brand' };
-  } catch {
-    return fallback;
+    doc.registerFont('brand', faces.regular);
+    doc.registerFont('brandBold', faces.bold);
+  } catch (cause) {
+    throw new Error(
+      `Brand font unreadable: ${faces.regular} or ${faces.bold} is not a usable TTF.`,
+      {
+        cause,
+      },
+    );
   }
+  return { regular: 'brand', bold: 'brandBold' };
 }
 
 /**
@@ -123,7 +161,7 @@ function drawHeader(doc: PDFKit.PDFDocument, fonts: SheetFonts, name: string, pr
     .font(fonts.regular)
     .fontSize(9)
     .fillColor(INK.muted)
-    .text(`Table QR codes - printed ${printed}`, MARGIN, MARGIN + 1, {
+    .text(qrSheet.printedOn(printed), MARGIN, MARGIN + 1, {
       width: PAGE.width - 2 * MARGIN,
       align: 'right',
       lineBreak: false,
@@ -166,7 +204,7 @@ function drawCard(
     .font(fonts.bold)
     .fontSize(24)
     .fillColor(INK.strong)
-    .text(`Table ${table.number}`, left, y, { width: contentWidth, align: 'center' });
+    .text(qrSheet.table(table.number), left, y, { width: contentWidth, align: 'center' });
   y += 30;
   doc
     .font(fonts.regular)
@@ -184,7 +222,7 @@ function drawCard(
     .font(fonts.regular)
     .fontSize(8.5)
     .fillColor(INK.body)
-    .text(INSTRUCTION, left, y, { width: contentWidth, align: 'center' });
+    .text(qrSheet.instruction, left, y, { width: contentWidth, align: 'center' });
 }
 
 /**
@@ -194,6 +232,9 @@ function drawCard(
  */
 export async function renderQrSheet<T extends TableDto>(input: QrSheetInput<T>): Promise<Buffer> {
   const { restaurant, tables, tokenFor, webOrigin } = input;
+  // Resolved before anything is drawn and before a single token is signed: a sheet that cannot be
+  // set in the brand face is not printed at all, so it must not be half-printed either.
+  const faces = brandFaces(input.brandFontDir);
   // Signed and rendered before a byte of PDF is written: a card is never half-drawn because a
   // signer rejected, and pdfkit's own API is synchronous once the document is under way.
   const cards = await Promise.all(
@@ -215,13 +256,10 @@ export async function renderQrSheet<T extends TableDto>(input: QrSheetInput<T>):
     // Zero margins: every position on this sheet is computed, and a non-zero bottom margin would
     // let a line of text at the foot of the last card add a page pdfkit alone decided to add.
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
-    info: { Title: `${restaurant.name} - table QR codes`, Author: 'TableTap' },
+    info: { Title: qrSheet.title(restaurant.name), Author: 'TableTap' },
   });
   const collected = collect(doc);
-  const fonts = chooseFonts(
-    doc,
-    input.brandFontPath === undefined ? resolveBrandFont() : input.brandFontPath,
-  );
+  const fonts = registerFonts(doc, faces);
   const printed = new Date().toISOString().slice(0, 10);
 
   const gridTop = MARGIN + HEADER_HEIGHT;
@@ -240,12 +278,10 @@ export async function renderQrSheet<T extends TableDto>(input: QrSheetInput<T>):
         .font(fonts.regular)
         .fontSize(11)
         .fillColor(INK.body)
-        .text(
-          'No active tables to print. Add a table, or reactivate one, then print this sheet again.',
-          MARGIN,
-          gridTop + 20,
-          { width: PAGE.width - 2 * MARGIN, align: 'center' },
-        );
+        .text(qrSheet.nothingToPrint, MARGIN, gridTop + 20, {
+          width: PAGE.width - 2 * MARGIN,
+          align: 'center',
+        });
       continue;
     }
     onThisPage.forEach((card, index) => {

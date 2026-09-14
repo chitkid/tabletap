@@ -8,6 +8,7 @@ import { schema } from '@tabletap/db';
 import { AppError, validate } from '../lib/errors';
 import { renderQrSheet } from '../lib/qr-pdf';
 import { restaurantIdFor } from '../lib/restaurant';
+import { qrSheet } from '../lib/ru';
 import { staffKey } from '../lib/staff-key';
 import { createTable, deleteTable, listTables, reissueQr, updateTable } from '../lib/tables-admin';
 import { requireAction, requireStaff, requireTableAccess } from '../plugins/rbac';
@@ -25,16 +26,35 @@ const TableUpdateSchema = TableWriteSchema.partial();
 const OkResponseSchema = z.object({ ok: z.literal(true) });
 
 /**
- * The name the sheet is saved under. It is built from the restaurant's own slug rather than its
- * display name, and then reduced again here: a `content-disposition` value is a header, and a
- * quote or a newline inside a filename would be a header injection rather than an odd download.
+ * The name the sheet is saved under, in both of the forms `content-disposition` carries.
+ *
+ * The stem is built from the restaurant's own slug rather than its display name, and then reduced
+ * again here: a `content-disposition` value is a header, and a quote or a newline inside a filename
+ * would be a header injection rather than an odd download.
+ *
+ * Two names because the header has room for two, and the difference is the localisation. `filename`
+ * is the ASCII fallback the syntax has always allowed and nothing more; `filename*` is RFC 5987's
+ * form — percent-encoded UTF-8 — and it is the one every current browser actually saves the file
+ * under, so the admin gets «little-furnace-QR-коды-14.09.2026.pdf» rather than a transliteration.
+ * Percent-encoding is also what keeps this safe: the header stays pure ASCII whatever the slug is,
+ * and the five characters `encodeURIComponent` leaves alone are escaped by hand because RFC 5987's
+ * `attr-char` does not include them.
  */
-function sheetFilename(slug: string, printedOn: string): string {
+function asciiStem(slug: string): string {
   const safe = slug
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return `${safe === '' ? 'tabletap' : safe}-qr-codes-${printedOn}.pdf`;
+  return safe === '' ? 'tabletap' : safe;
+}
+
+function sheetDisposition(slug: string, printedOn: string): string {
+  const stem = asciiStem(slug);
+  const russian = encodeURIComponent(qrSheet.fileName(stem, printedOn)).replace(
+    /['()!*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename="${stem}-qr-codes-${printedOn}.pdf"; filename*=UTF-8''${russian}`;
 }
 
 export async function tablesRoutes(app: FastifyInstance) {
@@ -110,7 +130,7 @@ export async function tablesRoutes(app: FastifyInstance) {
         .header('content-type', 'application/pdf')
         .header(
           'content-disposition',
-          `attachment; filename="${sheetFilename(restaurant.slug, new Date().toISOString().slice(0, 10))}"`,
+          sheetDisposition(restaurant.slug, new Date().toISOString().slice(0, 10)),
         )
         .send(pdf);
     },

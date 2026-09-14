@@ -72,7 +72,7 @@ describe('stripe provider', () => {
    * Stripe's page is the one screen in this product we do not draw, and all but one word of it is
    * Stripe's own. Left unset, `locale` is `'auto'` and follows the guest's browser, so a guest
    * whose phone is in English would read a Russian line item on an English payment form. The line
-   * item itself is `lib/payments.ts`'s `checkoutLineName`, and this test passes it through
+   * item itself is `lib/ru.ts`'s `checkoutLineName`, and this test passes it through
    * untouched to prove the adapter does not translate, reword or truncate what it is handed.
    */
   it('asks Stripe for its own chrome in Russian, and prints the name it was given', async () => {

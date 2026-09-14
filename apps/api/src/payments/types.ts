@@ -8,8 +8,8 @@ export interface SessionInput {
   currency: string;
   /**
    * What the provider calls this payment **to the guest**: Stripe prints it as the line item's
-   * name on its own Checkout page. It is interface copy, not a log line - `lib/payments.ts`'s
-   * `checkoutLineName` is where the words come from and why they are the only Russian in this app.
+   * name on its own Checkout page. It is interface copy, not a log line - `lib/ru.ts`'s
+   * `checkoutLineName` is where the words come from, and why this app writes any Russian at all.
    */
   description: string;
 }

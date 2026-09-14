@@ -4,38 +4,13 @@ import type { PaymentProvider, SettleInput } from '../payments/types';
 import { recordAudit } from './audit';
 import { AppError } from './errors';
 import { isUniqueViolation, loadOrder } from './orders';
+import { checkoutLineName } from './ru';
 import type { OrderEvents } from './order-events';
 
 export type SettleResult = 'paid' | 'declined' | 'replayed' | 'mismatch' | 'late' | 'unknown-order';
 
 /** Rolls the settlement back when the event names a payment that belongs to another order. */
 class ForeignPayment extends Error {}
-
-/**
- * **The one interface string this API writes itself, and the only Russian in `apps/api`.**
- *
- * Stripe draws it, on Stripe's hosted Checkout page, as the name of the single line item beside
- * the amount — the last thing a guest reads before paying. Every other user-visible sentence this
- * process produces travels as an `ErrorMessageKey` and is worded by `apps/web/messages/ru.json`;
- * this one cannot, because the web tier is nowhere in the path. Stripe asks this process for a
- * string and prints what it is given.
- *
- * Worded to match `guest.pay.terminalHeading`, which is what the demo terminal shows the same
- * guest for the same order — «Стол 7 · Заказ № 12» — so switching a deployment from the demo
- * provider to Stripe does not change what the payment step is called. Both non-breaking spaces are
- * the copy contract's — it binds a number to the noun in front of it — and both are written as
- * escapes rather than pasted, so they are visible in the source and survive a diff.
- *
- * **That match is unguarded, and cannot be guarded from here.** `payments.test.ts` pins this
- * string and pins that `startPayment` hands it to the provider, but nothing compares it with
- * `guest.pay.terminalHeading`: this app cannot import the web's dictionary, which is the same
- * reason the string lives here at all. If the terminal's heading is reworded, reword this too —
- * a reviewer is what stands between them, not a test.
- *
- * If a second string like this ever appears, it stops being a note and becomes a dictionary.
- */
-export const checkoutLineName = (order: { number: number; tableNumber: number }): string =>
-  `Стол\u00a0${order.tableNumber} · Заказ №\u00a0${order.number}`;
 
 /**
  * Opens a payment attempt for an order the guest owns. The amount is the order's, read here and
@@ -82,7 +57,7 @@ export async function startPayment(
     number: order.number,
     amountCents: order.totalCents,
     currency: order.currency,
-    // Not a log line: Stripe prints this to the guest. See `checkoutLineName`.
+    // Not a log line: Stripe prints this to the guest. See `lib/ru.ts`'s `checkoutLineName`.
     description: checkoutLineName(order),
   });
   await db
