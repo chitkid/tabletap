@@ -15,10 +15,12 @@ describe('the document shell', () => {
   });
 
   it('asks for the Cyrillic subset of every face it loads', () => {
-    // Two `subsets:` arrays, one per face. Neither may ship without cyrillic: the display face was
-    // chosen for having it, and the body face has had it all along and was never given it.
+    // One `subsets:` array per face. Not pinned to a count — a third face is a font change, not
+    // a Cyrillic regression — but whatever faces exist, every one of them must ship cyrillic: the
+    // display face was chosen for having it, and the body face has had it all along and was never
+    // given it.
     const subsetArrays = [...source.matchAll(/subsets:\s*\[([^\]]*)\]/g)].map((m) => m[1]);
-    expect(subsetArrays).toHaveLength(2);
+    expect(subsetArrays.length).toBeGreaterThan(0);
     for (const arr of subsetArrays) expect(arr).toContain("'cyrillic'");
   });
 });

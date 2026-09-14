@@ -1,6 +1,6 @@
-# Little Furnace — Brand Guidelines v1.2
+# Little Furnace — Brand Guidelines v1.3
 
-> Last updated: 2026-09-05 (v1.2)
+> Last updated: 2026-09-14 (v1.3)
 > Status: Active for M1–M6
 
 TableTap is the product: QR table ordering with a real-time kitchen display. Little Furnace is the seeded demo tenant that TableTap ships with — a neighbourhood wood-fired place serving flatbreads, grain bowls and a short list of sides and drinks. You order from the table and the food comes when it is ready; fast-casual pace, warm room. The name and the furnace image set the two surfaces: the kitchen surface takes the dark back-of-house character, the guest surface takes the warmth. The guest surface wears the restaurant brand; kitchen and admin wear neutral TableTap chrome — dark for kitchen, light and dense for admin — with ember as the single accent. All three come from the token base defined here. This document is the source of truth: the design system, `assets/design-tokens.json` and every UI string derive from it.
@@ -12,7 +12,7 @@ TableTap is the product: QR table ordering with a real-time kitchen display. Lit
 | Primary Color   | #C23E18                                 |
 | Secondary Color | #6B7A3C                                 |
 | Accent Color    | #1C1917                                 |
-| Primary Font    | Bricolage Grotesque                     |
+| Primary Font    | PT Sans Narrow                          |
 | Voice           | Counter-side, direct, honest about time |
 
 ---
@@ -191,16 +191,18 @@ Focus rings use Ember #C23E18 at 2 px with a 2 px offset against the surface beh
 
 ### Decision
 
-Display: **Bricolage Grotesque**. Text: **IBM Plex Sans**. Mono: **IBM Plex Mono**.
+Display: **PT Sans Narrow**. Text: **IBM Plex Sans**. Mono: **IBM Plex Mono**.
 
 The `ui-ux-pro-max` typography search for "warm neighbourhood restaurant wood-fired flatbread" returned five pairings, none of which was adopted. Its top restaurant result is Playfair Display SC + Karla — the display-serif restaurant cliché the spec rules out. Results two through four (Fredoka + Nunito, Caveat + Quicksand, Varela Round + Nunito Sans) are rounded and playful, aimed at children's and lifestyle products; a room that cooks over fire is warm, not cute. The fifth, Calistoga + Inter + JetBrains Mono, is the closest in shape — a display face for warmth over a workhorse sans plus a mono for data — and its structure is what this pairing adopts, but Calistoga is a chunky display serif with a single weight and no numeral variants, which will not carry prices, timers or a kitchen ticket.
 
-Bricolage Grotesque supplies the character the spec asks for: a variable grotesque with a slightly irregular, printed-signage quality, which reads as a neighbourhood place rather than a chain. IBM Plex Sans is the workhorse underneath it, with real tabular numerals for prices, timers and tables and a wide weight range for a dense admin surface. IBM Plex Mono comes from the same superfamily, so the kitchen timers sit next to Plex Sans ticket lines without a seam. The `ui-ux-pro-max` google-fonts search for "Bricolage Grotesque IBM Plex Sans" returned five IBM Plex Sans script variants (KR, Condensed, Devanagari, Hebrew, Thai) and neither of the two families named in the query, so no ranked recommendation came out of it; a direct lookup in the skill's `data/google-fonts.csv` confirms all three families are present and available on Google Fonts — Bricolage Grotesque as a variable Sans Serif / Display face, IBM Plex Sans as a variable sans with Latin and Cyrillic subsets, IBM Plex Mono as the matching monospace.
+Bricolage Grotesque was chosen in M1 for the character the spec asked for: a variable grotesque with a slightly irregular, printed-signage quality, which read as a neighbourhood place rather than a chain. IBM Plex Sans is the workhorse underneath it, with real tabular numerals for prices, timers and tables and a wide weight range for a dense admin surface. IBM Plex Mono comes from the same superfamily, so the kitchen timers sit next to Plex Sans ticket lines without a seam. The `ui-ux-pro-max` google-fonts search for "Bricolage Grotesque IBM Plex Sans" returned five IBM Plex Sans script variants (KR, Condensed, Devanagari, Hebrew, Thai) and neither of the two families named in the query, so no ranked recommendation came out of it; a direct lookup in the skill's `data/google-fonts.csv` confirmed all three families were present and available on Google Fonts — Bricolage Grotesque as a variable Sans Serif / Display face, IBM Plex Sans as a variable sans with Latin and Cyrillic subsets, IBM Plex Mono as the matching monospace.
+
+Bricolage Grotesque is replaced as the display face in v1.3, ahead of the Russian localisation milestone. Google Fonts lists its subsets as `vietnamese, latin-ext, latin` — no Cyrillic — so a face chosen for the printed-signage character of a Latin neighbourhood spot cannot draw that same signage once it is in Russian. PT Sans Narrow replaces it: Paratype drew it from Cyrillic, and it is the face of Russian printed forms and timetables — the same vernacular register Bricolage Grotesque held for Latin. IBM Plex Sans and IBM Plex Mono are unchanged.
 
 ### Font Stack
 
 ```css
---font-display: 'Bricolage Grotesque', 'Trebuchet MS', system-ui, sans-serif;
+--font-display: 'PT Sans Narrow', 'Arial Narrow', system-ui, sans-serif;
 --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
 ```
@@ -240,7 +242,7 @@ Kitchen surface. A cook reads this from roughly a metre away, often at an angle,
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
-  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+  href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=PT+Sans+Narrow:wght@400;700&display=swap"
   rel="stylesheet"
 />
 ```
@@ -354,3 +356,4 @@ Sentence case everywhere. No terminal full stop on a button or a single-line lab
 | 1.0     | 2026-09-03 | Initial guidelines: ember, olive and ink palette with measured WCAG ratios; Bricolage Grotesque with IBM Plex Sans and IBM Plex Mono; wordmark-only logo policy; voice principles and vocabulary.              |
 | 1.1     | 2026-09-03 | Guest border #E0D8CB → #918269 and kitchen border #3D3631 → #7A6C62, so both clear the WCAG 1.4.11 3:1 non-text bar on every surface they are drawn on. Added the non-text contrast block.                     |
 | 1.2     | 2026-09-05 | The M1 debt: `assets/little-furnace-wordmark.svg` now exists. Added the TableTap mark (§3), a separate identity from the wordmark, with its own usage rules and its own component, favicon and app icon files. |
+| 1.3     | 2026-09-14 | Display face Bricolage Grotesque → PT Sans Narrow ahead of Russian localisation: Bricolage Grotesque has no Cyrillic; PT Sans Narrow is Paratype's Cyrillic face for Russian forms and timetables.             |

@@ -1,6 +1,6 @@
 # Design System Master File
 
-> Reconciled against packages/ui/tokens.css on 2026-09-03.
+> Reconciled against packages/ui/tokens.css on 2026-09-14.
 
 > Source of truth for identity: docs/brand-guidelines.md; token values: assets/design-tokens.json,
 > generated into packages/ui/tokens.css and aliased for Tailwind in packages/ui/theme.css.
@@ -58,13 +58,13 @@ Ember stays the single call-to-action hue: `--primary` for the fill, `--ring` fo
 
 ### Typography
 
-**Reconciled to `docs/brand-guidelines.md` §2.** The generator's own typography search for this query returned Playfair Display SC + Karla — the display-serif restaurant cliché the brand spec explicitly rules out (see brand-guidelines.md §2 for why: it also rejected the rounded/playful runners-up and explains the Bricolage Grotesque choice in detail). Replaced below.
+**Reconciled to `docs/brand-guidelines.md` §2.** The generator's own typography search for this query returned Playfair Display SC + Karla — the display-serif restaurant cliché the brand spec explicitly rules out (see brand-guidelines.md §2 for why: it also rejected the rounded/playful runners-up and explains the Bricolage Grotesque choice in detail). Replaced below. Bricolage Grotesque has since been replaced again, by PT Sans Narrow (see brand-guidelines.md §2, v1.3): the former serves `vietnamese, latin-ext, latin` and no Cyrillic, and cannot carry the Russian localisation milestone.
 
-- **Heading/Display Font:** Bricolage Grotesque (700 for Display/H1, 600 for H2/H3)
+- **Heading/Display Font:** PT Sans Narrow (700 for Display/H1, 600 for H2/H3)
 - **Body Font:** IBM Plex Sans (400 body, 500-700 for UI weight, real tabular numerals)
 - **Mono Font:** IBM Plex Mono (kitchen timers only, from the same superfamily as IBM Plex Sans)
 - **Mood:** neighbourhood wood-fired warmth, printed-signage character — not cute, not corporate
-- **Google Fonts:** [Bricolage Grotesque + IBM Plex Sans + IBM Plex Mono](https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap)
+- **Google Fonts:** [IBM Plex Mono + IBM Plex Sans + PT Sans Narrow](https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=PT+Sans+Narrow:wght@400;700&display=swap)
 
 **Font Loading:**
 
@@ -72,13 +72,13 @@ Ember stays the single call-to-action hue: `--primary` for the fill, `--ring` fo
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
-  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+  href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=PT+Sans+Narrow:wght@400;700&display=swap"
   rel="stylesheet"
 />
 ```
 
 ```css
---font-display: 'Bricolage Grotesque', 'Trebuchet MS', system-ui, sans-serif;
+--font-display: 'PT Sans Narrow', 'Arial Narrow', system-ui, sans-serif;
 --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
 ```
