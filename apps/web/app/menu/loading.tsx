@@ -29,6 +29,27 @@ function Bar({ className }: { className?: string }) {
  * The classes are `components/menu/dish-card.tsx`'s own, which is the point: a card is as tall as
  * its text column (name, description, allergens, then the price row), never as tall as its 96 px
  * plate, so copying the plate's height would reserve 96 px for a 148.5 px card.
+ *
+ * **The description bar is one line, the real description is not clamped to one, and the gap that
+ * leaves is a decision with numbers behind it rather than an oversight.** Measured in Chromium
+ * against the seeded menu at 375 px: 3 of the 20 dishes have a one-line description and fit this
+ * slot exactly, 12 wrap to two lines and stand 20 px taller, and 5 wrap to three and stand 40 px
+ * taller. At 1280 px every one of the twenty is a single line, so the residual there is zero. Four
+ * cards are above the fold on a 375 x 812 phone, and together they are 100 px taller than what is
+ * reserved for them.
+ *
+ * Both ways of closing that gap were priced and both cost more than it does. `line-clamp-1` on the
+ * card truncates 17 of the 20 descriptions on a phone — a `text-sm` line holds roughly 34
+ * characters at 375 px and the seed's sentences run to 58 — and buys nothing at 1280 px, where
+ * nothing wraps: the whole cost lands on the surface the dish card exists for. `line-clamp-2` with
+ * a two-line floor cuts only the 5 longest, but then every one-line card carries 20 px of blank
+ * space on every desktop, on all twenty, forever. Undershooting is the safe direction, and it is
+ * the reason this slot reserves the card's provable floor at all: a fallback can never be taller
+ * than the content that replaces it, so the page settles instead of collapsing.
+ *
+ * Allergens are a separate `text-xs` line, so no clamp on the description could ever hide them.
+ * That is what made this safe to decide rather than escalate. Ruled 2026-09-14; the measurements
+ * are in `.superpowers/sdd/2026-09-14-russian-localisation/task-10-report.md` §4.
  */
 function CardSlot() {
   return (

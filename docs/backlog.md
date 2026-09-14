@@ -461,3 +461,25 @@ single shared rate-limit bucket — rather than repeated here.
   to trust Cloudflare's ranges by hand - they change - but to key the fallback on a header Render
   documents as trustworthy, or to accept the weaker fallback and say so. Trigger: any abuse of the
   public API that does not come through the rewrite.
+
+## Found during the Russian localisation, 2026-09-14
+
+- **The quantity stepper pushes the guest menu into a sideways scroll below about 338 px of
+  viewport.** `apps/web/components/menu/dish-card.tsx:63` puts the price beside a `QuantityStepper`
+  whose three 44 px targets and two gaps make it 128 px wide and unshrinkable, in a
+  `justify-between` row with no `flex-wrap`, inside a text column that has already given 96 px to
+  the plate. Measured in Chromium with a dish in the basket: the stepper's right edge lands at
+  337.4 px whatever the viewport, so the document scrolls sideways by 17 px at 320 px, 9 px at
+  328 px and 1 px at 336 px, and is clean from 344 px up. **At 375 px — the product's stated small
+  breakpoint, and the width every other guest-surface guard is measured at — and at 1280 px there
+  is nothing to see**, which is why Task 10 recorded it rather than fixing it inside a task scoped
+  to those two widths. Russian is not the cause: the `ru-RU` price is wider than the `en-US` one it
+  replaced, but the stepper's 128 px is the half that does not fit.
+
+  **The two-line fix is not a two-line fix.** Adding `flex-wrap` to that row drops the stepper below
+  the price under about 338 px, which makes the dish card taller there — and the dish card's height
+  is exactly what `apps/web/app/menu/loading.tsx` reserves, deliberately, at the card's provable
+  floor of 148.5 px. So the cheap repair reopens a measured deliverable from another task and lands
+  in the same decision as the description-clamp arithmetic recorded in that file's own comment.
+  Either change the row and re-derive the reservation with it, or leave both. Trigger: a decision to
+  support phones narrower than 375 px, or any other reason to reopen the loading slot's arithmetic.
