@@ -5,20 +5,24 @@ import { Slot } from '@radix-ui/react-slot';
 import { cn } from '../lib/utils';
 
 /**
- * `min-h-7` and `truncate`, not `h-7` and `overflow-hidden`.
+ * `min-h-7`, not `h-7`: the height is a floor, so a type scale that redefines `--text-sm`
+ * (`[data-surface="kitchen"]` does) grows the pill instead of crowding the label against its
+ * rounded edge.
  *
- * The pill was a fixed 28 px box that clipped a long label mid-glyph rather than ending it: no
- * ellipsis, no wrap, no scroll — the last letter simply stopped. The height is a floor now, so a
- * type scale that redefines `--text-sm` (`[data-surface="kitchen"]` does) grows the pill instead
- * of crowding the label against the rounded edge, and `truncate` keeps `whitespace-nowrap` and
- * `overflow-hidden` while adding the ellipsis that says a word was cut.
+ * `truncate` does not live here. `text-overflow` only has a box to act on inside a block
+ * container's own inline content, and this container is `inline-flex` — flex layout has no line
+ * boxes, so `truncate` on the flex container itself clips both ends of the label instead of
+ * ellipsising one. **Measured**, two badges forced to 70 px wide in the product's own stylesheet
+ * and fonts (`admin/menu`, live, «Закончилось»): with `truncate` on this container, content needs
+ * 90 px against a 68 px content box and renders `аконьчилос` — the first letter cut too, no `…`.
+ * The label span below carries `truncate` instead: same 70 px outer box, its own 44 px content
+ * box against the label's 88 px, and it renders `Зак…`.
  *
- * `w-fit` means nothing is constraining it in the product today — measured, «Закончилось» draws
- * 114.06 px with 0 px clipped at 375 px and at 1280 px — so this is what the pill does when
- * something finally does constrain it, not a change to what it looks like now.
+ * `overflow-hidden` stays on the pill regardless, as a second line of defence (an oversized icon,
+ * say). `w-fit` means nothing constrains the pill in the product today.
  */
 const badgeVariants = cva(
-  'inline-flex min-h-7 w-fit shrink-0 items-center justify-center gap-1 truncate rounded-full border border-transparent px-3 py-0.5 text-sm font-semibold transition-colors duration-(--duration-fast) focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive [&>svg]:pointer-events-none [&>svg]:size-3',
+  'inline-flex min-h-7 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-3 py-0.5 text-sm font-semibold transition-colors duration-(--duration-fast) focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive [&>svg]:pointer-events-none [&>svg]:size-3',
   {
     variants: {
       variant: {
@@ -42,6 +46,7 @@ function Badge({
   className,
   variant = 'default',
   asChild = false,
+  children,
   ...props
 }: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot : 'span';
@@ -52,7 +57,19 @@ function Badge({
       data-variant={variant}
       className={cn(badgeVariants({ variant }), className)}
       {...props}
-    />
+    >
+      {/*
+       * `asChild` hands its single child element straight to `Slot`, which clones that element and
+       * merges these props onto it — wrapping `children` here would make `Slot` merge onto the
+       * wrapper instead of the caller's own element, breaking `asChild`. Every current call site
+       * (`menu-row.tsx:138`, `tables-table.tsx:280`) takes the plain-`span` path with a bare string
+       * child, so that is the one that gets the truncating slot: `min-w-0` lets the label shrink
+       * below its natural width instead of the flex item default (`min-width: auto`) holding the
+       * pill open, and becoming a flex item blockifies this span, giving `truncate` a real block
+       * box with inline content to act on.
+       */}
+      {asChild ? children : <span className="min-w-0 truncate">{children}</span>}
+    </Comp>
   );
 }
 
