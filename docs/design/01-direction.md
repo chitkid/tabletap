@@ -1,6 +1,7 @@
 # Phase 1 — Design direction
 
-Date: 2026-09-13. Three directions, one to be chosen. No code written.
+Date: 2026-09-13. Three directions presented. **Direction A «Тикет» chosen by the owner on
+2026-09-14**, with PT Sans Narrow as the display face and the risk accepted in full. No code written.
 
 ## What this phase was allowed to take as decided
 
@@ -193,7 +194,28 @@ columns of unrelated content.
 
 ---
 
-## Recommendation
+## The decision, 2026-09-14
+
+**Direction A «Тикет».** The paper organises all four surfaces, admin included — the owner accepted
+that risk in full rather than fencing it to the guest and kitchen, which is the right call: applied
+to three surfaces out of four it would be a theme for the landing rather than a system.
+
+**Display face: PT Sans Narrow, not Oswald.** The check that settled it is worth keeping, because it
+inverts the reason Oswald was proposed. Most of the condensed faces a designer reaches for have no
+Cyrillic at all — queried from Google Fonts, Bebas Neue, Barlow Condensed, Archivo Narrow and Saira
+Condensed all serve `latin` and `latin-ext` only. On Google Fonts the condensed display faces with
+real Cyrillic are three: Oswald, PT Sans Narrow, Alumni Sans.
+
+So Oswald was never the lazy pick, and the argument against it was never "it is common". The
+argument for PT Sans Narrow is positive: Paratype drew it from Cyrillic, and it is the face of
+Russian printed forms, timetables and transit signage — the same vernacular a ticket from a printer
+belongs to, in the product's own language. In a direction whose character comes from structure
+rather than from the display, a utilitarian face is the honest one.
+
+Its cost is real and accepted: two weights, no variable axis, and more restraint at hero size than
+Oswald would give.
+
+## Recommendation as presented (superseded by the decision above)
 
 **B, «Смена».** It is the only one whose central idea is the product's central claim: two places,
 one moment, and light travelling between them. It extends a surface the product already has rather
