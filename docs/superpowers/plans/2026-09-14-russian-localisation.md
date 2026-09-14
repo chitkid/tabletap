@@ -431,11 +431,32 @@ Fix the rows rather than the base class: `flex-wrap` where buttons sit side by s
 
 **Files:** all 29 files that assert on English text, `apps/web/i18n/no-orphan-strings.test.ts`
 
+**This gate scans source and therefore cannot see English that arrives over the wire.** Task 12 owns those; do not widen this gate to try, and say so in a comment so the next reader does not assume the gate covers more than it does.
+
 **Rewrite selectors from `messages/ru.json`, never from the screen.** A spec that looks up a Russian string typed by hand will drift from the dictionary by a character and stop asserting anything while still passing.
 
 - [ ] **The orphan-string gate.** A test that scans component sources for Latin text in user-visible positions — JSX text nodes, `aria-label`, `alt`, `title`, `placeholder` — and fails on anything outside an allow-list holding «TableTap», «Little Furnace» and the technology names. Assert the gate itself works by feeding it a fixture containing a stray English string and checking it fails.
 
 ---
+
+### Task 12: The refusals the server sends, which no source scan can catch
+
+**REQUIRED SUB-SKILLS:** superpowers:test-driven-development
+
+**Files:** `apps/api/src/lib/errors.ts` and every `AppError` call site, `packages/shared/src/api.ts` (the error envelope), `apps/web/lib/api.ts`, `apps/web/components/admin/row-editor.tsx`, `apps/web/messages/*.json`
+
+**Why this task exists, and why it was not in the plan.** Task 4's implementer found the landing printing an English sentence that arrives over the wire rather than living in a component. Measured: **53 `AppError` call sites** in `apps/api/src`, about 21 distinct English sentences, and the web renders them directly — `apps/web/lib/api.ts:32` reads `error.message`, and `components/admin/row-editor.tsx:45` interpolates it into «Couldn't …». A Russian interface would print English on every refusal, and **Task 11's gate cannot catch it**, because it scans source and these strings are never in the web's source.
+
+**Why mapping the existing code is not enough.** The codes are too coarse: `NOT_FOUND` carries nine distinct messages — category, item, order, table and more — so a code-to-message map flattens nine useful refusals into one «Не найдено» and takes away the part the person needed.
+
+**The shape.** The API keeps its English sentence, which is for logs and for developers, and gains a stable message key beside it. The web renders from the key through the dictionary and never from the sentence. A key the dictionary does not know falls back to a generic refusal rather than printing English.
+
+- [ ] **Step 1: Failing test** — `apps/web/lib/api.test.ts`: an error envelope carrying a known key renders the Russian string; one carrying an unknown key renders the generic fallback and never the server's sentence; the server's English sentence never reaches the rendered output in either case.
+- [ ] **Step 2: Run, expect failure.**
+- [ ] **Step 3: Widen the envelope.** Add the key to the error shape in `packages/shared/src/api.ts` and to `AppError`, then give every one of the 53 call sites its key. Keep the English sentence — it is what a developer reads in a log.
+- [ ] **Step 4: Render from the key** in `apps/web/lib/api.ts` and `row-editor.tsx`, with the generic fallback.
+- [ ] **Step 5: Sweep for other wire-borne English.** `apps/web/components/login-form.tsx:159` renders a message from better-auth, which is a second source and not an `AppError`. Report what you find; fix what is user-visible.
+- [ ] **Step 6: Full gate and commit.**
 
 ## After the last task (controller)
 
