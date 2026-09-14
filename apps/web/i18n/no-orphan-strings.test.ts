@@ -44,9 +44,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
  *
  *   Task 12 answered them a different way, and the answer is not a wider scan: every refusal the
  *   API raises now carries an `ErrorMessageKey` beside its English sentence, and the web renders
- *   the key through `errors.*` in the dictionary. What guards it is a set-equality test in
- *   `apps/web/lib/api.test.ts` (every key the API can send has a Russian sentence, and no sentence
- *   is dead copy) plus the bijection test in `apps/api/src/lib/errors.test.ts`.
+ *   the key through `errors.*` in the dictionary. What guards *that* — and only that — is a pair
+ *   of set-equality tests in `apps/web/lib/api.test.ts` (every key the API can send has a Russian
+ *   sentence and an English one, and no sentence is dead copy) plus the bijection test in
+ *   `apps/api/src/lib/errors.test.ts`. None of the three reads a *sentence*: a key whose Russian
+ *   was left in English would pass all of them, and so would a wrong-but-consistent key. The
+ *   sentences are held by the tests that render them, one surface at a time.
  *
  * - **Modules that are not components.** `apps/web/lib/**`, `apps/api/**` and `packages/shared/**`
  *   are not walked. The one user-visible English sentence that used to live there —

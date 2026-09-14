@@ -62,7 +62,8 @@ describe('api helpers', () => {
   });
 });
 
-import { ERROR_MESSAGE_KEYS } from '@tabletap/shared';
+import { DEMO_TABLE_NUMBER, ERROR_MESSAGE_KEYS } from '@tabletap/shared';
+import en from '../messages/en.json';
 import ru from '../messages/ru.json';
 
 /**
@@ -139,5 +140,41 @@ describe('a refusal the server sent', () => {
     // Set equality in both directions: a key the API can send with nothing to say for it renders
     // its own name, and a dictionary entry no key reaches is dead copy nobody will maintain.
     expect(Object.keys(ru.errors).sort()).toEqual([...ERROR_MESSAGE_KEYS].sort());
+  });
+
+  /**
+   * `en.json` is unreferenced by code — the request config pins the locale to `ru` — and there is
+   * no en/ru parity gate anywhere in this repository. That makes it the file a hurried edit
+   * forgets, and a fallback file with holes in it is worse than no fallback file. This covers the
+   * `errors` block only, which is the block this milestone added; the other ~300 leaf keys still
+   * match by care rather than by gate.
+   */
+  it('has an English sentence for every key too, so the fallback file is whole', () => {
+    expect(Object.keys(en.errors).sort()).toEqual([...ERROR_MESSAGE_KEYS].sort());
+  });
+
+  /**
+   * The one refusal whose Russian carries a number: a message key takes no parameters, so
+   * `demoTableMissing` spells out the table the demo landing needs. `routes/demo.test.ts` catches
+   * a change to the constant; this catches a change to the sentence, which no test in `apps/api`
+   * can see because that app cannot read this dictionary.
+   */
+  it('names the demo table the API actually looks for', () => {
+    expect(ru.errors.demoTableMissing).toContain(String(DEMO_TABLE_NUMBER));
+    expect(en.errors.demoTableMissing).toContain(String(DEMO_TABLE_NUMBER));
+  });
+
+  /**
+   * Three refusals the server can name and the admin surface can also raise on its own. They say
+   * the same thing in the same words on purpose — the situation is one situation — and that is
+   * exactly why they have to be pinned: they are byte-identical, so a reword of either side leaves
+   * the other behind with nothing failing, and a substring assertion cannot tell the two apart at
+   * all. (It could not: `menu-row.test.tsx` and `menu-table.test.tsx` both stayed green with
+   * `refuseDelete`'s `IN_USE` branch removed, until they were changed to compare whole strings.)
+   */
+  it('keeps the three IN_USE refusals identical on both sides', () => {
+    expect(ru.errors.itemInUse).toBe(ru.admin.menu.dishInUse);
+    expect(ru.errors.categoryInUse).toBe(ru.admin.menu.categoryInUse);
+    expect(ru.errors.tableInUse).toBe(ru.admin.tables.inUse);
   });
 });

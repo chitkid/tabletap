@@ -135,6 +135,15 @@ export type RushResponse = z.infer<typeof RushResponseSchema>;
 export const PaymentProviderNameSchema = z.enum(['stripe', 'demo']);
 export type PaymentProviderName = z.infer<typeof PaymentProviderNameSchema>;
 
+/**
+ * The table the demo landing hands a visitor. It lives here rather than in `apps/api` because both
+ * tiers depend on the number: the API refuses `GET /api/demo/links` when no active table carries
+ * it, and the Russian for that refusal — `errors.demoTableMissing` — spells the number out, since
+ * a message key carries no parameters. Two files, one number, and `apps/web/lib/api.test.ts` holds
+ * them together in the direction a test in `apps/api` cannot reach.
+ */
+export const DEMO_TABLE_NUMBER = 7;
+
 export const DemoLinksResponseSchema = z.object({
   guest: z.object({ tableNumber: z.number().int().positive(), url: z.url() }),
   staff: z.array(

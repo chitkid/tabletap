@@ -448,13 +448,12 @@ describe('payments', () => {
         readEvent: () => null,
       };
       await startPayment(ctx.db, spy, { orderId: order.id, guestSessionId });
+      // Whole-array equality, which already excludes every English shape: the two
+      // `not.toContain` lines that used to follow could never have been the ones to fail, because
+      // this fires first on any change to the string.
       expect(seen).toEqual([
         checkoutLineName({ number: order.number, tableNumber: order.tableNumber }),
       ]);
-      // Aimed at the exact shape this replaced - `Order #12 · Table 7` - so it goes red if the
-      // English template comes back, rather than at a word neither version could produce.
-      expect(seen[0]).not.toContain('Table');
-      expect(seen[0]).not.toContain('Order');
     });
   });
 });

@@ -70,6 +70,10 @@ describe('POST /api/guest/claim', () => {
     );
     expect(res.statusCode).toBe(401);
     expect(res.json().error.code).toBe('TOKEN_INVALID');
+    // The key, not only the code. This route picks between two of them with a ternary, so the
+    // bijection guard in lib/errors.test.ts cannot read it - transposing the pair used to leave
+    // the whole suite green while a guest with a forged code was told their code had expired.
+    expect(res.json().error.messageKey).toBe('qrInvalid');
   });
   it('rejects an expired token with 401 TOKEN_EXPIRED', async () => {
     const res = await claim(
@@ -77,6 +81,8 @@ describe('POST /api/guest/claim', () => {
     );
     expect(res.statusCode).toBe(401);
     expect(res.json().error.code).toBe('TOKEN_EXPIRED');
+    // The other half of that ternary; see the case above.
+    expect(res.json().error.messageKey).toBe('qrExpired');
   });
   it('rejects an inactive table with 404', async () => {
     await ctx.db.update(schema.tables).set({ isActive: false }).where(eq(schema.tables.number, 12));

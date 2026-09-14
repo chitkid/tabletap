@@ -1,11 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { verifyTableToken } from '@tabletap/shared/server';
-import { DemoLinksResponseSchema, RushResponseSchema } from '@tabletap/shared';
+import { DEMO_TABLE_NUMBER, DemoLinksResponseSchema, RushResponseSchema } from '@tabletap/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { schema } from '@tabletap/db';
 import { createTestDb } from '@tabletap/db/testing';
 import { seed } from '@tabletap/db/seed';
-import { DEMO_TABLE_NUMBER } from './demo';
 import { buildApp } from '../server';
 import { TEST_CONFIG, TEST_DEMO_PASSWORD, createTestApp } from '../test/helpers';
 
@@ -87,8 +86,10 @@ describe('GET /api/demo/links', () => {
    * parameters, only a name. The English sentence beside it still templates the constant, so the
    * two would part company silently: the log would say 9 while the screen said 7.
    *
-   * This is where that is noticed. Changing `DEMO_TABLE_NUMBER` means editing the dictionary in
-   * the same commit, and this assertion is the reminder.
+   * This half catches a change to the constant. It cannot catch a change to the dictionary, which
+   * `apps/api` has no way to read; `apps/web/lib/api.test.ts` closes that direction by comparing
+   * the sentence against this same constant, now that it lives in `packages/shared` where both
+   * tiers can import it.
    */
   it('is still table 7, which the dictionary’s sentence for this refusal spells out', () => {
     expect(DEMO_TABLE_NUMBER).toBe(7);

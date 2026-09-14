@@ -10,6 +10,7 @@ import {
   createItem,
   deleteCategory,
   deleteItem,
+  setItemPhoto,
   updateCategory,
   updateItem,
 } from './menu-admin';
@@ -439,5 +440,40 @@ describe('menu-admin', () => {
       expect(forThisEntity, action).toHaveLength(1);
       expect(forThisEntity[0]).toMatchObject({ actorType: 'user', actorId: ACTOR });
     }
+  });
+
+  /**
+   * Which refusal each rejection reason produces, driven through `setItemPhoto` rather than read
+   * off the table, so the lookup and its wiring are covered and not only the table's shape.
+   *
+   * `lib/errors.test.ts` names this one of the three sites it cannot read — key and sentence are
+   * looked up rather than written as literals — and counting a site is not checking it. Pointing
+   * `UPLOAD_REFUSALS.missing` at `uploadTooLarge` left the whole API suite green before this
+   * existed, and a member of staff whose upload never arrived would have been told their
+   * photograph was over 5 MB.
+   */
+  it.each([
+    ['missing', 'uploadMissing'],
+    ['too-large', 'uploadTooLarge'],
+    ['unsupported-type', 'uploadUnsupportedType'],
+    ['unknown-size', 'uploadUnknownSize'],
+  ] as const)('refuses an upload rejected as %s with the key %s', async (reason, messageKey) => {
+    // Its own dish rather than a seeded one: another case in this file deletes «Чай с чабрецом»,
+    // and a fixture that depends on test order fails for a reason that has nothing to do with
+    // what it asserts.
+    const category = await categoryByName('Горячее');
+    const item = await createItem(
+      ctx.db,
+      restaurantId,
+      { categoryId: category.id, name: `Photo Refusal ${reason}`, priceCents: 500 },
+      ACTOR,
+    );
+    const storage = fakeStorage();
+    storage.checkUpload = vi.fn(async () => ({ ok: false as const, reason }));
+    // A key `photoKey(item.id, …)` could have built, or `setItemPhoto` refuses before it looks.
+    const key = `menu/${item.id}/deadbeef-dead-beef-dead-beefdeadbeef.jpg`;
+    await expect(
+      setItemPhoto(ctx.db, restaurantId, item.id, key, ACTOR, storage),
+    ).rejects.toMatchObject({ statusCode: 409, code: 'CONFLICT', messageKey });
   });
 });

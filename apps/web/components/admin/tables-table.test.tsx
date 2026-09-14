@@ -128,10 +128,12 @@ describe('TablesTable', () => {
     await user.click(within(rowFor('Терраса 7')).getByRole('button', { name: ACT.edit }));
     await user.click(screen.getByRole('button', { name: ACT.delete }));
 
+    // `findByText` is an exact match on the whole normalised text, not a substring one, so it
+    // already fails on the «Не удалось удалить. » frame that `refuseDelete`'s removal would add -
+    // which is why this guard kept its teeth where menu-row's and menu-table's lost theirs. The
+    // `not.toContain(<English>)` that used to follow could never have been the line that failed.
     const notice = await screen.findByText(plain(TB.inUse));
     expect(notice).toHaveAttribute('role', 'status');
-    // `IN_USE` is answered in the operator's words, so the server's English never lands.
-    expect(notice.textContent).not.toContain('Deactivate it instead');
     expect(fetcher.mock.calls[0]?.[0]).toBe(`/api/tables/${U(7)}`);
     expect(fetcher.mock.calls[0]?.[1]).toMatchObject({ init: { method: 'DELETE' } });
     expect(screen.getByLabelText(TB.label)).toHaveValue('Терраса 7');

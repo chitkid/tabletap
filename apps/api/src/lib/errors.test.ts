@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 /**
- * One invariant over every `AppError` this API raises: **the key and the English sentence are a
+ * One invariant over every refusal this API sends: **the key and the English sentence are a
  * bijection.** One key never carries two sentences, and one sentence never carries two keys.
  *
  * Neither half is tidiness.
@@ -24,14 +24,44 @@ import { describe, expect, it } from 'vitest';
  * making a refusal more helpful, would reopen the oracle while every other test stayed green. This
  * is the thing that goes red when someone does.
  *
- * **Seen red before it was believed**, both halves, in the working tree and then reverted:
+ * **Seen red before it was believed**, all four times, in the working tree and then reverted:
  * rewording one of `routes/menu.ts`'s twenty `noAccess` refusals to "You may not edit the menu."
  * failed the first; re-keying `lib/payments.ts`'s "Order not found." to `tableNotFound` failed the
- * second (and the first, since that key then carried two sentences too).
+ * second (and the first, since that key then carried two sentences too); and after the walk was
+ * widened, giving `GENERIC_4XX[403]` its own key `frameworkForbidden` failed the second while
+ * rewording it under the shared key failed the first.
  *
- * **What it does not see**, because both arguments have to be literals for a pair to be read at
- * all: two call sites pass computed values, and they are asserted by count below rather than left
- * to vanish quietly.
+ * ## Two ways a refusal is written here, and both are read
+ *
+ * Most are `new AppError(code, status, key, message)`. **Nine are not:** eight object literals in
+ * `plugins/error-handler.ts` and one in `plugins/auth.ts:41`, which answers on a reply the error
+ * handler never sees. Those nine include `GENERIC_4XX`'s 401 and 403 rows — the framework's own
+ * refusals, which carry the same keys `plugins/rbac.ts` raises by hand precisely so that a guard's
+ * refusal and Fastify's cannot be told apart. That is the single property this file's second
+ * assertion exists to hold, and for one commit the walk could not see either row: re-keying
+ * `GENERIC_4XX[403]` left the whole API suite green. So the walk reads **both** shapes — the
+ * constructor call, and any object literal carrying a `messageKey` and a `message` together.
+ *
+ * ## What it does not see
+ *
+ * Written from what the code below does, not from what it was meant to do. Each of these was
+ * checked by reading the walk, and the first two are pinned by the last test rather than left to
+ * vanish quietly:
+ *
+ * - **A key or sentence that is not a literal.** Three sites: `routes/guest.ts`'s matched
+ *   ternaries, `lib/menu-admin.ts`'s `UPLOAD_REFUSALS` lookup, and `plugins/error-handler.ts`'s
+ *   `AppError` relay, which copies both halves off the error it is serialising. They are counted,
+ *   not read — and because counting a site is not checking it, `routes/guest.test.ts` and
+ *   `lib/menu-admin.test.ts` assert the two real ones' keys directly.
+ * - **Whether any key is the *right* one.** This file only holds the mapping consistent. A refusal
+ *   keyed `tableNotFound` throughout would satisfy every assertion here.
+ * - **An envelope assembled some other way**: spread from a variable, built by a helper, or sent
+ *   from outside `apps/api/src`. An object literal needs both property names spelled out, and a
+ *   constructor call needs the callee to be the identifier `AppError` — an alias would be missed.
+ * - **Anything after a syntax error in the same file.** `ts.createSourceFile` recovers silently
+ *   rather than throwing, so the tail is simply not scanned. Such a file fails lint and typecheck
+ *   in the same gate run, which is what makes that tolerable.
+ * - **Test files, deliberately** — see `sourceFilesUnder`.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -71,6 +101,19 @@ function literalText(node: ts.Node, source: ts.SourceFile): string | null {
   return null;
 }
 
+/** The initialiser of a named property on an object literal, or `undefined` if it has none. */
+function propertyOf(node: ts.ObjectLiteralExpression, name: string): ts.Expression | undefined {
+  for (const property of node.properties) {
+    if (
+      ts.isPropertyAssignment(property) &&
+      (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
+      property.name.text === name
+    )
+      return property.initializer;
+  }
+  return undefined;
+}
+
 function collect(files: readonly string[]): { pairs: Raise[]; computed: Raise[] } {
   const pairs: Raise[] = [];
   const computed: Raise[] = [];
@@ -83,21 +126,28 @@ function collect(files: readonly string[]): { pairs: Raise[]; computed: Raise[] 
       ts.ScriptKind.TS,
     );
     const visit = (node: ts.Node): void => {
+      /** Where the two halves sit, whichever shape this refusal is written in. */
+      let halves: { keyNode?: ts.Node; messageNode?: ts.Node } | null = null;
       if (
         ts.isNewExpression(node) &&
         ts.isIdentifier(node.expression) &&
         node.expression.text === 'AppError'
       ) {
         const args = node.arguments ?? [];
-        const keyNode = args[2];
-        const messageNode = args[3];
+        halves = { keyNode: args[2], messageNode: args[3] };
+      } else if (ts.isObjectLiteralExpression(node)) {
+        // The hand-built envelopes. Both property names have to be present: `messageKey` alone is
+        // no refusal, and `message` alone is some other object - a Zod refinement, a log payload.
+        const keyNode = propertyOf(node, 'messageKey');
+        const messageNode = propertyOf(node, 'message');
+        if (keyNode !== undefined && messageNode !== undefined) halves = { keyNode, messageNode };
+      }
+      if (halves !== null) {
         const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
-        const where = {
-          file: posix(file).slice(posix(SRC).length + 1),
-          line: line + 1,
-        };
-        const key = keyNode === undefined ? null : literalText(keyNode, source);
-        const message = messageNode === undefined ? null : literalText(messageNode, source);
+        const where = { file: posix(file).slice(posix(SRC).length + 1), line: line + 1 };
+        const key = halves.keyNode === undefined ? null : literalText(halves.keyNode, source);
+        const message =
+          halves.messageNode === undefined ? null : literalText(halves.messageNode, source);
         if (key === null || message === null)
           computed.push({ ...where, key: key ?? '<computed>', message: message ?? '<computed>' });
         else pairs.push({ ...where, key, message });
@@ -127,12 +177,35 @@ const disagreements = (by: 'key' | 'message', of: 'key' | 'message') => {
     }));
 };
 
-describe('every AppError’s key and sentence', () => {
+describe('every refusal’s key and sentence', () => {
   it('is scanning the whole API, so an empty finding means something', () => {
     // Two negative assertions follow, and a walk that found nothing would satisfy both for the
     // wrong reason. Fifty is well under the count today and well over anything a broken walk
     // would return.
     expect(pairs.length).toBeGreaterThan(50);
+  });
+
+  /**
+   * The count a broken *predicate* would pass while the count above still did. Widening the walk
+   * to the hand-built envelopes is the fix for a guard that could not see the framework's own 401
+   * and 403; dropping the object-literal branch again would leave the three constructor-only
+   * assertions green, because the sixty-odd `AppError` sites are untouched by it.
+   */
+  it('is reading the hand-built envelopes too, not only the constructor calls', () => {
+    const handBuilt = pairs.filter(
+      (raise) => raise.file === 'plugins/error-handler.ts' || raise.file === 'plugins/auth.ts',
+    );
+    expect(handBuilt.map((raise) => raise.key).sort()).toEqual([
+      'noAccess',
+      'notFound',
+      'rateLimited',
+      'requestNotProcessed',
+      'routeNotFound',
+      'routeNotFound',
+      'serverError',
+      'signInRequired',
+      'validationFailed',
+    ]);
   });
 
   it('never puts two different sentences under one key', () => {
@@ -148,14 +221,26 @@ describe('every AppError’s key and sentence', () => {
   });
 
   /**
-   * The two calls whose arguments are not literals, named so the hole in the scan is a decision
-   * rather than an absence: `guest.ts` chooses between an expired and an invalid QR code with a
-   * pair of matched ternaries, and `menu-admin.ts` looks both halves up in `UPLOAD_REFUSALS`,
-   * where the key and the sentence sit in one object and cannot drift apart.
+   * The three sites whose halves are not literals, named so the hole in the scan is a decision
+   * rather than an absence:
+   *
+   * - `routes/guest.ts` chooses between an expired and an invalid QR code with a pair of matched
+   *   ternaries. Counting it proves only that it is there, so `routes/guest.test.ts` asserts both
+   *   keys against real responses — transposing the ternary used to leave the whole suite green.
+   * - `lib/menu-admin.ts` looks both halves up in `UPLOAD_REFUSALS`, where key and sentence sit in
+   *   one object and cannot drift apart. What *can* drift is which reason points at which pair, so
+   *   `lib/menu-admin.test.ts` walks that table.
+   * - `plugins/error-handler.ts` is the relay, not a refusal of its own: it copies `messageKey` and
+   *   `message` off the `AppError` it is serialising. There is nothing here to check, and it is
+   *   listed because a walk that quietly dropped it would be a walk whose reach nobody could see.
    */
-  it('leaves exactly the two computed call sites unread', () => {
+  it('leaves exactly the three computed sites unread', () => {
     // By file rather than by line: a comment edit above one of them is not a gate failure, and a
-    // third computed site anywhere still changes this list.
-    expect(computed.map((raise) => raise.file)).toEqual(['lib/menu-admin.ts', 'routes/guest.ts']);
+    // fourth computed site anywhere still changes this list.
+    expect(computed.map((raise) => raise.file).sort()).toEqual([
+      'lib/menu-admin.ts',
+      'plugins/error-handler.ts',
+      'routes/guest.ts',
+    ]);
   });
 });

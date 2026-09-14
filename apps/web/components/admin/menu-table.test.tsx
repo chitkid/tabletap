@@ -256,11 +256,11 @@ describe('MenuTable', () => {
     await user.click(editorFor('Закуски'));
     await user.click(screen.getByRole('button', { name: ACT.delete }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent(plain(M.categoryInUse)),
-    );
-    // The way out is the operator's own sentence, so none of the server's English is on screen.
-    expect(screen.getByRole('status').textContent).not.toContain('Empty it first.');
+    // Whole-string: `errors.categoryInUse` and `admin.menu.categoryInUse` are byte-identical,
+    // so a substring match stayed green with `refuseDelete`'s `IN_USE` branch removed - the
+    // «Не удалось удалить. » frame is the only difference and a substring match ignores it.
+    // See the same note in menu-row.test.tsx.
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe(M.categoryInUse));
     expect(screen.getByLabelText(M.categoryName)).toHaveValue('Закуски');
   });
 });

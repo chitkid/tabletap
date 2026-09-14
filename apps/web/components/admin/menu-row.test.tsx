@@ -230,12 +230,17 @@ describe('MenuRow', () => {
     // API's own English sentence arrived on the same error and is not on screen - the assertion
     // below is what says so, and it is the only thing that can, because that sentence is composed
     // in another process and no source scan in this repository can reach it.
+    // Whole-string, and raw on both sides: `textContent` carries the dictionary's U+00A0 and so
+    // does `fill`, so nothing is normalised away and nothing is a substring match. That matters
+    // here because the sentence this frame wraps is byte-identical to one the operator's own
+    // surface can produce - see the IN_USE case below - and `toHaveTextContent` could not tell
+    // the two apart. It also subsumes the `not.toContain('Reload and try again')` that used to
+    // follow: an equality leaves no room for the English to be anywhere in the line.
     await waitFor(() =>
-      expect(noticeOf()).toHaveTextContent(
-        plain(fill(R.withReason, { verb: R.verb.save, message: E.itemChanged })),
+      expect(noticeOf().textContent).toBe(
+        fill(R.withReason, { verb: R.verb.save, message: E.itemChanged }),
       ),
     );
-    expect(noticeOf().textContent).not.toContain('Reload and try again');
     expect(screen.getByLabelText(M.name)).toHaveValue(dish.name);
     expect(screen.getByLabelText(M.price)).toHaveValue(12);
     expect(screen.getByRole('switch', { name: M.available })).toBeChecked();
@@ -359,9 +364,15 @@ describe('MenuRow', () => {
     await user.click(screen.getByRole('button', { name: ACT.delete }));
 
     // `IN_USE` is the one refusal with a way out, and the way out is the operator's own sentence
-    // rather than the server's — so this line carries none of the English that arrived.
-    await waitFor(() => expect(noticeOf()).toHaveTextContent(plain(M.dishInUse)));
-    expect(noticeOf().textContent).not.toContain('Mark it sold out instead.');
+    // rather than the server's.
+    //
+    // **Whole-string, because a substring match cannot tell those two apart any more.**
+    // `errors.itemInUse` is byte-identical to `admin.menu.dishInUse` - the same situation said
+    // the same way from either side - so `toHaveTextContent(plain(M.dishInUse))` stayed green with
+    // `refuseDelete`'s special case removed, the exact edit this test exists to forbid: the
+    // fallback «Не удалось удалить. <the same sentence>» still *contains* the needle. An equality
+    // fails on the frame, which is the only thing that differs.
+    await waitFor(() => expect(noticeOf().textContent).toBe(M.dishInUse));
     expect(onDeleted).not.toHaveBeenCalled();
     expect(screen.getByLabelText(M.name)).toHaveValue(dish.name);
   });

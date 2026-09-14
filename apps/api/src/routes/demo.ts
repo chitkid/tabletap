@@ -1,14 +1,12 @@
 import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { DemoLinksResponseSchema, RushResponseSchema } from '@tabletap/shared';
+import { DEMO_TABLE_NUMBER, DemoLinksResponseSchema, RushResponseSchema } from '@tabletap/shared';
 import { signTableToken } from '@tabletap/shared/server';
 import { schema } from '@tabletap/db';
 import { DEMO_RESTAURANT_SLUG, DEMO_STAFF } from '@tabletap/db/seed';
 import { clientKey } from '../lib/client-key';
 import { AppError } from '../lib/errors';
-
-export const DEMO_TABLE_NUMBER = 7;
 
 /** Public in demo mode only: everything it returns is already public demo data (README). */
 export async function demoRoutes(app: FastifyInstance) {

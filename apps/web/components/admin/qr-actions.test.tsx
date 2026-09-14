@@ -147,12 +147,13 @@ describe('QrActions', () => {
     // The frame, the verb and the server's own half are all the dictionary's: the second half is
     // resolved from the refusal's key, and the English sentence that arrived with it stays in the
     // log. The refusal is named for the act, not for a save.
+    // Whole-string and raw on both sides, as in menu-row.test.tsx: it subsumes the English check
+    // that used to follow, which could never be the assertion that failed.
     await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent(
-        plain(fill(R.withReason, { verb: R.verb.reissueCode, message: E.tableChanged })),
+      expect(screen.getByRole('status').textContent).toBe(
+        fill(R.withReason, { verb: R.verb.reissueCode, message: E.tableChanged }),
       ),
     );
-    expect(screen.getByRole('status').textContent).not.toContain('Reload and try again');
     expect(screen.queryByText(REISSUED)).toBeNull();
     expect(screen.getByRole('button', { name: Q.reissue })).toBeInTheDocument();
   });

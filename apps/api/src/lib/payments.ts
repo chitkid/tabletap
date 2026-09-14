@@ -26,6 +26,12 @@ class ForeignPayment extends Error {}
  * the copy contract's — it binds a number to the noun in front of it — and both are written as
  * escapes rather than pasted, so they are visible in the source and survive a diff.
  *
+ * **That match is unguarded, and cannot be guarded from here.** `payments.test.ts` pins this
+ * string and pins that `startPayment` hands it to the provider, but nothing compares it with
+ * `guest.pay.terminalHeading`: this app cannot import the web's dictionary, which is the same
+ * reason the string lives here at all. If the terminal's heading is reworded, reword this too —
+ * a reviewer is what stands between them, not a test.
+ *
  * If a second string like this ever appears, it stops being a note and becomes a dictionary.
  */
 export const checkoutLineName = (order: { number: number; tableNumber: number }): string =>
