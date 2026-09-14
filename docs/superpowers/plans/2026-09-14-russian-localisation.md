@@ -458,6 +458,24 @@ Fix the rows rather than the base class: `flex-wrap` where buttons sit side by s
 - [ ] **Step 5: Sweep for other wire-borne English.** `apps/web/components/login-form.tsx:159` renders a message from better-auth, which is a second source and not an `AppError`. Report what you find; fix what is user-visible.
 - [ ] **Step 6: Full gate and commit.**
 
+### Task 13: The printed QR sheet, which cannot draw Cyrillic at all
+
+**REQUIRED SUB-SKILLS:** superpowers:test-driven-development
+
+**Files:** `apps/api/src/lib/qr-pdf.ts` and its test, a Cyrillic-capable font asset, `apps/api/package.json` if the font needs bundling
+
+**Run this after Task 8**, so it is verified against the Russian seed rather than against English data that hides the defect.
+
+**Why this task exists.** Task 7's reviewer opened the installed pdfkit and looked at what it actually writes: the font dictionary comes out `/BaseFont /Helvetica /Encoding /WinAnsiEncoding`, and a string containing «Терраса» is written as mangled single-byte codes. The sheet is not merely untranslated — **it cannot represent Cyrillic**, so the moment Task 8 seeds Russian table labels and a Russian restaurant name, the printable prints garbage. One of the strings on it is the sentence a **guest** reads off the card on the table.
+
+No other task owns this file, and Task 11's gate cannot see it: the gate scans the web's sources and this is an API routine that emits a PDF.
+
+- [ ] **Step 1: Failing test.** Generate the sheet with a Cyrillic table label and assert the bytes contain that label in a form a PDF reader resolves to those characters — not that the call did not throw. A test that only checks for no exception passes today, against a document full of mangled codes.
+- [ ] **Step 2: Run, expect failure**, and paste what the failure actually says, because the interesting part is the shape of the corruption rather than the word FAIL.
+- [ ] **Step 3: Embed a font that carries Cyrillic.** The same constraint the Open Graph image lives under applies here and is not negotiable: the face must be one the brand already uses. **Substituting a different typeface is not an option** — if neither brand face can be embedded in a PDF, stop and report rather than choosing a third.
+- [ ] **Step 4: Translate the sheet's strings**, including the guest-facing line. The API has no dictionary; say where you put them and why, and do not invent a second i18n mechanism for one file without saying so.
+- [ ] **Step 5: Full gate and commit.**
+
 ## After the last task (controller)
 
 1. Full gate with `--force`, then Compose + `pnpm e2e` + Lighthouse against the local stack — accessibility must stay 100 and CLS 0.
