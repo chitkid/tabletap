@@ -36,12 +36,11 @@ describe('the planned-orders count', () => {
   // its noun with a real U+00A0 and the fixtures say so.
   // 11 and 21 are the pair that catches a naive rule: 21 takes the same form as 1, and 11 does not.
   //
-  // **For the closing NBSP sweep.** The trailing «за ближайшую минуту.» below carries an ordinary
-  // space after «за», because `kitchen.rush.planned` does — where `guest.checkout.rateLimited`
-  // writes «за<NBSP>минуту». Task 10's string, not this file's, and the copy contract's
-  // short-preposition rule says it should be non-breaking. When the sweep fixes the dictionary,
-  // this line has to be fixed with it. It will say so loudly: the comparison below is a whole
-  // string with `toBe`, so a changed byte fails here rather than passing quietly.
+  // The trailing «за<NBSP>ближайшую минуту.» carries a non-breaking space after «за», as the copy
+  // contract's short-preposition rule requires and as `guest.checkout.rateLimited` already did.
+  // The dictionary had an ordinary space there until the closing sweep; this line is written as a
+  // whole string with `toBe` precisely so that a changed byte fails here rather than passing
+  // quietly, and when the sweep landed it did exactly that — six red rows, not a silent pass.
   it.each([
     [1, `1${NBSP}заказ`],
     [2, `2${NBSP}заказа`],
@@ -50,7 +49,7 @@ describe('the planned-orders count', () => {
     [21, `21${NBSP}заказ`],
     [101, `101${NBSP}заказ`],
   ])('declines the noun after %i', (n, expected) => {
-    expect(planned(n)).toBe(`${expected} за ближайшую минуту.`);
+    expect(planned(n)).toBe(`${expected} за${NBSP}ближайшую минуту.`);
   });
 });
 
