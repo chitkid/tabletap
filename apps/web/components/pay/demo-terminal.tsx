@@ -144,16 +144,23 @@ export function DemoTerminal({
             button default: on the narrowest phone a column is barely wider than the label, and a
             four-figure total such as «Оплатить 2 300 ₽» needs more room than `px-4` leaves it.
 
-            A wrapping row rather than `grid-cols-2`, because a grid column cannot give up: the
-            base button is `shrink-0 whitespace-nowrap`, so a label that outgrows its column widens
-            the column instead of wrapping, and the card overflows. Measured at 320 px with a
-            five-figure total, «Оплатить 11 510 ₽» ran 3 px past its own button.
+            A wrapping row rather than `grid-cols-2` — not because the column would have widened;
+            Tailwind's `grid-cols-2` is `repeat(2, minmax(0, 1fr))`, so its minimum is 0 and it
+            never pushes the card open. What actually happens is narrower: the base button is
+            `shrink-0 whitespace-nowrap`, so a label that outgrows its own button's content box
+            just overflows that button in place. Measured restoring the grid at 375 px with the
+            five-figure total on screen: both buttons held at 146.5 px and the document did not
+            scroll, but «Оплатить 11 510 ₽» needed 124.94 px against a 122.52 px content box — an
+            invisible 1.22 px per side, into the button's own padding. The visible break is at
+            320 px, where the same label runs about 3 px past the button's painted edge.
 
-            `grow basis-0` is the equal-columns idiom, so the two stay exactly the same width while
-            there is room — 146.5 px each at 375 px and 151 px each at 1280 px, the same numbers
-            the grid gave — and a row too narrow to hold both at their own minimum breaks between
-            them instead of overflowing. Decline sits beside Pay at the same size wherever it fits,
-            and under it where it does not. Neither ever wraps its own label. */}
+            `grow basis-0` is the equal-columns idiom, so the two stay close to equal while there
+            is room — 148.94 / 144.06 px at 375 px, not exactly equal, because Pay's own
+            `min-width: auto` floors it at the label's 148.94 px min-content size and Decline gets
+            what is left; 151 / 151 px at 1280 px, where both fit outright. A row too narrow to
+            hold both at their own minimum breaks between them instead of overflowing. Decline
+            sits beside Pay wherever it fits, and under it where it does not. Neither ever wraps
+            its own label. */}
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"

@@ -430,7 +430,15 @@ function CategoryEditor({
               and the `h-11` input sit on one line, so the row measures the same 56 px open as it
               does closed and the table does not jump under the hand that pressed «Изменить».
               `min-w-0` lets the input give ground to the caption instead of pushing the row
-              wider. */}
+              wider.
+
+              At 375 px this table is still on its `min-w-3xl` floor inside a horizontal
+              scroller, and `autoFocus` scrolls that scroller right to keep the cursor in view —
+              which carries the caption off-screen with it. Measured: the label's box lands 115 px
+              left of the viewport and 8.78 px short of its right edge, so about 9 px of
+              «Название раздела» stays on screen. Not a regression (the label was invisible at
+              every width before this), but the caption's benefit is a desktop one; on a phone it
+              is one horizontal scroll away. */}
           <div className="flex items-center gap-2">
             <Label htmlFor={nameId} className="shrink-0">
               {t('categoryName')}

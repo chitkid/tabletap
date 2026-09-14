@@ -483,3 +483,21 @@ single shared rate-limit bucket — rather than repeated here.
   in the same decision as the description-clamp arithmetic recorded in that file's own comment.
   Either change the row and re-derive the reservation with it, or leave both. Trigger: a decision to
   support phones narrower than 375 px, or any other reason to reopen the loading slot's arithmetic.
+
+- **The order progress rail's «paid» label overflows its own track at 320 px, by one unbreakable
+  word.** `apps/web/components/order/order-live.tsx`'s `OrderProgress` lays the five stages out on
+  `grid grid-cols-5` — `minmax(0, 1fr)` tracks, no `gap` — each `li` sized to `288 / 5 = 57.6 px` at
+  320 px. Every stage's label wraps inside that, except «Отправлен на кухню» (`paid`): its first
+  word, «Отправлен» alone, is **61.47 px**, **3.88 px wider than the 57.59 px track it is in** (a
+  live remeasure with the real classes and fonts; the `li` itself is `overflow: visible`). The
+  excess paints over the neighbouring column rather than clipping or scrolling the page — document
+  sideways scroll is still 0. `el.scrollWidth - el.clientWidth` on this `li` reads **2**, against 0
+  on the four healthy stages: attenuated rather than blind, and the attenuation is arithmetic.
+  `scrollWidth` grows only at the inline-end edge, so a centred label overhanging 1.94 px on each
+  side is counted on one side only, and both figures are then rounded to whole pixels (58 and 60).
+  Half the overflow, rounded — which is why the number above was taken from the line boxes and why
+  a bare `scrollWidth - clientWidth` threshold is still the wrong instrument for a centred label. The audit's R11 entry says
+  "verify at 320 px"; task-10-report.md §2 now carries this row, but no fix was made — the
+  product's stated small breakpoint is 375 px, where the rail (including this stage) is clean.
+  Trigger: a decision to support phones narrower than 375 px, or a redesign of the rail's label
+  wrapping (e.g. `hyphens-auto`, or breaking longer stage words across a line on purpose).
