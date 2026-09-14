@@ -143,7 +143,60 @@
       "table": "Your table · Little Furnace"
     }
   },
-  "kitchen": {},
+  "kitchen": {
+    "heading": "Kitchen",
+    "meta": {
+      "title": "Kitchen board · Little Furnace",
+      "titleNew": "({count}) Kitchen board · Little Furnace"
+    },
+    "signOut": "Sign out",
+    "sound": {
+      "on": "Sound on",
+      "off": "Sound off"
+    },
+    "connection": {
+      "connecting": "Connecting to the kitchen feed…",
+      "offline": "Connection lost. Reconnecting — the board will catch up."
+    },
+    "stale": "Couldn't refresh the board. Retrying…",
+    "notice": {
+      "forbidden": "You can't move #{number}.",
+      "moveFailed": "Couldn't move #{number} — it is {status} now."
+    },
+    "columns": {
+      "new": "New",
+      "cooking": "Cooking",
+      "ready": "Ready"
+    },
+    "empty": {
+      "new": "No new tickets.",
+      "cooking": "Nothing is cooking.",
+      "ready": "Everything has gone out."
+    },
+    "ticket": {
+      "heading": "Table {table} · #{number}",
+      "note": "Note: {note}",
+      "bump": {
+        "paid": "Start #{number}",
+        "cooking": "Ready #{number}",
+        "ready": "Served #{number}"
+      },
+      "cancel": "Cancel #{number}",
+      "confirm": "Cancel #{number}?",
+      "confirmYes": "Yes, cancel",
+      "confirmKeep": "Keep"
+    },
+    "timer": {
+      "warn": "· 5 min",
+      "late": "· late"
+    },
+    "rush": {
+      "start": "Simulate rush",
+      "planned": "{n, plural, one {# order} other {# orders}} over the next minute.",
+      "running": "A rush is already running.",
+      "failed": "Couldn't start a rush. Try again."
+    }
+  },
   "admin": {
     "dayOrders": "{n, plural, one {# order} other {# orders}}"
   },

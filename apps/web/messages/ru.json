@@ -143,7 +143,60 @@
       "table": "Ваш стол · Little Furnace"
     }
   },
-  "kitchen": {},
+  "kitchen": {
+    "heading": "Кухня",
+    "meta": {
+      "title": "Доска кухни · Little Furnace",
+      "titleNew": "({count}) Доска кухни · Little Furnace"
+    },
+    "signOut": "Выйти",
+    "sound": {
+      "on": "Звук включён",
+      "off": "Звук выключен"
+    },
+    "connection": {
+      "connecting": "Подключаемся к доске заказов…",
+      "offline": "Связь потеряна. Переподключаемся — доска догонит."
+    },
+    "stale": "Не удалось обновить доску. Пробуем ещё раз…",
+    "notice": {
+      "forbidden": "У вас нет прав переместить № {number}.",
+      "moveFailed": "Не удалось переместить № {number} — сейчас он «{status}»."
+    },
+    "columns": {
+      "new": "Новый",
+      "cooking": "Готовится",
+      "ready": "Готов"
+    },
+    "empty": {
+      "new": "Новых тикетов нет.",
+      "cooking": "Ничего не готовится.",
+      "ready": "Всё отдано."
+    },
+    "ticket": {
+      "heading": "Стол {table} · № {number}",
+      "note": "Заметка: {note}",
+      "bump": {
+        "paid": "Готовить № {number}",
+        "cooking": "Отдать № {number}",
+        "ready": "Подать № {number}"
+      },
+      "cancel": "Отменить № {number}",
+      "confirm": "Отменить № {number}?",
+      "confirmYes": "Да, отменить",
+      "confirmKeep": "Оставить"
+    },
+    "timer": {
+      "warn": "· 5 мин",
+      "late": "· опоздание"
+    },
+    "rush": {
+      "start": "Устроить час пик",
+      "planned": "{n, plural, one {# заказ} few {# заказа} many {# заказов} other {# заказа}} за ближайшую минуту.",
+      "running": "Час пик уже идёт.",
+      "failed": "Не удалось устроить час пик. Попробуйте ещё раз."
+    }
+  },
   "admin": {
     "dayOrders": "{n, plural, one {# заказ} few {# заказа} many {# заказов} other {# заказа}}"
   },

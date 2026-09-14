@@ -3,7 +3,7 @@ import type { OrderDto, OrderStatus } from '@tabletap/shared';
 import { Button, StatusBadge, cn } from '@tabletap/ui';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
-import { BUMP_LABEL, NEXT_STATUS } from '../../lib/board-store';
+import { NEXT_STATUS, isBumpable } from '../../lib/board-store';
 import { thresholdFor, timerStartOf } from '../../lib/timer-threshold';
 import { TimerBadge } from './timer-badge';
 
@@ -45,8 +45,9 @@ export function TicketCard({
   onCancel: (order: OrderDto) => void;
 }) {
   // The board's own column of the glossary: the staff are told what the order is, so `ready` here
-  // is «Готов» and not the guest's «Готов — сейчас принесут». The rest of this surface is Task 6's.
+  // is «Готов» and not the guest's «Готов — сейчас принесут».
   const status = useTranslations('status.kitchen');
+  const t = useTranslations('kitchen.ticket');
   const [confirming, setConfirming] = useState(false);
   // Opening and dismissing the confirm unmounts the control that was just pressed, which drops
   // keyboard focus to the document. A cook working a bump bar would land back at the page top.
@@ -75,9 +76,13 @@ export function TicketCard({
     (nextBump ?? heading)?.focus();
   };
   const elapsedMs = Math.max(0, now - Date.parse(timerStartOf(order)));
-  const next = NEXT_STATUS[order.status];
-  const verb = BUMP_LABEL[order.status];
+  // Narrowed here rather than in the JSX: `kitchen.ticket.bump` has a verb for exactly the three
+  // statuses a cook may bump on, and this is what makes asking for one type-safe.
+  const bump = isBumpable(order.status)
+    ? { to: NEXT_STATUS[order.status], label: t(`bump.${order.status}`, { number: order.number }) }
+    : null;
   const cancellable = order.status === 'placed' || order.status === 'paid';
+  const confirmLabel = t('confirm', { number: order.number });
   return (
     <article
       ref={cardRef}
@@ -90,14 +95,17 @@ export function TicketCard({
         arriving && ARRIVING,
       )}
     >
-      {/* Wraps as two whole phrases rather than breaking either one: past five minutes the timer
-          grows a mark and a suffix, and a three-column board is not wide enough for both on a
-          long table number. "Table 12 ·" over "#3" is not a headline. */}
+      {/* Wraps as two whole phrases rather than breaking either one: a three-column board is not
+          wide enough for a long table number beside the timer, and «Стол 12 ·» over «№ 3» is not
+          a headline. Whether it wraps no longer depends on the ticket's age — the badge reserves
+          its widest box from first paint — so a card that wraps wraps for its whole life. */}
       <header className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <h3
           id={`ticket-${order.id}`}
           className="font-display text-2xl leading-none font-bold whitespace-nowrap"
-        >{`Table ${order.tableNumber} · #${order.number}`}</h3>
+        >
+          {t('heading', { table: order.tableNumber, number: order.number })}
+        </h3>
         <TimerBadge elapsedMs={elapsedMs} />
       </header>
       <ul className="flex flex-col gap-1 text-lg font-medium">
@@ -105,7 +113,9 @@ export function TicketCard({
           <li key={item.id}>{`${item.quantity} × ${item.name}`}</li>
         ))}
       </ul>
-      {order.note ? <p className="text-sm text-muted-foreground">{`Note: ${order.note}`}</p> : null}
+      {order.note ? (
+        <p className="text-sm text-muted-foreground">{t('note', { note: order.note })}</p>
+      ) : null}
       <footer className="mt-auto flex flex-wrap items-center justify-between gap-3">
         <StatusBadge status={order.status} label={status(order.status)} />
         <div className="flex flex-wrap gap-2">
@@ -118,15 +128,13 @@ export function TicketCard({
                 restore.current = 'confirm';
                 setConfirming(true);
               }}
-            >{`Cancel #${order.number}`}</Button>
+            >
+              {t('cancel', { number: order.number })}
+            </Button>
           ) : null}
           {cancellable && confirming ? (
-            <span
-              role="group"
-              aria-label={`Cancel #${order.number}?`}
-              className="flex items-center gap-2"
-            >
-              <span>{`Cancel #${order.number}?`}</span>
+            <span role="group" aria-label={confirmLabel} className="flex items-center gap-2">
+              <span>{confirmLabel}</span>
               <Button
                 ref={confirmRef}
                 type="button"
@@ -137,7 +145,7 @@ export function TicketCard({
                   onCancel(order);
                 }}
               >
-                Yes, cancel
+                {t('confirmYes')}
               </Button>
               <Button
                 type="button"
@@ -147,18 +155,20 @@ export function TicketCard({
                   setConfirming(false);
                 }}
               >
-                Keep
+                {t('confirmKeep')}
               </Button>
             </span>
           ) : null}
-          {next && verb ? (
+          {bump ? (
             <Button
               type="button"
               data-bump
               disabled={pending}
               aria-busy={pending}
-              onClick={() => onBump(order, next)}
-            >{`${verb} #${order.number}`}</Button>
+              onClick={() => onBump(order, bump.to)}
+            >
+              {bump.label}
+            </Button>
           ) : null}
         </div>
       </footer>

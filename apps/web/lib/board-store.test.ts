@@ -1,12 +1,13 @@
-import type { OrderDto } from '@tabletap/shared';
+import type { OrderDto, OrderStatus } from '@tabletap/shared';
 import { describe, expect, it } from 'vitest';
 import {
-  BUMP_LABEL,
+  COLUMNS,
   NEXT_STATUS,
   applyEvent,
   applySnapshot,
   clockOffsetOf,
   columnsOf,
+  isBumpable,
   mergeSnapshot,
   ordersOf,
 } from './board-store';
@@ -124,8 +125,19 @@ describe('board store', () => {
     expect(cols.cooking.map((o) => o.id)).toEqual(['c']);
     expect(cols.ready.map((o) => o.id)).toEqual(['d']);
   });
-  it('knows the next step and its verb, and offers none for an unpaid ticket', () => {
+  it('knows the next step, and offers none for a ticket a cook may not bump', () => {
     expect(NEXT_STATUS).toEqual({ paid: 'cooking', cooking: 'ready', ready: 'served' });
-    expect(BUMP_LABEL).toEqual({ paid: 'Start', cooking: 'Ready', ready: 'Served' });
+    const statuses = (...s: OrderStatus[]) => s;
+    expect(statuses('paid', 'cooking', 'ready').every(isBumpable)).toBe(true);
+    expect(statuses('draft', 'placed', 'served', 'cancelled').some(isBumpable)).toBe(false);
+  });
+  /**
+   * This module words nothing. Every string the board draws comes from `messages/ru.json`, and a
+   * column's `key` is the name of its message — the same move `lib/elapsed.ts` made in Task 5.
+   * A `title` back on these objects is an interface's language leaking into its shape.
+   */
+  it('names its columns by key and carries no words of its own', () => {
+    expect(COLUMNS.map((c) => c.key)).toEqual(['new', 'cooking', 'ready']);
+    for (const column of COLUMNS) expect(Object.keys(column).sort()).toEqual(['key', 'statuses']);
   });
 });

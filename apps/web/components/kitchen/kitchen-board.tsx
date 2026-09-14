@@ -1,11 +1,13 @@
 'use client';
 import {
+  ORDER_STATUSES,
   OrderResponseSchema,
   type BoardSnapshot,
   type OrderDto,
   type OrderStatus,
 } from '@tabletap/shared';
 import { Mark } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError, clientFetch } from '../../lib/api';
 import {
@@ -40,17 +42,10 @@ const reducer = (state: BoardState, action: Action): BoardState => {
 /** A refused snapshot is retried, backing off so a struggling API is not asked once a second. */
 const RETRY_FIRST_MS = 2_000;
 const RETRY_MAX_MS = 10_000;
-const STALE_NOTICE = "Couldn't refresh the board. Retrying…";
-const STATUS_WORD: Record<OrderStatus, string> = {
-  draft: 'Draft',
-  placed: 'Placed',
-  paid: 'Paid',
-  cooking: 'Cooking',
-  ready: 'Ready',
-  served: 'Served',
-  cancelled: 'Cancelled',
-};
-const isStatus = (v: unknown): v is OrderStatus => typeof v === 'string' && v in STATUS_WORD;
+// The word the board puts in a refusal is the glossary's kitchen column, read from the dictionary
+// like every other word here; this only has to recognise a status the API sent back.
+const isStatus = (v: unknown): v is OrderStatus =>
+  typeof v === 'string' && (ORDER_STATUSES as readonly string[]).includes(v);
 type Fetcher = typeof clientFetch;
 
 export function KitchenBoard({
@@ -69,6 +64,8 @@ export function KitchenBoard({
   socketFactory?: () => AppSocket;
   fetcher?: Fetcher;
 }) {
+  const t = useTranslations('kitchen');
+  const status = useTranslations('status.kitchen');
   const [state, dispatch] = useReducer(reducer, initialOrders, applySnapshot);
   const [connection, setConnection] = useState<ConnectionState>('connecting');
   const [offset, setOffset] = useState(0);
@@ -222,9 +219,13 @@ export function KitchenBoard({
   }, [sound]);
 
   const freshCount = freshIds.size;
+  // The tab is the only part of the board a cook can read from another screen, so it carries the
+  // count. Both forms live in the dictionary beside the one `app/kitchen/layout.tsx` renders on
+  // the server, so the title never flips language between the first paint and hydration.
+  const title = freshCount > 0 ? t('meta.titleNew', { count: freshCount }) : t('meta.title');
   useEffect(() => {
-    document.title = freshCount > 0 ? `(${freshCount}) Kitchen · TableTap` : 'Kitchen · TableTap';
-  }, [freshCount]);
+    document.title = title;
+  }, [title]);
 
   const touch = (id: string) =>
     setFresh((prev) => {
@@ -258,7 +259,7 @@ export function KitchenBoard({
       // A 403 is about who asked, not about where the ticket is. Telling a waiter the ticket "is
       // Placed now" reads as a lost race and invites them to press again.
       if (err instanceof ApiError && err.code === 'FORBIDDEN') {
-        setNotice(`You can't move #${order.number}.`);
+        setNotice(t('notice.forbidden', { number: order.number }));
         return;
       }
       const current =
@@ -267,7 +268,7 @@ export function KitchenBoard({
         isStatus((err.details as { current?: unknown } | undefined)?.current)
           ? (err.details as { current: OrderStatus }).current
           : order.status;
-      setNotice(`Couldn't move #${order.number}. It is ${STATUS_WORD[current]} now.`);
+      setNotice(t('notice.moveFailed', { number: order.number, status: status(current) }));
       resync();
     } finally {
       // The reset already emptied both; re-clearing here would only churn a render.
@@ -296,7 +297,7 @@ export function KitchenBoard({
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-3">
         <h1 className="flex items-center gap-2 font-display text-xl font-semibold">
           <Mark className="size-5" />
-          Kitchen
+          {t('heading')}
         </h1>
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-muted-foreground">{staffName}</span>
@@ -308,7 +309,7 @@ export function KitchenBoard({
       <ConnectionBanner state={connection} />
       {stale ? (
         <p role="status" aria-live="polite" className="px-6 py-2 text-timer-warn">
-          {STALE_NOTICE}
+          {t('stale')}
         </p>
       ) : null}
       {notice ? (
@@ -318,14 +319,20 @@ export function KitchenBoard({
       ) : null}
       <main className="grid flex-1 grid-cols-1 gap-6 p-6 md:grid-cols-3">
         {COLUMNS.map((col) => (
-          <section key={col.key} aria-label={col.title} className="flex flex-col gap-4">
+          <section
+            key={col.key}
+            aria-label={t(`columns.${col.key}`)}
+            className="flex flex-col gap-4"
+          >
             {/* Focusable only by script: where focus lands when the ticket it was in is gone. */}
             <h2
               tabIndex={-1}
               className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-            >{`${col.title} · ${columns[col.key].length}`}</h2>
+            >{`${t(`columns.${col.key}`)} · ${columns[col.key].length}`}</h2>
             {columns[col.key].length === 0 ? (
-              <p className="text-muted-foreground">Nothing here.</p>
+              // Each column says what its own emptiness means; three copies of "пусто" tell a
+              // cook reading the board at a glance less than one line each does.
+              <p className="text-muted-foreground">{t(`empty.${col.key}`)}</p>
             ) : null}
             <ul className="flex flex-col gap-4">
               {columns[col.key].map((order) => (

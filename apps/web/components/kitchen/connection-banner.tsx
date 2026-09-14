@@ -1,11 +1,7 @@
 import { cn } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 
 export type ConnectionState = 'connecting' | 'online' | 'offline';
-
-const MESSAGE: Record<Exclude<ConnectionState, 'online'>, string> = {
-  connecting: 'Connecting to the kitchen feed…',
-  offline: 'Reconnecting… the board will catch up.',
-};
 
 /**
  * A connected board says nothing — but the band keeps its place. Taking it out of the flow when the
@@ -16,6 +12,7 @@ const MESSAGE: Record<Exclude<ConnectionState, 'online'>, string> = {
  * board with nothing wrong with it still announces nothing.
  */
 export function ConnectionBanner({ state }: { state: ConnectionState }) {
+  const t = useTranslations('kitchen.connection');
   const online = state === 'online';
   return (
     <p
@@ -24,7 +21,7 @@ export function ConnectionBanner({ state }: { state: ConnectionState }) {
       aria-hidden={online || undefined}
       className={cn('px-6 py-2', online ? 'invisible' : 'bg-secondary text-secondary-foreground')}
     >
-      {online ? MESSAGE.connecting : MESSAGE[state]}
+      {t(online ? 'connecting' : state)}
     </p>
   );
 }

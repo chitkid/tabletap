@@ -1,5 +1,6 @@
 'use client';
 import { Button } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useCallback, useSyncExternalStore } from 'react';
 
 const STORAGE_KEY = 'tt-kitchen-sound';
@@ -55,6 +56,7 @@ export function SoundToggle({
   enabled: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const t = useTranslations('kitchen.sound');
   return (
     <Button
       type="button"
@@ -62,7 +64,7 @@ export function SoundToggle({
       aria-pressed={enabled}
       onClick={() => onChange(!enabled)}
     >
-      {enabled ? 'Sound on' : 'Sound off'}
+      {t(enabled ? 'on' : 'off')}
     </Button>
   );
 }

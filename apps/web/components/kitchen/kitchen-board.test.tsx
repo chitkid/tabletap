@@ -18,10 +18,10 @@ import { fakeSocket } from '../../test/fake-socket';
 import { KitchenBoard } from './kitchen-board';
 
 /**
- * A ticket's status badge reads from the dictionary, because the glossary gives the board and the
- * guest different words for the same status - docs/design/02b-copy-ru.md. `useTranslations`
- * resolves through `NextIntlClientProvider` in every environment vitest runs in, so every render
- * here goes through it. The rest of this surface's wording is Task 6's.
+ * Every word on this board comes from `messages/ru.json`, and the status words take the
+ * glossary's **kitchen** column - docs/design/02b-copy-ru.md. `useTranslations` resolves through
+ * `NextIntlClientProvider` in every environment vitest runs in, so every render here goes
+ * through it.
  */
 const withIntl = ({ children }: { children: ReactNode }) => (
   <NextIntlClientProvider locale="ru" messages={ru}>
@@ -37,6 +37,22 @@ vi.mock('../../lib/chime', () => ({ createChime: vi.fn(() => ({ play: vi.fn() })
 /** The chime the board built on its nth call, so a test can hear what the room would hear. */
 const chimeOf = (nth: number): { play: ReturnType<typeof vi.fn> } =>
   vi.mocked(createChime).mock.results[nth]!.value;
+
+/**
+ * Accessible names are **composed from the dictionary, never typed**: `getByRole(…, { name })`
+ * matches with an identity normaliser, so every U+00A0 has to be the real byte.
+ * `toHaveTextContent` and `getByText` collapse it instead, which is why `plain` exists too.
+ */
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const fill = (message: string, values: Record<string, string | number>) =>
+  message.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key]));
+const COL = ru.kitchen.columns;
+const heading = (number: number) => fill(ru.kitchen.ticket.heading, { table: 7, number });
+const bump = (number: number) => fill(ru.kitchen.ticket.bump.paid, { number });
+const cancel = (number: number) => fill(ru.kitchen.ticket.cancel, { number });
+const moveFailed = (number: number, status: keyof typeof ru.status.kitchen) =>
+  plain(fill(ru.kitchen.notice.moveFailed, { number, status: ru.status.kitchen[status] }));
 
 const order = (id: string, patch: Partial<OrderDto> = {}): OrderDto => ({
   id,
@@ -63,6 +79,41 @@ const order = (id: string, patch: Partial<OrderDto> = {}): OrderDto => ({
 const SERVER_NOW = Date.parse('2026-09-03T10:00:00Z');
 
 describe('KitchenBoard', () => {
+  /**
+   * The three columns are the glossary's kitchen words for `paid`, `cooking` and `ready` - the
+   * board's own column of docs/design/02b-copy-ru.md, not the guest's. An empty column says what
+   * it means rather than "nothing here": a cook reads the board at a glance and "пусто" three
+   * times over says less than one line each.
+   */
+  it('heads its columns with the board’s own status words and counts them', () => {
+    const socket = fakeSocket();
+    render(
+      <KitchenBoard
+        initialOrders={[order('o1'), order('o2')]}
+        staffName="Тео"
+        serverNow={SERVER_NOW}
+        demoMode={false}
+        socketFactory={() => socket as unknown as AppSocket}
+        fetcher={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(ru.kitchen.heading);
+    for (const [key, count] of [
+      ['new', 2],
+      ['cooking', 0],
+      ['ready', 0],
+    ] as const) {
+      const column = screen.getByRole('region', { name: COL[key] });
+      expect(within(column).getByRole('heading', { level: 2 })).toHaveTextContent(
+        `${COL[key]} · ${count}`,
+      );
+      if (count === 0) {
+        expect(within(column).getByText(plain(ru.kitchen.empty[key]))).toBeInTheDocument();
+      }
+    }
+    // The guest's words for the same statuses never reach this surface.
+    expect(screen.queryByText(ru.status.guest.paid)).toBeNull();
+  });
   it('renders the first snapshot from the server, subscribes on connect and applies events', () => {
     const socket = fakeSocket();
     render(
@@ -76,8 +127,8 @@ describe('KitchenBoard', () => {
       />,
     );
     expect(
-      within(screen.getByRole('region', { name: 'New' })).getByRole('heading', {
-        name: 'Table 7 · #1',
+      within(screen.getByRole('region', { name: COL.new })).getByRole('heading', {
+        name: heading(1),
       }),
     ).toBeInTheDocument();
     expect(socket.connect).toHaveBeenCalled();
@@ -90,15 +141,15 @@ describe('KitchenBoard', () => {
       }),
     );
     expect(
-      within(screen.getByRole('region', { name: 'Cooking' })).getByRole('heading', {
-        name: 'Table 7 · #1',
+      within(screen.getByRole('region', { name: COL.cooking })).getByRole('heading', {
+        name: heading(1),
       }),
     ).toBeInTheDocument();
     act(() => socket.fire('order:created', { order: order('o2') }));
     expect(
-      within(screen.getByRole('region', { name: 'New' })).getByRole('article'),
+      within(screen.getByRole('region', { name: COL.new })).getByRole('article'),
     ).toHaveAttribute('data-fresh', 'true');
-    expect(document.title).toBe('(1) Kitchen · TableTap');
+    expect(document.title).toBe(fill(ru.kitchen.meta.titleNew, { count: 1 }));
   });
   it('shows the banner while offline and clears the fresh mark when a ticket is touched', async () => {
     const user = userEvent.setup();
@@ -116,13 +167,13 @@ describe('KitchenBoard', () => {
         fetcher={fetcher}
       />,
     );
-    expect(screen.getByRole('status')).toHaveTextContent('Connecting to the kitchen feed…');
+    expect(screen.getByRole('status')).toHaveTextContent(plain(ru.kitchen.connection.connecting));
     act(() => socket.fire('connect'));
     expect(screen.queryByRole('status')).toBeNull();
     act(() => socket.fire('disconnect'));
-    expect(screen.getByRole('status')).toHaveTextContent('Reconnecting… the board will catch up.');
+    expect(screen.getByRole('status')).toHaveTextContent(plain(ru.kitchen.connection.offline));
     act(() => socket.fire('order:created', { order: order('o1') }));
-    await user.click(screen.getByRole('button', { name: 'Start #1' }));
+    await user.click(screen.getByRole('button', { name: bump(1) }));
     expect(fetcher).toHaveBeenCalledWith(
       '/api/orders/o1/transition',
       expect.objectContaining({
@@ -130,7 +181,7 @@ describe('KitchenBoard', () => {
       }),
     );
     expect(
-      within(screen.getByRole('region', { name: 'Cooking' })).getByRole('article'),
+      within(screen.getByRole('region', { name: COL.cooking })).getByRole('article'),
     ).not.toHaveAttribute('data-fresh');
   });
   it("rolls back a lost race with the server's word and resubscribes", async () => {
@@ -156,8 +207,8 @@ describe('KitchenBoard', () => {
     );
     act(() => socket.fire('connect'));
     socket.emit.mockClear();
-    await user.click(screen.getByRole('button', { name: 'Start #1' }));
-    expect(await screen.findByText("Couldn't move #1. It is Cooking now.")).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: bump(1) }));
+    expect(await screen.findByText(moveFailed(1, 'cooking'))).toBeInTheDocument();
     expect(socket.emit).toHaveBeenCalledWith('subscribe', expect.any(Function));
   });
   it('drops everything and resubscribes on demo:reset', () => {
@@ -177,7 +228,7 @@ describe('KitchenBoard', () => {
     act(() => socket.fire('demo:reset'));
     expect(screen.queryByRole('article')).toBeNull();
     expect(socket.emit).toHaveBeenCalledWith('subscribe', expect.any(Function));
-    expect(screen.getByRole('button', { name: 'Simulate rush' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: ru.kitchen.rush.start })).toBeInTheDocument();
   });
   it('drops the new mark when another screen moves the ticket on', () => {
     const socket = fakeSocket();
@@ -194,9 +245,9 @@ describe('KitchenBoard', () => {
     act(() => socket.fire('connect'));
     act(() => socket.fire('order:created', { order: order('o12') }));
     expect(
-      within(screen.getByRole('region', { name: 'New' })).getByRole('article'),
+      within(screen.getByRole('region', { name: COL.new })).getByRole('article'),
     ).toHaveAttribute('data-fresh', 'true');
-    expect(document.title).toBe('(1) Kitchen · TableTap');
+    expect(document.title).toBe(fill(ru.kitchen.meta.titleNew, { count: 1 }));
     act(() =>
       socket.fire('order:updated', {
         order: order('o12', {
@@ -207,9 +258,9 @@ describe('KitchenBoard', () => {
       }),
     );
     expect(
-      within(screen.getByRole('region', { name: 'Cooking' })).getByRole('article'),
+      within(screen.getByRole('region', { name: COL.cooking })).getByRole('article'),
     ).not.toHaveAttribute('data-fresh');
-    expect(document.title).toBe('Kitchen · TableTap');
+    expect(document.title).toBe(ru.kitchen.meta.title);
   });
   it('stops counting a ticket that leaves the board entirely', () => {
     const socket = fakeSocket();
@@ -225,7 +276,7 @@ describe('KitchenBoard', () => {
     );
     act(() => socket.fire('connect'));
     act(() => socket.fire('order:created', { order: order('o12') }));
-    expect(document.title).toBe('(1) Kitchen · TableTap');
+    expect(document.title).toBe(fill(ru.kitchen.meta.titleNew, { count: 1 }));
     act(() =>
       socket.fire('order:updated', {
         order: order('o12', {
@@ -236,7 +287,7 @@ describe('KitchenBoard', () => {
       }),
     );
     expect(screen.queryByRole('article')).toBeNull();
-    expect(document.title).toBe('Kitchen · TableTap');
+    expect(document.title).toBe(ru.kitchen.meta.title);
   });
   it('keeps a ticket that arrived while the snapshot was being read', () => {
     const socket = fakeSocket();
@@ -256,7 +307,7 @@ describe('KitchenBoard', () => {
     );
     // The snapshot began reading before that order existed, so it cannot carry it.
     act(() => socket.lastAck?.({ orders: [], serverTime: '2026-09-03T10:04:00Z' }));
-    expect(screen.getByRole('heading', { name: 'Table 7 · #2' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: heading(2) })).toBeInTheDocument();
   });
   it('keeps the board and retries when the server cannot answer', () => {
     vi.useFakeTimers();
@@ -275,8 +326,8 @@ describe('KitchenBoard', () => {
       act(() => socket.fire('connect'));
       socket.emit.mockClear();
       act(() => socket.lastAck?.(null));
-      expect(screen.getByRole('heading', { name: 'Table 7 · #1' })).toBeInTheDocument();
-      expect(screen.getByRole('status')).toHaveTextContent("Couldn't refresh the board. Retrying…");
+      expect(screen.getByRole('heading', { name: heading(1) })).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent(plain(ru.kitchen.stale));
       expect(socket.emit).not.toHaveBeenCalled();
       act(() => void vi.advanceTimersByTime(2_000));
       expect(socket.emit).toHaveBeenCalledWith('subscribe', expect.any(Function));
@@ -326,7 +377,7 @@ describe('KitchenBoard', () => {
     expect(screen.queryByRole('status')).toBeNull();
     // Waiting for the heartbeat to time out would leave a dead board looking live for seconds.
     act(() => void window.dispatchEvent(new Event('offline')));
-    expect(screen.getByRole('status')).toHaveTextContent('Reconnecting… the board will catch up.');
+    expect(screen.getByRole('status')).toHaveTextContent(plain(ru.kitchen.connection.offline));
     // A short blip leaves the socket believing it is still connected - and it is right, since
     // nothing ever closed it. There is nothing to reconnect, so the board just stops apologising.
     socket.connect.mockClear();
@@ -352,7 +403,7 @@ describe('KitchenBoard', () => {
     socket.connect.mockClear();
     act(() => void window.dispatchEvent(new Event('online')));
     expect(socket.connect).toHaveBeenCalled();
-    expect(screen.getByRole('status')).toHaveTextContent('Reconnecting… the board will catch up.');
+    expect(screen.getByRole('status')).toHaveTextContent(plain(ru.kitchen.connection.offline));
   });
   it('ignores a move that resolves after a demo reset', async () => {
     const user = userEvent.setup();
@@ -373,7 +424,7 @@ describe('KitchenBoard', () => {
       />,
     );
     act(() => socket.fire('connect'));
-    await user.click(screen.getByRole('button', { name: 'Start #3' }));
+    await user.click(screen.getByRole('button', { name: bump(3) }));
     act(() => socket.fire('demo:reset'));
     expect(screen.queryByRole('article')).toBeNull();
     await act(async () => {
@@ -400,11 +451,13 @@ describe('KitchenBoard', () => {
       />,
     );
     act(() => socket.fire('connect'));
-    await user.click(screen.getByRole('button', { name: 'Start #1' }));
+    await user.click(screen.getByRole('button', { name: bump(1) }));
     // The ticket has not moved and the board knows it: the refusal is about who asked, so the
     // notice must not blame the ticket's status the way a lost race would.
-    expect(await screen.findByText("You can't move #1.")).toBeInTheDocument();
-    expect(screen.queryByText(/It is Paid now/)).toBeNull();
+    expect(
+      await screen.findByText(plain(fill(ru.kitchen.notice.forbidden, { number: 1 }))),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(moveFailed(1, 'paid'))).toBeNull();
   });
   it('builds the chime on the first gesture when sound was left on', () => {
     window.localStorage.setItem('tt-kitchen-sound', 'on');
@@ -422,7 +475,7 @@ describe('KitchenBoard', () => {
       );
       // The label says the sound is on, so it has to be on as soon as the browser allows it -
       // which is the first gesture anywhere on the page, not the next press of this toggle.
-      expect(screen.getByRole('button', { name: 'Sound on' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: ru.kitchen.sound.on })).toBeInTheDocument();
       expect(createChime).not.toHaveBeenCalled();
       act(() => void document.dispatchEvent(new Event('pointerdown')));
       expect(createChime).toHaveBeenCalled();
@@ -454,7 +507,7 @@ describe('KitchenBoard', () => {
       );
       expect(screen.queryByRole('article')).toBeNull();
       expect(chimeOf(0).play).not.toHaveBeenCalled();
-      expect(document.title).toBe('Kitchen · TableTap');
+      expect(document.title).toBe(ru.kitchen.meta.title);
       // The payment settles: the ticket lands in New, and it arrives as an update.
       act(() =>
         socket.fire('order:updated', {
@@ -462,10 +515,10 @@ describe('KitchenBoard', () => {
         }),
       );
       expect(
-        within(screen.getByRole('region', { name: 'New' })).getByRole('article'),
+        within(screen.getByRole('region', { name: COL.new })).getByRole('article'),
       ).toHaveAttribute('data-fresh', 'true');
       expect(chimeOf(0).play).toHaveBeenCalledTimes(1);
-      expect(document.title).toBe('(1) Kitchen · TableTap');
+      expect(document.title).toBe(fill(ru.kitchen.meta.titleNew, { count: 1 }));
       // Moving on inside the board is not another arrival.
       act(() =>
         socket.fire('order:updated', {
@@ -502,7 +555,7 @@ describe('KitchenBoard', () => {
       // the whole of what it hears, and it is still a ticket nobody in the kitchen has seen.
       act(() => socket.fire('order:updated', { order: order('o21') }));
       expect(
-        within(screen.getByRole('region', { name: 'New' })).getByRole('article'),
+        within(screen.getByRole('region', { name: COL.new })).getByRole('article'),
       ).toHaveAttribute('data-fresh', 'true');
       expect(chimeOf(0).play).toHaveBeenCalledTimes(1);
     } finally {
@@ -526,10 +579,10 @@ describe('KitchenBoard', () => {
       />,
     );
     act(() => socket.fire('connect'));
-    await user.click(screen.getByRole('button', { name: 'Cancel #1' }));
-    await user.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+    await user.click(screen.getByRole('button', { name: cancel(1) }));
+    await user.click(screen.getByRole('button', { name: ru.kitchen.ticket.confirmYes }));
     // The card the cook was working in has gone; focus goes to the next ticket, not to <body>.
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Start #2' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: bump(2) }));
   });
   it('falls back to the column heading when the cancelled ticket was the last one', async () => {
     const user = userEvent.setup();
@@ -548,9 +601,11 @@ describe('KitchenBoard', () => {
       />,
     );
     act(() => socket.fire('connect'));
-    await user.click(screen.getByRole('button', { name: 'Cancel #1' }));
-    await user.click(screen.getByRole('button', { name: 'Yes, cancel' }));
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: /^New/ }));
+    await user.click(screen.getByRole('button', { name: cancel(1) }));
+    await user.click(screen.getByRole('button', { name: ru.kitchen.ticket.confirmYes }));
+    expect(document.activeElement).toBe(
+      screen.getByRole('heading', { name: new RegExp(`^${COL.new}`) }),
+    );
   });
   it('paints the board it was handed without fading anything in: those tickets were in the kitchen already', () => {
     const socket = fakeSocket();
@@ -568,7 +623,7 @@ describe('KitchenBoard', () => {
         ),
       }),
     );
-    expect(html).toContain('Kitchen');
+    expect(html).toContain(ru.kitchen.heading);
     expect(html).not.toContain('starting:');
   });
   it('lets a ticket that lands while the board is up arrive, over a token duration (class-level: jsdom does no layout, so this proves the classes are there, not that anything moved)', () => {
@@ -585,8 +640,8 @@ describe('KitchenBoard', () => {
     );
     act(() => socket.fire('connect'));
     act(() => socket.fire('order:created', { order: order('o2') }));
-    const arrived = within(screen.getByRole('region', { name: 'New' })).getByRole('article', {
-      name: 'Table 7 · #2',
+    const arrived = within(screen.getByRole('region', { name: COL.new })).getByRole('article', {
+      name: heading(2),
     });
     expect(arrived.className).toContain('starting:opacity-0');
     expect(arrived.className).toContain('duration-[var(--motion-base)]');
@@ -606,10 +661,10 @@ describe('KitchenBoard', () => {
       />,
     );
     act(() => socket.fire('connect'));
-    await user.click(screen.getByRole('button', { name: 'Start #1' }));
-    const moved = within(screen.getByRole('region', { name: 'Cooking' })).getByRole('article');
+    await user.click(screen.getByRole('button', { name: bump(1) }));
+    const moved = within(screen.getByRole('region', { name: COL.cooking })).getByRole('article');
     expect(moved.className).toContain('starting:opacity-0');
     // Nothing lingers in New: a ticket left behind where it no longer is misreads at a glance.
-    expect(within(screen.getByRole('region', { name: 'New' })).queryByRole('article')).toBeNull();
+    expect(within(screen.getByRole('region', { name: COL.new })).queryByRole('article')).toBeNull();
   });
 });

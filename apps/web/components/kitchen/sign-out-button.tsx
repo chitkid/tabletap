@@ -1,5 +1,6 @@
 'use client';
 import { Button } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { authClient } from '../../lib/auth-client';
 
 function goToLogin() {
@@ -11,9 +12,10 @@ function goToLogin() {
 }
 
 export function SignOutButton() {
+  const t = useTranslations('kitchen');
   return (
     <Button type="button" variant="ghost" onClick={() => void authClient.signOut().then(goToLogin)}>
-      Sign out
+      {t('signOut')}
     </Button>
   );
 }

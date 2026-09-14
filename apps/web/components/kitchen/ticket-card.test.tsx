@@ -8,10 +8,10 @@ import ru from '../../messages/ru.json';
 import { TicketCard } from './ticket-card';
 
 /**
- * A ticket's status badge reads from the dictionary, because the glossary gives the board and the
- * guest different words for the same status - docs/design/02b-copy-ru.md. `useTranslations`
- * resolves through `NextIntlClientProvider` in every environment vitest runs in, so every render
- * here goes through it. The rest of this surface's wording is Task 6's.
+ * Every word on a ticket comes from `messages/ru.json`, and the badge takes the glossary's
+ * **kitchen** column — docs/design/02b-copy-ru.md — so `ready` here is «Готов» and not the
+ * guest's «Готов — сейчас принесут». `useTranslations` resolves through `NextIntlClientProvider`
+ * in every environment vitest runs in, so every render here goes through it.
  */
 const withIntl = ({ children }: { children: ReactNode }) => (
   <NextIntlClientProvider locale="ru" messages={ru}>
@@ -20,6 +20,17 @@ const withIntl = ({ children }: { children: ReactNode }) => (
 );
 const render = (ui: ReactElement, options?: RenderOptions) =>
   rtlRender(ui, { wrapper: withIntl, ...options });
+
+/**
+ * Accessible names are **composed from the dictionary, never typed**: `getByRole(…, { name })`
+ * matches with an identity normaliser, so the U+00A0 inside «Стол 7» and after «№» has to be the
+ * real byte. `toHaveTextContent` collapses it instead, which is why `plain` exists beside `fill`.
+ */
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const fill = (message: string, values: Record<string, string | number>) =>
+  message.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key]));
+const T = ru.kitchen.ticket;
 
 const T0 = Date.parse('2026-09-03T10:00:00Z');
 const order = (patch: Partial<OrderDto> = {}): OrderDto => ({
@@ -58,12 +69,23 @@ describe('TicketCard', () => {
     render(
       <TicketCard order={order()} now={T0 + 65_000} fresh onBump={vi.fn()} onCancel={vi.fn()} />,
     );
-    expect(screen.getByRole('heading', { name: 'Table 7 · #42' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: fill(T.heading, { table: 7, number: 42 }) }),
+    ).toBeInTheDocument();
     expect(screen.getByText('2 × Margherita Flatbread')).toBeInTheDocument();
-    expect(screen.getByText('Note: No basil')).toBeInTheDocument();
+    expect(screen.getByText(plain(fill(T.note, { note: 'No basil' })))).toBeInTheDocument();
     expect(screen.getByRole('timer')).toHaveTextContent('1:05');
-    expect(screen.getByRole('button', { name: 'Start #42' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: fill(T.bump.paid, { number: 42 }) }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('article')).toHaveAttribute('data-fresh', 'true');
+  });
+  it('badges a ticket with the board’s own word, not the guest’s', () => {
+    render(
+      <TicketCard order={order()} now={T0} fresh={false} onBump={vi.fn()} onCancel={vi.fn()} />,
+    );
+    expect(screen.getByText(ru.status.kitchen.paid)).toBeInTheDocument();
+    expect(screen.queryByText(ru.status.guest.paid)).toBeNull();
   });
   it('marks a late ticket in words, not only colour, and restarts the clock at cookingAt', () => {
     render(
@@ -75,9 +97,11 @@ describe('TicketCard', () => {
         onCancel={vi.fn()}
       />,
     );
-    expect(screen.getByRole('timer')).toHaveTextContent('11:00 · late');
+    expect(screen.getByRole('timer')).toHaveTextContent(`11:00 ${plain(ru.kitchen.timer.late)}`);
     expect(screen.getByRole('timer')).toHaveAttribute('data-threshold', 'late');
-    expect(screen.getByRole('button', { name: 'Ready #42' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: fill(T.bump.cooking, { number: 42 }) }),
+    ).toBeInTheDocument();
   });
   it('bumps to the next status and cancels behind a confirm', async () => {
     const user = userEvent.setup();
@@ -86,12 +110,28 @@ describe('TicketCard', () => {
     render(
       <TicketCard order={order()} now={T0} fresh={false} onBump={onBump} onCancel={onCancel} />,
     );
-    await user.click(screen.getByRole('button', { name: 'Start #42' }));
+    await user.click(screen.getByRole('button', { name: fill(T.bump.paid, { number: 42 }) }));
     expect(onBump).toHaveBeenCalledWith(expect.objectContaining({ id: 'o1' }), 'cooking');
-    await user.click(screen.getByRole('button', { name: 'Cancel #42' }));
+    await user.click(screen.getByRole('button', { name: fill(T.cancel, { number: 42 }) }));
     expect(onCancel).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+    expect(
+      screen.getByRole('group', { name: fill(T.confirm, { number: 42 }) }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: T.confirmYes }));
     expect(onCancel).toHaveBeenCalledWith(expect.objectContaining({ id: 'o1' }));
+  });
+  it('keeps the ticket when the confirm is declined', async () => {
+    const user = userEvent.setup();
+    const onCancel = vi.fn();
+    render(
+      <TicketCard order={order()} now={T0} fresh={false} onBump={vi.fn()} onCancel={onCancel} />,
+    );
+    await user.click(screen.getByRole('button', { name: fill(T.cancel, { number: 42 }) }));
+    await user.click(screen.getByRole('button', { name: T.confirmKeep }));
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: fill(T.cancel, { number: 42 }) }),
+    ).toBeInTheDocument();
   });
   it('disables the bump while a move is pending and offers no cancel past New', () => {
     render(
@@ -104,8 +144,8 @@ describe('TicketCard', () => {
         onCancel={vi.fn()}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Served #42' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Cancel #42' })).toBeNull();
+    expect(screen.getByRole('button', { name: fill(T.bump.ready, { number: 42 }) })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: fill(T.cancel, { number: 42 }) })).toBeNull();
   });
   it('fades a ticket that arrives on a board already on screen into place, over a token duration (class-level: jsdom does no layout, so this proves the classes are there, not that anything moved)', () => {
     render(

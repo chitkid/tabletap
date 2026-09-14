@@ -1,9 +1,19 @@
 import { render, screen } from '@testing-library/react';
+import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
+import ru from '../../messages/ru.json';
 import { ConnectionBanner, type ConnectionState } from './connection-banner';
 
+const NBSP = String.fromCharCode(0xa0);
+/** `toHaveTextContent` collapses U+00A0 before matching, so its fixtures carry a plain space. */
+const plain = (s: string) => s.split(NBSP).join(' ');
+
 const bandOf = (state: ConnectionState) =>
-  render(<ConnectionBanner state={state} />).container.firstElementChild as HTMLElement;
+  render(
+    <NextIntlClientProvider locale="ru" messages={ru}>
+      <ConnectionBanner state={state} />
+    </NextIntlClientProvider>,
+  ).container.firstElementChild as HTMLElement;
 
 /** The padding is what makes the band a band; the rest of the classes are what it paints. */
 const layoutOf = (el: HTMLElement) =>
@@ -14,8 +24,8 @@ const layoutOf = (el: HTMLElement) =>
 
 describe('ConnectionBanner', () => {
   it('says what is wrong while the feed is not up', () => {
-    expect(bandOf('connecting')).toHaveTextContent('Connecting to the kitchen feed…');
-    expect(bandOf('offline')).toHaveTextContent('Reconnecting… the board will catch up.');
+    expect(bandOf('connecting')).toHaveTextContent(plain(ru.kitchen.connection.connecting));
+    expect(bandOf('offline')).toHaveTextContent(plain(ru.kitchen.connection.offline));
     expect(screen.getAllByRole('status')).toHaveLength(2);
   });
   /**

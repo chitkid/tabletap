@@ -66,12 +66,15 @@ export const ordersOf = (state: BoardState): OrderDto[] => Object.values(state.b
 export type Column = 'new' | 'cooking' | 'ready';
 // An order that is placed but not paid belongs to the guest's phone, not to the pass: the board
 // shows work the kitchen may start, and payment is what makes it startable (ADR 0010).
-export const COLUMNS: readonly { key: Column; title: string; statuses: readonly OrderStatus[] }[] =
-  [
-    { key: 'new', title: 'New', statuses: ['paid'] },
-    { key: 'cooking', title: 'Cooking', statuses: ['cooking'] },
-    { key: 'ready', title: 'Ready', statuses: ['ready'] },
-  ];
+//
+// The key is the name of the column's message in `kitchen.columns` and `kitchen.empty`, not a
+// word: this module holds the board's shape and the interface's language lives in the dictionary
+// (the same move `lib/elapsed.ts` made in Task 5).
+export const COLUMNS: readonly { key: Column; statuses: readonly OrderStatus[] }[] = [
+  { key: 'new', statuses: ['paid'] },
+  { key: 'cooking', statuses: ['cooking'] },
+  { key: 'ready', statuses: ['ready'] },
+];
 
 /**
  * Does the board hold this ticket in its first column? A ticket the kitchen has not started is
@@ -96,13 +99,17 @@ export function columnsOf(orders: OrderDto[]): Record<Column, OrderDto[]> {
   };
 }
 
-export const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
+/**
+ * The statuses a cook may bump on, and where each one goes. They are also the names of the three
+ * messages in `kitchen.ticket.bump`: the verb on the button is a translation, and narrowing to
+ * this union is what lets the card ask for one without an index that might not be there.
+ */
+export const BUMPABLE_STATUSES = ['paid', 'cooking', 'ready'] as const;
+export type BumpableStatus = (typeof BUMPABLE_STATUSES)[number];
+export const isBumpable = (status: OrderStatus): status is BumpableStatus =>
+  (BUMPABLE_STATUSES as readonly OrderStatus[]).includes(status);
+export const NEXT_STATUS: Record<BumpableStatus, OrderStatus> = {
   paid: 'cooking',
   cooking: 'ready',
   ready: 'served',
-};
-export const BUMP_LABEL: Partial<Record<OrderStatus, 'Start' | 'Ready' | 'Served'>> = {
-  paid: 'Start',
-  cooking: 'Ready',
-  ready: 'Served',
 };

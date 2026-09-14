@@ -1,6 +1,7 @@
 'use client';
 import { RushResponseSchema } from '@tabletap/shared';
 import { Button } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, clientFetch } from '../../lib/api';
 
@@ -13,6 +14,7 @@ const CONFLICT_COOLDOWN_SECONDS = 60;
  * is refused by the API anyway and a control that only ever fails is worse than a disabled one.
  */
 export function RushButton({ fetcher = clientFetch }: { fetcher?: typeof clientFetch }) {
+  const t = useTranslations('kitchen.rush');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [cooling, setCooling] = useState(false);
@@ -25,8 +27,8 @@ export function RushButton({ fetcher = clientFetch }: { fetcher?: typeof clientF
     [],
   );
 
-  // Every message has the same shelf life: a board that still reads "12 orders over the next
-  // minute" - or that a rush failed - ten minutes later is telling the room a lie.
+  // Every message has the same shelf life: a board that still reads «12 заказов за ближайшую
+  // минуту» - or that a rush failed - ten minutes later is telling the room a lie.
   const clearAfter = (seconds: number) => {
     if (timer.current !== null) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
@@ -48,15 +50,17 @@ export function RushButton({ fetcher = clientFetch }: { fetcher?: typeof clientF
         schema: RushResponseSchema,
         init: { method: 'POST' },
       });
-      setMessage(`${rush.ordersPlanned} orders over the next minute.`);
+      // A live count from the API, so the noun after it is declined by ICU and never by a
+      // ternary: Russian needs three forms where English needs two.
+      setMessage(t('planned', { n: rush.ordersPlanned }));
       cool(rush.durationSeconds);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setMessage('A rush is already running.');
+        setMessage(t('running'));
         cool(CONFLICT_COOLDOWN_SECONDS);
       } else {
         // Nothing is running, so the button stays pressable; only the message is on a timer.
-        setMessage("Couldn't start a rush.");
+        setMessage(t('failed'));
         clearAfter(CONFLICT_COOLDOWN_SECONDS);
       }
     } finally {
@@ -73,7 +77,7 @@ export function RushButton({ fetcher = clientFetch }: { fetcher?: typeof clientF
         aria-busy={busy}
         onClick={() => void start()}
       >
-        Simulate rush
+        {t('start')}
       </Button>
       {message !== null ? (
         <p role="status" aria-live="polite" className="text-muted-foreground">
