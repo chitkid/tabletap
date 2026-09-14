@@ -1,7 +1,7 @@
 # Kitchen Page Overrides
 
 > **PROJECT:** TableTap
-> **Reconciled against packages/ui/tokens.css on 2026-09-03**
+> **Reconciled against packages/ui/tokens.css on 2026-09-14**
 > **Generated:** 2026-09-03 01:53:50
 > **Page Type:** Kitchen Display (dark, real-time)
 > **Reconciled with:** `docs/brand-guidelines.md` (kitchen surface, semantic status colors, kitchen type scale)
@@ -30,14 +30,14 @@
 
 Per `docs/brand-guidelines.md` §2 kitchen type scale — nothing on this surface is smaller than 16px, and body text is 20px or larger:
 
-| Element             | Size                           | Font                          | Weight | Line Height |
-| ------------------- | ------------------------------ | ----------------------------- | ------ | ----------- |
-| Ticket table number | 32px                           | Bricolage Grotesque (display) | 700    | 1.1         |
-| Ticket item line    | 22px                           | IBM Plex Sans (body)          | 500    | 1.35        |
-| Kitchen body        | 20px (minimum on this surface) | IBM Plex Sans (body)          | 400    | 1.4         |
-| Modifier / note     | 18px                           | IBM Plex Sans (body)          | 400    | 1.4         |
-| Timer               | 28px                           | IBM Plex Mono                 | 500    | 1.1         |
-| Column header       | 16px                           | IBM Plex Sans (body)          | 600    | 1.2         |
+| Element             | Size                           | Font                     | Weight | Line Height |
+| ------------------- | ------------------------------ | ------------------------ | ------ | ----------- |
+| Ticket table number | 32px                           | PT Sans Narrow (display) | 700    | 1.1         |
+| Ticket item line    | 22px                           | IBM Plex Sans (body)     | 500    | 1.35        |
+| Kitchen body        | 20px (minimum on this surface) | IBM Plex Sans (body)     | 400    | 1.4         |
+| Modifier / note     | 18px                           | IBM Plex Sans (body)     | 400    | 1.4         |
+| Timer               | 28px                           | IBM Plex Mono            | 500    | 1.1         |
+| Column header       | 16px                           | IBM Plex Sans (body)     | 600    | 1.2         |
 
 Timer digits and table numbers set `font-variant-numeric: tabular-nums` so elapsed time does not jitter as it ticks.
 

@@ -1,7 +1,7 @@
 # Admin Page Overrides
 
 > **PROJECT:** TableTap
-> **Reconciled against packages/ui/tokens.css on 2026-09-03**
+> **Reconciled against packages/ui/tokens.css on 2026-09-14**
 > **Generated:** 2026-09-03 01:53:58
 > **Page Type:** Dashboard / Data View
 > **Reconciled with:** `docs/brand-guidelines.md` (light neutral chrome, tabular numerals, single-accent rule)
@@ -29,7 +29,7 @@ Density 8/10 → the generator's "Dense / Dashboard" tier (8-10 bucket). **The g
 
 ### Typography Overrides
 
-- Headings (page titles, panel titles) use Bricolage Grotesque per the Master type scale; body text and all data uses IBM Plex Sans.
+- Headings (page titles, panel titles) use PT Sans Narrow per the Master type scale; body text and all data uses IBM Plex Sans.
 - Every numeric column (order counts, revenue, dates, table numbers) sets `font-variant-numeric: tabular-nums` — brand rule, so columns don't jitter or misalign as data updates.
 - No mono usage on admin — IBM Plex Mono is reserved for kitchen timers only.
 - Type scale reuses the brand's shared Guest/Admin table (`docs/brand-guidelines.md` §2): Body 16px, Small 14px (dense table rows may use Small), Caption 12px, Price 18px/600.

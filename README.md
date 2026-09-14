@@ -33,21 +33,21 @@ M2 makes the product visible: a guest scans the QR on the table, reads the menu,
 
 Bring the stack up (Docker section below, or local development), then open <http://localhost:3000>.
 
-1. **Landing.** Three cards — Guest, Kitchen, Admin — plus a QR code for table 7, a note saying how often the demo data resets, and one saying what paying costs here: "Payments run in demo mode: no card, no money.", or the Stripe test card when a key is configured.
-2. **Become a guest.** Scan the QR with a phone on the same network, or click **Table 7 as a guest**. Either way you land on `/t/<token>`, which claims the table and forwards you to the menu.
+1. **Landing.** The restaurant's own page: a header naming Little Furnace with a **Staff entrance** link, a hero with one guest action — **Open the menu for table 7** — a short "How it works" list, and the opening hours. A dark band at the foot of the page is the staff door: **Staff area**, with **Kitchen display** and **Admin dashboard** underneath, on screen regardless of demo mode. No cards, no QR image and no mention of the stack — the owner's instruction on 2026-09-14 was that a guest should read this as a real restaurant's page.
+2. **Become a guest.** Click **Open the menu for table 7**, or scan a printed QR code from the admin's **Print QR sheet** (below). Either way you land on `/t/<token>`, which claims the table and forwards you to the menu.
 3. **Menu.** Four categories, twenty dishes, each with its own drawn plate (ADR 0007). `Add` turns into a `−`/`+` stepper; sold-out dishes say "Sold out today" and cannot be added. A sticky bar at the bottom counts the basket.
 4. **Basket.** **View basket** opens a bottom sheet: quantities, removals, subtotal, **Go to checkout**.
 5. **Checkout.** Prices are re-read from the server, not from the basket. Add a note for the kitchen and press **Place order**.
-6. **Order page.** "Order #42 is waiting for payment.", the table, a status badge, the lines, the note, and "Placed 2 min ago" ticking every 30 seconds. A **Pay $28.00** button sits under the headline.
+6. **Order page.** "Order #42 is waiting for payment.", the table, a status badge, the lines, the note, and "Placed 2 min ago" ticking every 30 seconds. A **Pay 1 250 ₽** button sits under the headline.
 7. **Pay.** The button opens a payment attempt and follows wherever the provider points. In demo mode that is `/pay/<order id>`, the restaurant's own terminal — the amount, a dead keypad, **Pay** and **Decline** side by side, and "This is a demo. No card, no money." Pay, and you land back on the order page reading "Order #42 sent to the kitchen."; decline, and it says "Payment declined. Try again." with the Pay button still there.
 8. **Watch it cook.** The ticket is on the kitchen board the moment the payment settles. The status updates in place as the kitchen works it, and "Order #42 is ready." is announced when it is.
 9. **Run the restaurant.** Open <http://localhost:3000/login?demo=admin&next=/admin> to arrive as Марина Ковалёва on the admin surface: the day's figures, the menu edited row by row, and the tables with their printed codes. Change a price and reload the guest menu; it is the same menu.
 
-The two staff cards sign you in with one click: **Open the kitchen display** and **Open the admin** go to `/login?demo=kitchen` and `/login?demo=admin`, which sign in with the seeded credentials below. Both land on the kitchen board, because that is what `/login` defaults to — so the admin card opens the board as an admin rather than the admin surface M5 built. Reach it with the `&next=/admin` link above, or by opening `/admin` once signed in. Pointing the card at it is on the backlog. **Simulate rush** on the landing gives the board something to do without a second device.
+**The staff band signs you in with one click.** In the footer, **Kitchen display** and **Admin dashboard** go to `/login?demo=kitchen` and `/login?demo=admin&next=/admin`, which sign in with the seeded credentials below. `/login` defaults to the kitchen board, which is why the admin door carries its own `next=/admin` and opens the admin surface M5 built rather than the board. The band sits on every render of the page, gated on nothing. **Simulate rush**, which gives the board something to do without a second device, is a control in the board's own header; the landing no longer carries a copy of it.
 
 Guest URLs added in M2: `/t/<token>`, `/menu`, `/checkout`, `/orders/<id>`, `/session-ended`. M3 adds the staff board at `/kitchen`, M4 the demo terminal at `/pay/<id>`, M5 the admin at `/admin` and its three rooms `/admin/dashboard`, `/admin/menu` and `/admin/tables`. `/` is the landing page (M1's redirect to `/login` is gone).
 
-The demo data is wiped and re-seeded every `DEMO_RESET_INTERVAL_MINUTES` (default 60). A reset deletes orders and guest sessions, so a guest who was mid-order gets sent to `/session-ended` on their next tap and starts again by scanning. Table ids are stable across resets, so the printed QR code and the basket kept under it both survive one. With `DEMO_MODE=false` the landing degrades gracefully — the same page without the QR code and without the sign-in buttons — and `GET /api/demo/links` answers 404.
+The demo data is wiped and re-seeded every `DEMO_RESET_INTERVAL_MINUTES` (default 60). A reset deletes orders and guest sessions, so a guest who was mid-order gets sent to `/session-ended` on their next tap and starts again by scanning. Table ids are stable across resets, so the printed QR code and the basket kept under it both survive one. With `DEMO_MODE=false` the landing degrades gracefully: `GET /api/demo/links` answers 404, so the hero's guest link does not render. The staff band is unaffected — it is a plain `/login` link and two doors under it, built from nothing the demo links response carries, so it stays on screen either way.
 
 ## Kitchen display
 
@@ -61,7 +61,7 @@ The demo data is wiped and re-seeded every `DEMO_RESET_INTERVAL_MINUTES` (defaul
 
 **Sound.** A **Sound** toggle plays a two-note chime when a ticket enters the New column — the moment the payment settles, not the moment the guest places the order, since an unpaid ticket is not work the kitchen can start. It is synthesized with the Web Audio API rather than shipped as an asset, and it is off until pressed, because browsers only allow audio after a gesture. The choice is remembered in `localStorage`.
 
-**Simulate rush.** In demo mode a **Simulate rush** button sits in the board header and on the landing page. It asks `POST /api/demo/rush` to place twelve orders over sixty seconds through the same insert path a guest uses, from random tables with one to four dishes each, so a rush ticket is indistinguishable from a real one. A second rush while one is running is refused, and the button goes quiet for the length of the run. The hourly demo reset stops a running rush before it reseeds and then broadcasts `demo:reset`, which tells every open board and every guest order page to clear and subscribe again.
+**Simulate rush.** In demo mode a **Simulate rush** button sits in the board header. It asks `POST /api/demo/rush` to place twelve orders over sixty seconds through the same insert path a guest uses, from random tables with one to four dishes each, so a rush ticket is indistinguishable from a real one. A second rush while one is running is refused, and the button goes quiet for the length of the run. The hourly demo reset stops a running rush before it reseeds and then broadcasts `demo:reset`, which tells every open board and every guest order page to clear and subscribe again.
 
 **How the live connection works.** The board asks `POST /api/socket-token` over the ordinary proxied REST path — where the session cookie is first-party — and gets back a 60-second JWT, typed `tt-socket` and signed with `SOCKET_TOKEN_SECRET`; a fresh one is minted before every connection attempt, reconnects included. The Socket.io handshake verifies that token, and the **server** puts the socket in its room from the token's principal — `kitchen` for staff, `session:<guestSessionId>` for a guest — so no client can ask to listen to somebody else's orders, and a tab left open on a table's last sitting goes quiet when the next party claims it. On connect the client emits `subscribe` and receives the whole board as a snapshot; the board merges it over what it holds rather than replacing it, so an order placed while the snapshot was being read is not erased by the snapshot that could not know about it. If the server cannot answer, it says so and the board keeps its tickets and retries. Between snapshots an event is ignored when its `updatedAt` is older than the copy the board holds, and every timer is measured against the server's clock rather than the screen's. When the connection goes, the board says so within seconds — it listens for the browser's own offline event, and the server's heartbeat (10 s interval, 5 s timeout) catches whatever the browser does not notice. The reasoning is in [ADR 0008](docs/adr/0008-realtime-delivery.md).
 
@@ -73,12 +73,12 @@ An order is placed, then paid, and only a payment event sends it to the kitchen.
 
 **Two providers behind one port.** `PaymentProvider` (`apps/api/src/payments/types.ts`) is `createSession` plus `readEvent`, and that is the whole surface a processor gets. Which adapter runs is decided at boot and by configuration alone:
 
-| `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` | Provider | What a guest sees                                                                       |
-| ----------------------------------------------- | -------- | --------------------------------------------------------------------------------------- |
-| both set                                        | `stripe` | Stripe Checkout in test mode, and the landing shows the test card `4242 4242 4242 4242` |
-| either empty                                    | `demo`   | The in-app terminal at `/pay/<id>`, and the landing says "no card, no money"            |
+| `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` | Provider | What a guest sees                                                                   |
+| ----------------------------------------------- | -------- | ----------------------------------------------------------------------------------- |
+| both set                                        | `stripe` | Stripe Checkout in test mode — use the test card `4242 4242 4242 4242`              |
+| either empty                                    | `demo`   | The in-app terminal at `/pay/<id>`, which says "This is a demo. No card, no money." |
 
-Setting one variable and forgetting the other resolves to `demo` — the deployment boots and takes no money. Check the landing's payment line, or `GET /api/demo/links`, which reports the resolved provider.
+Setting one variable and forgetting the other resolves to `demo` — the deployment boots and takes no money. Check `GET /api/demo/links`, whose `payments` field reports the resolved provider.
 
 **The demo terminal** is the restaurant's own card machine, drawn honestly: the amount at display size, a dead keypad that is hidden from assistive technology because none of its keys is a control, and **Pay** and **Decline** side by side at the same weight. Where a bank page would put a card number, this one says "This is a demo. No card, no money." It is not a mock of the settlement — pressing Pay posts to `POST /api/payments/demo/complete`, which builds the same event shape the webhook carries and calls the same `settlePayment`, so the demo run exercises the idempotency guard, the amount check, the transaction and the socket broadcast that would carry a real payment. Every row it writes says `demo`. See [ADR 0011](docs/adr/0011-demo-payment-provider.md).
 
@@ -180,7 +180,7 @@ docker compose up --build
 - API: <http://localhost:4000> — try <http://localhost:4000/health>
 - MinIO: <http://localhost:9000> is the S3 API menu photographs are uploaded to and read from; <http://localhost:9001> is its console, signed in with `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`
 
-The API container applies the migrations and runs `seed --if-empty` before starting, so the demo data and the three staff accounts are there on first boot. It waits for MinIO's healthcheck and for the one-shot `minio-init` that creates the bucket, so the store is ready before the first upload URL is asked for. `.env.example` sets `DEMO_MODE=true`, which is what puts the QR code and the sign-in buttons on the landing page.
+The API container applies the migrations and runs `seed --if-empty` before starting, so the demo data and the three staff accounts are there on first boot. It waits for MinIO's healthcheck and for the one-shot `minio-init` that creates the bucket, so the store is ready before the first upload URL is asked for. `.env.example` sets `DEMO_MODE=true`, which is what makes `GET /api/demo/links` answer and puts a working guest link on the landing's hero. The staff band at the foot of the page is not gated by it — it is on screen either way.
 
 **Local evidence:** the `compose-e2e` job brings the stack up, runs the Playwright specs and then the Lighthouse audit against it, and the same sequence is run by hand on this machine before every merge — M3 and M4 on 2026-09-04, M5 on 2026-09-05, each against a stack built from scratch. CI runs on every push to <https://github.com/chitkid/tabletap>, and both jobs — `check` and `compose-e2e` — were green on the most recent run. Compose arrived here on 2026-09-03, so it is a young part of the project: if you hit a problem with Compose, e2e or the audit, that is the likeliest place for it.
 
@@ -217,7 +217,7 @@ pnpm db:seed -- --if-empty           # prints the twelve guest URLs it signs
 pnpm dev                             # web on :3000, api on :4000
 ```
 
-`pnpm test` needs none of that — the suite runs on PGlite in memory: 662 tests across the five packages (shared 52, db 17, ui 39, api 317, web 237).
+`pnpm test` needs none of that — the suite runs on PGlite in memory: 777 tests across the five packages (shared 57, db 26, ui 41, api 344, web 309).
 
 ## Scripts
 
@@ -272,10 +272,10 @@ The API exposes demo mode behind three variables:
 | Variable                      | Default         | What it does                                                                                            |
 | ----------------------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
 | `DEMO_MODE`                   | `false`         | Gates `GET /api/demo/links` and the reset scheduler. `.env.example` and Compose set it to `true`.       |
-| `DEMO_RESET_INTERVAL_MINUTES` | `60`            | Minutes between automatic re-seeds. `0` disables the scheduler and the landing says so.                 |
+| `DEMO_RESET_INTERVAL_MINUTES` | `60`            | Minutes between automatic re-seeds. `0` disables the scheduler.                                         |
 | `DEMO_PASSWORD`               | `tabletap-demo` | Password for the three seeded staff accounts. Read by the seed and returned by the demo-links endpoint. |
 
-`GET /api/demo/links` is the only public endpoint added in M2 (300 requests a minute per IP, 404 when demo mode is off). The landing calls it from the Next server, so every visitor reaches the API as one address; the web tier caches a successful answer for 30 seconds and the limit is a runaway guard rather than a per-visitor budget. It returns a freshly signed guest URL for table 7, the three staff accounts with their password, and the reset interval — everything the landing page needs, and nothing that is not already in this README. The reset itself is an in-process `setInterval` in the API that runs the seed in `--reset` mode; it never starts under `NODE_ENV=test`.
+`GET /api/demo/links` is the only public endpoint added in M2 (300 requests a minute per IP, 404 when demo mode is off). The landing calls it from the Next server, so every visitor reaches the API as one address; the web tier caches a successful answer for 30 seconds and the limit is a runaway guard rather than a per-visitor budget. It returns a freshly signed guest URL for table 7, the three staff accounts with their password, the reset interval and the resolved payment provider — the landing page renders only the guest URL today, and nothing in the envelope is missing from this README. The reset itself is an in-process `setInterval` in the API that runs the seed in `--reset` mode; it never starts under `NODE_ENV=test`.
 
 ## Demo accounts
 

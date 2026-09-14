@@ -24,7 +24,7 @@ The 34 seconds is the API waking, not the page rendering. `apps/web/app/page.tsx
 `force-dynamic` and awaits `GET /api/demo/links` from the server, so a sleeping Render service
 blocks the first **page** rather than the first press. That is the free tier's price, it was
 accepted deliberately over a keep-alive ping that would have gamed the tier and stopped the
-reset-on-boot from ever running, and the landing and the README both say so in a line.
+reset-on-boot from ever running, and the README says so in a line at the top.
 
 One number below is **not** from the live hosts and is labelled every time it appears: the
 payment-to-kitchen latency, which was measured on the local Docker Compose stack.
