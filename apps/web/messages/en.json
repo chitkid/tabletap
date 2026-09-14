@@ -265,7 +265,7 @@
       "replace": "Replace the photo",
       "uploading": "Uploading…",
       "failed": "Couldn't upload that. Try again.",
-      "off": "Photo upload is off in this demo. Everything else here is real, and it resets every hour."
+      "off": "Photo upload is off in this installation."
     },
     "tables": {
       "heading": "Tables",
