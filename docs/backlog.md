@@ -54,10 +54,10 @@ Noticed while building and reviewing the M2 branch. Ordered roughly by how much 
 
 ## Found in the final review wave, 2026-09-15
 
-Three whole-branch reviews read `feat/ru-localisation` before merge; their measurements are in
-`.superpowers/sdd/2026-09-14-russian-localisation/final-review-{broad,security,guards}.md`, which are
-committed. Everything Critical and Important was fixed in the merge wave. What follows is what was
-deliberately not, so nobody re-derives it.
+Three whole-branch reviews read `feat/ru-localisation` before merge. **Their documents are not in
+this repository** — `.gitignore` excludes `.superpowers/`, where they were written — so every figure
+below is repeated here rather than referenced, which is the point of the entries. Everything Critical
+and Important was fixed in the merge wave; what follows is what was deliberately not.
 
 - **`admin.photo.off` is a truncated copy of `errors.photoUploadDisabled`.** It drops
   «Обратитесь к тому, кто её разворачивал.» — the same shape as the two `guest.claim.*` refusals
