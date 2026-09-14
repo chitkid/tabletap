@@ -75,6 +75,8 @@ describe('MenuScreen', () => {
       screen.getByRole('button', { name: 'Add one more Margherita Flatbread' }),
     );
     await userEvent.click(screen.getByRole('button', { name: 'Add House Lemonade' }));
+    // `basketItems` binds the count to its noun with a non-breaking space, but `toHaveTextContent`
+    // collapses U+00A0 to a plain space before matching - this plain space is correct as is.
     expect(screen.getByRole('region', { name: 'Basket' })).toHaveTextContent('3 позиции · 28 $');
     await userEvent.click(screen.getByRole('button', { name: 'View basket' }));
     expect(screen.getByRole('dialog', { name: 'Your basket' })).toBeInTheDocument();

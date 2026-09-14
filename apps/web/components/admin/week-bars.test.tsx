@@ -35,6 +35,14 @@ const withProvider = (ui: ReactElement) => (
   </NextIntlClientProvider>
 );
 
+// `dayOrders` binds the count to "заказ…" with a non-breaking space
+// (docs/design/02b-copy-ru.md's editorial rule). Every assertion below reads `aria-label` via the
+// raw DOM `getAttribute`/`toHaveAttribute`, neither of which is a Testing Library text-content
+// query - nothing normalises whitespace on that path, so the fixtures need the real U+00A0, not a
+// plain space. Built from its code point rather than pasted as an invisible literal, so it
+// survives edits/diffs unchanged - same convention as apps/web/lib/plural.test.ts's NBSP constant.
+const NBSP = String.fromCharCode(0xa0);
+
 const bars = () => screen.getAllByRole('listitem');
 const barIn = (item: HTMLElement) => item.querySelector('[data-slot="bar"]') as HTMLElement;
 
@@ -48,13 +56,13 @@ describe('WeekBars', () => {
     // The day counts run 3, 0, 12, 5, 8, 1, 6 - chosen so the week alone exercises all three
     // Russian plural forms: one (1), few (3), many (0, 5, 6, 8, 12, including the 11-14 trap at 12).
     expect(bars().map((item) => item.getAttribute('aria-label'))).toEqual([
-      'Sun, Aug 30: 3 заказа',
-      'Mon, Aug 31: 0 заказов',
-      'Tue, Sep 1: 12 заказов',
-      'Wed, Sep 2: 5 заказов',
-      'Thu, Sep 3: 8 заказов',
-      'Fri, Sep 4: 1 заказ',
-      'Sat, Sep 5: 6 заказов',
+      `Sun, Aug 30: 3${NBSP}заказа`,
+      `Mon, Aug 31: 0${NBSP}заказов`,
+      `Tue, Sep 1: 12${NBSP}заказов`,
+      `Wed, Sep 2: 5${NBSP}заказов`,
+      `Thu, Sep 3: 8${NBSP}заказов`,
+      `Fri, Sep 4: 1${NBSP}заказ`,
+      `Sat, Sep 5: 6${NBSP}заказов`,
     ]);
   });
 
@@ -84,7 +92,7 @@ describe('WeekBars', () => {
     render(withProvider(<WeekBars week={WEEK} />));
     const quiet = bars()[1] as HTMLElement;
 
-    expect(quiet).toHaveAttribute('aria-label', 'Mon, Aug 31: 0 заказов');
+    expect(quiet).toHaveAttribute('aria-label', `Mon, Aug 31: 0${NBSP}заказов`);
     expect(barIn(quiet).style.height).toBe('0%');
     // A baseline of its own, so the day reads as measured-and-empty rather than as missing.
     // `\d+` would also match `min-h-0`, which is the one value that makes the baseline invisible -

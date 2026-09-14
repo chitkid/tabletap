@@ -44,11 +44,11 @@
     "footer": "Исходный код, решения и разбор проекта — в README репозитория."
   },
   "guest": {
-    "basketItems": "{n, plural, one {# позиция} few {# позиции} many {# позиций} other {# позиции}}"
+    "basketItems": "{n, plural, one {# позиция} few {# позиции} many {# позиций} other {# позиции}}"
   },
   "kitchen": {},
   "admin": {
-    "dayOrders": "{n, plural, one {# заказ} few {# заказа} many {# заказов} other {# заказа}}"
+    "dayOrders": "{n, plural, one {# заказ} few {# заказа} many {# заказов} other {# заказа}}"
   },
   "common": {},
   "status": {}

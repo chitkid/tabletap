@@ -14,6 +14,9 @@ const withProvider = (ui: ReactElement) => (
   </NextIntlClientProvider>
 );
 
+// `basketItems` binds the count to its noun with a non-breaking space, but `toHaveTextContent`
+// collapses U+00A0 to a plain space before matching - so these fixtures stay on a plain space on
+// purpose. Do not "fix" them to U+00A0; see plural.test.ts for the query that needs the real byte.
 describe('BasketBar', () => {
   it('summarises the basket in a live region and offers the sheet', () => {
     render(
