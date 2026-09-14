@@ -434,3 +434,46 @@ describe('M5 contracts', () => {
     ).toBe(true);
   });
 });
+
+import { ERROR_MESSAGE_KEYS, ErrorMessageKeySchema } from './index';
+
+/**
+ * The envelope's message key, and the one property the web depends on it for: an envelope the web
+ * cannot make sense of must still hand over its `code`, because that is what the checkout screen,
+ * the kitchen board and the admin's delete buttons branch on.
+ */
+describe('the error envelope’s message key', () => {
+  const envelope = (over: Record<string, unknown>) =>
+    ErrorEnvelopeSchema.safeParse({
+      error: { code: 'NOT_FOUND', message: 'Order not found.', ...over },
+    });
+
+  it('carries a key it knows', () => {
+    const parsed = envelope({ messageKey: 'orderNotFound' });
+    expect(parsed.success && parsed.data.error.messageKey).toBe('orderNotFound');
+  });
+
+  it('parses an envelope with no key at all, as an older API would send', () => {
+    const parsed = envelope({});
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.error.messageKey).toBeUndefined();
+  });
+
+  /**
+   * Deploy skew in the other direction: an API newer than this build names a refusal this build
+   * has never heard of. The envelope must survive it with the code intact — a failed parse here
+   * would cost the web `error.code`, and with it every branch that reads one.
+   */
+  it('drops a key it does not know rather than failing the envelope', () => {
+    const parsed = envelope({ messageKey: 'somethingThisBuildHasNeverHeardOf' });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.error.messageKey).toBeUndefined();
+    expect(parsed.success && parsed.data.error.code).toBe('NOT_FOUND');
+  });
+
+  it('names every key exactly once', () => {
+    expect(new Set(ERROR_MESSAGE_KEYS).size).toBe(ERROR_MESSAGE_KEYS.length);
+    expect(ErrorMessageKeySchema.safeParse('noAccess').success).toBe(true);
+    expect(ErrorMessageKeySchema.safeParse('noAccessAtAll').success).toBe(false);
+  });
+});
