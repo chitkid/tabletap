@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { ADMIN, fill, GUEST, LANDING } from './dictionary';
 
 /**
  * The admin surface end to end: a write the guest surface can see, and a revocation the guest
@@ -69,9 +70,9 @@ test('an admin adds a dish and a guest sees it', async ({ browser }) => {
   const guest = await guestContext.newPage();
 
   await signInAsAdmin(admin);
-  await admin.getByRole('link', { name: 'Menu' }).click();
+  await admin.getByRole('link', { name: ADMIN.nav.menu }).click();
   await admin.waitForURL('**/admin/menu');
-  await expect(admin.getByRole('heading', { level: 1 })).toHaveText('Menu');
+  await expect(admin.getByRole('heading', { level: 1 })).toHaveText(ADMIN.menu.heading);
 
   // Unique to the run: the dish is left on the menu afterwards, and a second run must not collide
   // with the first one's row.
@@ -89,22 +90,24 @@ test('an admin adds a dish and a guest sees it', async ({ browser }) => {
   // painted but not yet wired does nothing. Retry until the row answers by opening an editor. A
   // second press is harmless: opening a draft discards the draft before it.
   await expect(async () => {
-    await category.getByRole('button', { name: 'Add dish' }).click();
-    await expect(admin.getByRole('textbox', { name: 'Name' })).toBeVisible({ timeout: 1_000 });
+    await category.getByRole('button', { name: ADMIN.menu.addDish }).click();
+    await expect(admin.getByRole('textbox', { name: ADMIN.menu.name })).toBeVisible({
+      timeout: 1_000,
+    });
   }).toPass();
-  await admin.getByRole('textbox', { name: 'Name' }).fill(dish);
-  await admin.getByRole('spinbutton', { name: 'Price' }).fill(price);
-  await admin.getByRole('button', { name: 'Save' }).click();
+  await admin.getByRole('textbox', { name: ADMIN.menu.name }).fill(dish);
+  await admin.getByRole('spinbutton', { name: ADMIN.menu.price }).fill(price);
+  await admin.getByRole('button', { name: ADMIN.actions.save }).click();
 
   // The editor closes on what the server answered, so a read row carrying the price is the proof
   // the write landed — not merely that the form accepted it.
   const row = category.getByRole('row').filter({ hasText: dish });
   await expect(row).toContainText(shown);
-  await expect(admin.getByRole('textbox', { name: 'Name' })).toHaveCount(0);
+  await expect(admin.getByRole('textbox', { name: ADMIN.menu.name })).toHaveCount(0);
 
   // The guest arrives the way a guest does: the landing's QR link, a claim, the menu.
   await guest.goto('/');
-  await guest.getByRole('link', { name: new RegExp(`Открыть меню стола\\s${DEMO_TABLE}`) }).click();
+  await guest.getByRole('link', { name: fill(LANDING.guestCta, { table: DEMO_TABLE }) }).click();
   await guest.waitForURL('**/menu');
   const card = guest
     .getByRole('article')
@@ -136,33 +139,33 @@ test('reissuing a QR retires the printed one', async ({ browser, request }) => {
   const before = await beforeContext.newPage();
   await before.goto(printed);
   await before.waitForURL('**/menu');
-  await expect(before.getByText(`Table ${DEMO_TABLE}`)).toBeVisible();
+  await expect(before.getByText(fill(GUEST.table, { number: DEMO_TABLE }))).toBeVisible();
   await beforeContext.close();
 
   const adminContext = await browser.newContext();
   const admin = await adminContext.newPage();
   await signInAsAdmin(admin);
-  await admin.getByRole('link', { name: 'Tables' }).click();
+  await admin.getByRole('link', { name: ADMIN.nav.tables }).click();
   await admin.waitForURL('**/admin/tables');
-  await expect(admin.getByRole('heading', { level: 1 })).toHaveText('Tables');
+  await expect(admin.getByRole('heading', { level: 1 })).toHaveText(ADMIN.tables.heading);
 
-  const row = admin
-    .getByRole('row')
-    .filter({ has: admin.getByRole('rowheader', { name: `Table ${DEMO_TABLE}` }) });
+  const row = admin.getByRole('row').filter({
+    has: admin.getByRole('rowheader', {
+      name: fill(ADMIN.tables.table, { number: DEMO_TABLE }),
+    }),
+  });
   // Hydration again: the confirmation is the answer that the control is live.
   await expect(async () => {
-    await row.getByRole('button', { name: 'Reissue QR' }).click();
-    await expect(row.getByRole('button', { name: 'Yes, reissue' })).toBeVisible({ timeout: 1_000 });
+    await row.getByRole('button', { name: ADMIN.qr.reissue }).click();
+    await expect(row.getByRole('button', { name: ADMIN.qr.confirm })).toBeVisible({
+      timeout: 1_000,
+    });
   }).toPass();
   // The question states the consequence before either answer is offered: that is the whole reason
   // this control asks, so the spec reads the sentence rather than only the button.
-  await expect(row).toContainText(
-    `Reissue the QR for table ${DEMO_TABLE}? Every printed code for this table stops working immediately.`,
-  );
-  await row.getByRole('button', { name: 'Yes, reissue' }).click();
-  await expect(row.getByRole('status')).toHaveText(
-    `Table ${DEMO_TABLE} has a new code. Print the sheet again.`,
-  );
+  await expect(row).toContainText(fill(ADMIN.qr.question, { number: DEMO_TABLE }));
+  await row.getByRole('button', { name: ADMIN.qr.confirm }).click();
+  await expect(row.getByRole('status')).toHaveText(fill(ADMIN.qr.reissued, { number: DEMO_TABLE }));
   await adminContext.close();
 
   // The card on the table is now a dead code, and it says so where a guest is looking.
@@ -170,7 +173,7 @@ test('reissuing a QR retires the printed one', async ({ browser, request }) => {
   const after = await afterContext.newPage();
   await after.goto(printed);
   // Scoped to main: Next.js appends its own empty role="alert" route announcer to the body.
-  await expect(after.getByRole('main').getByRole('alert')).toHaveText('This QR code is not valid.');
+  await expect(after.getByRole('main').getByRole('alert')).toHaveText(GUEST.claim.invalid);
   await afterContext.close();
 
   // Put the shared fixture back. The landing renders from the web tier's 30-second memory of

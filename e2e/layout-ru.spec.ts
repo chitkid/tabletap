@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import ru from '../apps/web/messages/ru.json';
+import { ADMIN, fill, GUEST, KITCHEN, LANDING } from './dictionary';
 
 /**
  * The layout guards for the Russian strings, measured rather than asserted about.
@@ -23,17 +23,20 @@ import ru from '../apps/web/messages/ru.json';
  * this task measured clean and deliberately left alone. Both are worth having; neither has a
  * revert of its own that turns it red.
  *
- * Every *string from the interface* comes from `messages/ru.json`, never typed against the
- * screen: `getByRole(…, { name })` matches the accessible name with an identity normaliser, so a
- * hand-typed «В наличии» with an ordinary space in place of the dictionary's U+00A0 would silently
- * match nothing. Seed data — `FIRST_CATEGORY`, the dish names passed to `addDish` — is named
- * directly instead, because it is fixture data the seed script owns, not interface copy the
- * dictionary owns.
+ * Every *string from the interface* comes from `messages/ru.json` through `./dictionary`, never
+ * typed against the screen: a hand-typed «В наличии» drifts from the dictionary by a character and
+ * stops asserting anything while still reading as if it did. Seed data — `FIRST_CATEGORY`, the
+ * dish names passed to `addDish` — is named directly instead, because it is fixture data the seed
+ * script owns, not interface copy the dictionary owns.
+ *
+ * **Correction, task 11.** An earlier version of this note said `getByRole(…, { name })` matches
+ * with an identity normaliser and therefore needs the dictionary's real U+00A0. That is
+ * `@testing-library/dom`'s rule, not Playwright's, and it was carried across from the jsdom tests
+ * without being checked here. Playwright normalises whitespace on *both* sides of a name or text
+ * comparison, U+00A0 included, so a dictionary string goes to a locator as it comes — and only a
+ * RegExp escapes that, which is why the two left in this file spell their spaces `\s`. The rule
+ * that does apply is stated once, in `./dictionary`.
  */
-
-const GUEST = ru.guest;
-const ADMIN = ru.admin;
-const KITCHEN = ru.kitchen;
 
 /** The seed's first category, the same fixture `e2e/admin.spec.ts` works from. */
 const FIRST_CATEGORY = 'Из печи';
@@ -78,7 +81,7 @@ async function sidewaysScroll(page: Page): Promise<number> {
 
 async function guestMenu(page: Page): Promise<void> {
   await page.goto('/');
-  await page.getByRole('link', { name: /Открыть меню стола\s7/ }).click();
+  await page.getByRole('link', { name: fill(LANDING.guestCta, { table: 7 }) }).click();
   await page.waitForURL('**/menu');
   await page.getByRole('article').first().waitFor();
 }
@@ -89,13 +92,11 @@ async function guestMenu(page: Page): Promise<void> {
  * can land on a button that is painted but not yet hydrated.
  */
 async function addDish(page: Page, name: string, times: number): Promise<void> {
-  const more = page
-    .getByRole('button', { name: GUEST.menu.addOneMore.replace('{name}', name) })
-    .first();
+  const more = page.getByRole('button', { name: fill(GUEST.menu.addOneMore, { name }) }).first();
   for (let i = 0; i < times; i++) {
     const control =
       i === 0
-        ? page.getByRole('button', { name: GUEST.menu.addDish.replace('{name}', name) }).first()
+        ? page.getByRole('button', { name: fill(GUEST.menu.addDish, { name }) }).first()
         : more;
     await expect(async () => {
       await control.click({ timeout: 2_000 });
@@ -220,11 +221,9 @@ test('the kitchen ticket keeps its cancel confirmation inside the card', async (
     .getByRole('article')
     .filter({ has: page.getByRole('heading', { name: new RegExp(`№\\s${number}$`) }) });
   await card.waitFor({ timeout: 30_000 });
-  await card
-    .getByRole('button', { name: KITCHEN.ticket.cancel.replace('{number}', String(number)) })
-    .click();
+  await card.getByRole('button', { name: fill(KITCHEN.ticket.cancel, { number }) }).click();
   const group = page.getByRole('group', {
-    name: KITCHEN.ticket.confirm.replace('{number}', String(number)),
+    name: fill(KITCHEN.ticket.confirm, { number }),
   });
   await group.waitFor();
 
