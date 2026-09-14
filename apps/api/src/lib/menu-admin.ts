@@ -2,6 +2,7 @@ import { and, asc, eq, max, notExists } from 'drizzle-orm';
 import { schema, type Db } from '@tabletap/db';
 import {
   AllergenSchema,
+  type ErrorMessageKey,
   type MenuCategoryDto,
   type MenuCategoryWrite,
   type MenuItemDto,
@@ -65,20 +66,20 @@ async function loadCategory(db: Db, restaurantId: string, id: string): Promise<C
     .from(schema.menuCategories)
     .where(eq(schema.menuCategories.id, id));
   if (!row || row.restaurantId !== restaurantId)
-    throw new AppError('NOT_FOUND', 404, 'Category not found.');
+    throw new AppError('NOT_FOUND', 404, 'categoryNotFound', 'Category not found.');
   return row;
 }
 
 /** `menu_items` carries no `restaurant_id` of its own; the scope check goes through its category. */
 async function loadItem(db: Db, restaurantId: string, id: string): Promise<ItemRow> {
   const [row] = await db.select().from(schema.menuItems).where(eq(schema.menuItems.id, id));
-  if (!row) throw new AppError('NOT_FOUND', 404, 'Item not found.');
+  if (!row) throw new AppError('NOT_FOUND', 404, 'itemNotFound', 'Item not found.');
   const [category] = await db
     .select({ restaurantId: schema.menuCategories.restaurantId })
     .from(schema.menuCategories)
     .where(eq(schema.menuCategories.id, row.categoryId));
   if (!category || category.restaurantId !== restaurantId)
-    throw new AppError('NOT_FOUND', 404, 'Item not found.');
+    throw new AppError('NOT_FOUND', 404, 'itemNotFound', 'Item not found.');
   return row;
 }
 
@@ -199,6 +200,7 @@ export async function updateCategory(
     throw new AppError(
       'CONFLICT',
       409,
+      'categoryChanged',
       'This category changed while you were editing it. Reload and try again.',
     );
   }
@@ -252,8 +254,8 @@ export async function deleteCategory(
     .select({ id: schema.menuCategories.id })
     .from(schema.menuCategories)
     .where(eq(schema.menuCategories.id, id));
-  if (!stillThere) throw new AppError('NOT_FOUND', 404, 'Category not found.');
-  throw new AppError('IN_USE', 409, 'This category holds items. Empty it first.');
+  if (!stillThere) throw new AppError('NOT_FOUND', 404, 'categoryNotFound', 'Category not found.');
+  throw new AppError('IN_USE', 409, 'categoryInUse', 'This category holds items. Empty it first.');
 }
 
 export async function createItem(
@@ -334,6 +336,7 @@ export async function updateItem(
     throw new AppError(
       'CONFLICT',
       409,
+      'itemChanged',
       'This item changed while you were editing it. Reload and try again.',
     );
   }
@@ -362,11 +365,20 @@ export async function presignItemPhoto(
  * names what went wrong and asks for another attempt, which the browser starts from a fresh
  * `photo-url`. Re-confirming the same key would only find the object gone.
  */
-const UPLOAD_REFUSALS: Record<UploadRejection, string> = {
-  missing: 'The upload did not arrive. Try again.',
-  'too-large': 'That photograph is larger than 5 MB. Try again with a smaller one.',
-  'unsupported-type': 'That file is not a JPEG, PNG or WebP. Try again with one of those.',
-  'unknown-size': 'The storage service did not report a size for that upload. Try again.',
+const UPLOAD_REFUSALS: Record<UploadRejection, { key: ErrorMessageKey; message: string }> = {
+  missing: { key: 'uploadMissing', message: 'The upload did not arrive. Try again.' },
+  'too-large': {
+    key: 'uploadTooLarge',
+    message: 'That photograph is larger than 5 MB. Try again with a smaller one.',
+  },
+  'unsupported-type': {
+    key: 'uploadUnsupportedType',
+    message: 'That file is not a JPEG, PNG or WebP. Try again with one of those.',
+  },
+  'unknown-size': {
+    key: 'uploadUnknownSize',
+    message: 'The storage service did not report a size for that upload. Try again.',
+  },
 };
 
 /**
@@ -393,9 +405,17 @@ export async function setItemPhoto(
 ): Promise<MenuItemDto> {
   const before = await loadItem(db, restaurantId, id);
   if (!isPhotoKeyFor(id, key))
-    throw new AppError('VALIDATION_FAILED', 400, 'That upload does not belong to this dish.');
+    throw new AppError(
+      'VALIDATION_FAILED',
+      400,
+      'uploadNotForItem',
+      'That upload does not belong to this dish.',
+    );
   const check = await storage.checkUpload(key);
-  if (!check.ok) throw new AppError('CONFLICT', 409, UPLOAD_REFUSALS[check.reason]);
+  if (!check.ok) {
+    const refusal = UPLOAD_REFUSALS[check.reason];
+    throw new AppError('CONFLICT', 409, refusal.key, refusal.message);
+  }
   const imageUrl = storage.publicUrl(key);
   // Null when the dish had no photograph, and also when the URL it had is not a key this item
   // owns: either way there is nothing here for us to delete. The audit row records which it was.
@@ -422,6 +442,7 @@ export async function setItemPhoto(
     throw new AppError(
       'CONFLICT',
       409,
+      'itemChanged',
       'This item changed while you were editing it. Reload and try again.',
     );
   }
@@ -476,8 +497,13 @@ export async function deleteItem(
       .select({ id: schema.menuItems.id })
       .from(schema.menuItems)
       .where(eq(schema.menuItems.id, id));
-    if (!stillThere) throw new AppError('NOT_FOUND', 404, 'Item not found.');
-    throw new AppError('IN_USE', 409, 'This item appears on an order. Mark it sold out instead.');
+    if (!stillThere) throw new AppError('NOT_FOUND', 404, 'itemNotFound', 'Item not found.');
+    throw new AppError(
+      'IN_USE',
+      409,
+      'itemInUse',
+      'This item appears on an order. Mark it sold out instead.',
+    );
   }
   if (item.imageUrl && storage) {
     // Same check the confirmation step makes: only a key this item could own is ours to delete.

@@ -12,7 +12,7 @@ describe('error handler', () => {
       throw new Error('secret stack');
     });
     ctx.app.get('/teapot', { config: { public: true, principal: false } }, async () => {
-      throw new AppError('NOT_FOUND', 404, 'Nothing here');
+      throw new AppError('NOT_FOUND', 404, 'notFound', 'Nothing here');
     });
     ctx.app.post(
       '/validate',
@@ -30,6 +30,7 @@ describe('error handler', () => {
     expect(res.statusCode).toBe(404);
     expect(ErrorEnvelopeSchema.parse(res.json()).error).toEqual({
       code: 'NOT_FOUND',
+      messageKey: 'notFound',
       message: 'Nothing here',
     });
   });
@@ -46,7 +47,11 @@ describe('error handler', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/boom' });
     expect(res.statusCode).toBe(500);
     expect(res.json()).toEqual({
-      error: { code: 'INTERNAL', message: 'Something went wrong on our side.' },
+      error: {
+        code: 'INTERNAL',
+        messageKey: 'serverError',
+        message: 'Something went wrong on our side.',
+      },
     });
     expect(JSON.stringify(res.json())).not.toContain('secret stack');
   });
@@ -61,6 +66,7 @@ describe('error handler', () => {
     expect(res.statusCode).toBe(415);
     expect(ErrorEnvelopeSchema.parse(res.json()).error).toEqual({
       code: 'VALIDATION_FAILED',
+      messageKey: 'requestNotProcessed',
       message: 'Request could not be processed.',
     });
     expect(res.body).not.toContain('Unsupported Media Type');
@@ -70,7 +76,11 @@ describe('error handler', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/nope' });
     expect(res.statusCode).toBe(404);
     expect(res.json()).toEqual({
-      error: { code: 'NOT_FOUND', message: 'Route GET /nope not found' },
+      error: {
+        code: 'NOT_FOUND',
+        messageKey: 'routeNotFound',
+        message: 'Route GET /nope not found',
+      },
     });
   });
 });

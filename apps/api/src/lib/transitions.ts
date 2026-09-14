@@ -23,7 +23,11 @@ const STAMP: Partial<
 };
 
 const invalid = (from: OrderStatus, to: OrderStatus, current: OrderStatus) =>
-  new AppError('INVALID_TRANSITION', 409, `This order is ${current} now.`, { from, to, current });
+  new AppError('INVALID_TRANSITION', 409, 'orderMovedAlready', `This order is ${current} now.`, {
+    from,
+    to,
+    current,
+  });
 
 /**
  * Three checks, then one guarded UPDATE. The WHERE on the old status is what makes two cooks
@@ -43,10 +47,10 @@ export async function transitionOrder(
   const now = input.now ?? new Date();
   const current = await loadOrder(db, input.orderId);
   if (!current || current.restaurantId !== input.restaurantId)
-    throw new AppError('NOT_FOUND', 404, 'Order not found.');
+    throw new AppError('NOT_FOUND', 404, 'orderNotFound', 'Order not found.');
   const from = current.status;
   if (!TRANSITION_RIGHTS[input.actor.role].includes(input.to))
-    throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+    throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
   if (!canTransition(from, input.to)) throw invalid(from, input.to, from);
 
   const stamp = STAMP[input.to];

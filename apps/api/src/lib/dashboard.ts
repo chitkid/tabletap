@@ -121,7 +121,8 @@ export async function loadDashboard(
     .select({ timezone: schema.restaurants.timezone })
     .from(schema.restaurants)
     .where(eq(schema.restaurants.id, restaurantId));
-  if (!restaurant) throw new AppError('NOT_FOUND', 404, 'No restaurant is configured.');
+  if (!restaurant)
+    throw new AppError('NOT_FOUND', 404, 'restaurantNotConfigured', 'No restaurant is configured.');
   const tz = restaurant.timezone;
 
   const dayStart = localMidnight(now, tz, 0);

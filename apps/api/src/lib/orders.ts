@@ -133,7 +133,12 @@ async function findReplay(
     .where(eq(schema.orders.idempotencyKey, idempotencyKey));
   if (!prior) return null;
   if (prior.guestSessionId !== principal.guestSessionId)
-    throw new AppError('CONFLICT', 409, 'This request was already used by another session.');
+    throw new AppError(
+      'CONFLICT',
+      409,
+      'basketAlreadySent',
+      'This request was already used by another session.',
+    );
   return (await hydrate(db, [prior]))[0]!;
 }
 
@@ -292,12 +297,20 @@ export async function createOrder(
   const byId = new Map(rows.map((r) => [r.id, r]));
   const unknown = ids.filter((id) => !byId.has(id));
   if (unknown.length > 0)
-    throw new AppError('VALIDATION_FAILED', 400, 'Some items are not on the menu.', { unknown });
+    throw new AppError(
+      'VALIDATION_FAILED',
+      400,
+      'itemsNotOnMenu',
+      'Some items are not on the menu.',
+      { unknown },
+    );
   const unavailable = rows
     .filter((r) => !r.isAvailable || !r.categoryActive)
     .map((r) => ({ menuItemId: r.id, name: r.name }));
   if (unavailable.length > 0)
-    throw new AppError('ITEM_UNAVAILABLE', 409, 'Some items are sold out today.', { unavailable });
+    throw new AppError('ITEM_UNAVAILABLE', 409, 'itemsSoldOut', 'Some items are sold out today.', {
+      unavailable,
+    });
 
   const lines: OrderLine[] = body.items.map((i) => {
     const row = byId.get(i.menuItemId)!;

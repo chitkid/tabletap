@@ -24,7 +24,7 @@ function toDto(row: TableRow): TableDto {
 async function loadTable(db: Db, restaurantId: string, id: string): Promise<TableRow> {
   const [row] = await db.select().from(schema.tables).where(eq(schema.tables.id, id));
   if (!row || row.restaurantId !== restaurantId)
-    throw new AppError('NOT_FOUND', 404, 'Table not found.');
+    throw new AppError('NOT_FOUND', 404, 'tableNotFound', 'Table not found.');
   return row;
 }
 
@@ -36,7 +36,7 @@ async function loadTable(db: Db, restaurantId: string, id: string): Promise<Tabl
  */
 function asNumberConflict(error: unknown): unknown {
   return isUniqueViolation(error)
-    ? new AppError('CONFLICT', 409, 'Another table already uses that number.')
+    ? new AppError('CONFLICT', 409, 'tableNumberTaken', 'Another table already uses that number.')
     : error;
 }
 
@@ -133,6 +133,7 @@ export async function updateTable(
     throw new AppError(
       'CONFLICT',
       409,
+      'tableChanged',
       'This table changed while you were editing it. Reload and try again.',
     );
   }
@@ -185,8 +186,8 @@ export async function deleteTable(
     .select({ id: schema.tables.id })
     .from(schema.tables)
     .where(eq(schema.tables.id, id));
-  if (!stillThere) throw new AppError('NOT_FOUND', 404, 'Table not found.');
-  throw new AppError('IN_USE', 409, 'This table has orders. Deactivate it instead.');
+  if (!stillThere) throw new AppError('NOT_FOUND', 404, 'tableNotFound', 'Table not found.');
+  throw new AppError('IN_USE', 409, 'tableInUse', 'This table has orders. Deactivate it instead.');
 }
 
 /**
@@ -231,6 +232,7 @@ export async function reissueQr(
     throw new AppError(
       'CONFLICT',
       409,
+      'tableChanged',
       'This table changed while you were editing it. Reload and try again.',
     );
   }

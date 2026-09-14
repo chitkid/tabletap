@@ -30,9 +30,18 @@ async function forward(app: FastifyInstance, request: FastifyRequest, reply: Fas
   if (text.length > 0) return reply.send(text);
   // better-auth answers an unknown path under /api/auth with an empty 404. Everything else it
   // says stays untranslated, but a bare `null` there is no answer at all: use our envelope.
+  //
+  // This is the second producer of that envelope - `plugins/error-handler.ts` never sees a reply
+  // this function has already sent - so the message key is written here by hand and has to match
+  // the one `setNotFoundHandler` uses. A 404 from better-auth's router and a 404 from Fastify's
+  // must read alike; the caller has no business telling them apart.
   if (response.status === 404) {
     return reply.send({
-      error: { code: 'NOT_FOUND', message: `Route ${request.method} ${request.url} not found` },
+      error: {
+        code: 'NOT_FOUND',
+        messageKey: 'routeNotFound',
+        message: `Route ${request.method} ${request.url} not found`,
+      },
     });
   }
   return reply.send(null);

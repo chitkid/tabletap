@@ -44,7 +44,7 @@ export async function socketTokenRoutes(app: FastifyInstance) {
           tableNumber: p.tableNumber,
           restaurantId: p.restaurantId,
         };
-      else throw new AppError('UNAUTHORIZED', 401, 'Sign in to continue.');
+      else throw new AppError('UNAUTHORIZED', 401, 'signInRequired', 'Sign in to continue.');
       const token = await signSocketToken(principal, {
         secret: app.config.SOCKET_TOKEN_SECRET,
         ttlSeconds: SOCKET_TOKEN_TTL_SECONDS,

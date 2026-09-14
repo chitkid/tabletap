@@ -93,7 +93,11 @@ describe('better-auth mount', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/auth/does-not-exist' });
     expect(res.statusCode).toBe(404);
     expect(res.json()).toEqual({
-      error: { code: 'NOT_FOUND', message: 'Route GET /api/auth/does-not-exist not found' },
+      error: {
+        code: 'NOT_FOUND',
+        messageKey: 'routeNotFound',
+        message: 'Route GET /api/auth/does-not-exist not found',
+      },
     });
   });
   it('rate-limits sign-in to 10 per minute per IP', async () => {
@@ -105,7 +109,11 @@ describe('better-auth mount', () => {
     expect(results.at(-1)).toBe(429);
     const last = await signIn({ email: 'nobody@littlefurnace.demo', password: 'wrong' });
     expect(last.json()).toEqual({
-      error: { code: 'RATE_LIMITED', message: 'Too many requests. Try again in a minute.' },
+      error: {
+        code: 'RATE_LIMITED',
+        messageKey: 'rateLimited',
+        message: 'Too many requests. Try again in a minute.',
+      },
     });
   });
 });

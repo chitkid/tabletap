@@ -8,8 +8,10 @@ export function roleOf(principal: Principal): Role | null {
   return null;
 }
 
-const unauthorized = () => new AppError('UNAUTHORIZED', 401, 'Sign in to continue.');
-const forbidden = () => new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+const unauthorized = () =>
+  new AppError('UNAUTHORIZED', 401, 'signInRequired', 'Sign in to continue.');
+const forbidden = () =>
+  new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
 
 // Stamped on every guard so the route-guard plugin can tell a real access check from any
 // other preHandler. Non-enumerable to keep it out of logs and structured clones.

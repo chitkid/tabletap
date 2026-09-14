@@ -38,6 +38,7 @@ export async function guestRoutes(app: FastifyInstance) {
           throw new AppError(
             err.code,
             401,
+            err.code === 'TOKEN_EXPIRED' ? 'qrExpired' : 'qrInvalid',
             err.code === 'TOKEN_EXPIRED'
               ? 'This QR code has expired. Ask staff for a new one.'
               : 'This QR code is not valid.',
@@ -60,13 +61,15 @@ export async function guestRoutes(app: FastifyInstance) {
             eq(schema.tables.isActive, true),
           ),
         );
-      if (!table) throw new AppError('NOT_FOUND', 404, 'This table is not available.');
+      if (!table)
+        throw new AppError('NOT_FOUND', 404, 'tableUnavailable', 'This table is not available.');
       // Reissuing a QR bumps the table's version, which revokes every code printed before: a
       // token whose version is behind is refused even though its signature still verifies.
       if (claims.qrVersion !== table.qrVersion)
         throw new AppError(
           'TOKEN_INVALID',
           401,
+          'qrSuperseded',
           'This QR code is no longer valid. Ask staff for a new one.',
         );
 

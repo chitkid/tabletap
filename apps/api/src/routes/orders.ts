@@ -41,7 +41,7 @@ export async function ordersRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const principal = request.principal;
       if (principal.kind !== 'guest')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const idempotencyKey = validate(
         IdempotencyKeySchema,
         request.headers[IDEMPOTENCY_KEY_HEADER],
@@ -64,13 +64,14 @@ export async function ordersRoutes(app: FastifyInstance) {
     async (request) => {
       const { id } = validate(z.object({ id: z.uuid() }), request.params);
       const order = await loadOrder(app.db, id);
-      if (!order) throw new AppError('NOT_FOUND', 404, 'Order not found.');
+      if (!order) throw new AppError('NOT_FOUND', 404, 'orderNotFound', 'Order not found.');
       const p = request.principal;
       const allowed =
         p.kind === 'guest'
           ? order.guestSessionId === p.guestSessionId
           : p.kind === 'staff' && can(p.role, 'orders.read.all');
-      if (!allowed) throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+      if (!allowed)
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       return { order: strip(order) };
     },
   );
@@ -84,7 +85,7 @@ export async function ordersRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const { id } = validate(z.object({ id: z.uuid() }), request.params);
       const body = validate(TransitionRequestSchema, request.body);
       const order = await transitionOrder(app.db, app.orderEvents, {
@@ -106,7 +107,7 @@ export async function ordersRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'guest')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const { id } = validate(z.object({ id: z.uuid() }), request.params);
       // The amount is never in the request: startPayment reads it from the order.
       return startPayment(app.db, app.payments, { orderId: id, guestSessionId: p.guestSessionId });
@@ -132,7 +133,7 @@ export async function ordersRoutes(app: FastifyInstance) {
             })
           ).map(strip),
         };
-      throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+      throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
     },
   );
 }

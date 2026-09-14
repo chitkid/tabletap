@@ -15,7 +15,11 @@ describe('GET /api/me', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/me' });
     expect(res.statusCode).toBe(401);
     expect(res.json()).toEqual({
-      error: { code: 'UNAUTHORIZED', message: 'Sign in to continue.' },
+      error: {
+        code: 'UNAUTHORIZED',
+        messageKey: 'signInRequired',
+        message: 'Sign in to continue.',
+      },
     });
   });
   it.each([

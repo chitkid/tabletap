@@ -77,7 +77,13 @@ export async function tablesRoutes(app: FastifyInstance) {
         .select({ name: schema.restaurants.name, slug: schema.restaurants.slug })
         .from(schema.restaurants)
         .where(eq(schema.restaurants.id, restaurantId));
-      if (!restaurant) throw new AppError('NOT_FOUND', 404, 'No restaurant is configured.');
+      if (!restaurant)
+        throw new AppError(
+          'NOT_FOUND',
+          404,
+          'restaurantNotConfigured',
+          'No restaurant is configured.',
+        );
       const tables = (await listTables(app.db, restaurantId)).filter((t) => t.isActive);
       const pdf = await renderQrSheet({
         restaurant: { name: restaurant.name },
@@ -121,7 +127,7 @@ export async function tablesRoutes(app: FastifyInstance) {
         .select(columns)
         .from(schema.tables)
         .where(eq(schema.tables.id, request.params.id));
-      if (!table) throw new AppError('NOT_FOUND', 404, 'Table not found.');
+      if (!table) throw new AppError('NOT_FOUND', 404, 'tableNotFound', 'Table not found.');
       return { table };
     },
   );
@@ -135,7 +141,7 @@ export async function tablesRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const restaurantId = await restaurantIdFor(app.db, p);
       const body = validate(TableWriteSchema, request.body);
       const table = await createTable(app.db, restaurantId, body, p.userId);
@@ -151,7 +157,7 @@ export async function tablesRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const restaurantId = await restaurantIdFor(app.db, p);
       const { id } = validate(IdParamsSchema, request.params);
       const body = validate(TableUpdateSchema, request.body);
@@ -165,7 +171,7 @@ export async function tablesRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const restaurantId = await restaurantIdFor(app.db, p);
       const { id } = validate(IdParamsSchema, request.params);
       await deleteTable(app.db, restaurantId, id, p.userId);
@@ -186,7 +192,7 @@ export async function tablesRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const restaurantId = await restaurantIdFor(app.db, p);
       const { id } = validate(IdParamsSchema, request.params);
       const table = await reissueQr(app.db, restaurantId, id, p.userId);

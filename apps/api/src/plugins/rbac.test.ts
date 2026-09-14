@@ -57,6 +57,7 @@ describe('rbac guards', () => {
     expect(denied.statusCode).toBe(403);
     expect(denied.json().error).toEqual({
       code: 'FORBIDDEN',
+      messageKey: 'noAccess',
       message: 'You do not have access to this.',
     });
   });

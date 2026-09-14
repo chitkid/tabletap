@@ -24,11 +24,17 @@ export async function startPayment(
   const order = await loadOrder(db, input.orderId);
   // A stranger's order and an order that never existed answer the same way, as everywhere else.
   if (!order || order.guestSessionId !== input.guestSessionId)
-    throw new AppError('NOT_FOUND', 404, 'Order not found.');
+    throw new AppError('NOT_FOUND', 404, 'orderNotFound', 'Order not found.');
   if (order.status !== 'placed')
-    throw new AppError('PAYMENT_REQUIRED', 409, 'This order is not waiting for payment.', {
-      status: order.status,
-    });
+    throw new AppError(
+      'PAYMENT_REQUIRED',
+      409,
+      'orderNotAwaitingPayment',
+      'This order is not waiting for payment.',
+      {
+        status: order.status,
+      },
+    );
 
   const [payment] = await db
     .insert(schema.payments)

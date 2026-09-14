@@ -24,6 +24,7 @@ function readEvent(app: FastifyInstance, request: FastifyRequest): SettleInput |
       throw new AppError(
         'SIGNATURE_INVALID',
         400,
+        'paymentSignatureInvalid',
         'This event is not signed by the payment provider.',
       );
     throw err;
@@ -73,12 +74,12 @@ export async function demoPaymentRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'guest')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const { orderId, outcome } = validate(DemoCompleteBodySchema, request.body);
       const order = await loadOrder(app.db, orderId);
       // A stranger's order and an order that never existed answer the same way, as everywhere else.
       if (!order || order.guestSessionId !== p.guestSessionId)
-        throw new AppError('NOT_FOUND', 404, 'Order not found.');
+        throw new AppError('NOT_FOUND', 404, 'orderNotFound', 'Order not found.');
       // Pressing the button twice is not an error, and neither is coming back to a tab left open
       // while the kitchen got on with it: the order has been paid, nothing is left to settle, and
       // saying PAYMENT_REQUIRED would assert the opposite of the truth.
@@ -87,9 +88,15 @@ export async function demoPaymentRoutes(app: FastifyInstance) {
       // complete. This also keeps an older open attempt from declining an order paid through a
       // newer one.
       if (order.status !== 'placed')
-        throw new AppError('PAYMENT_REQUIRED', 409, 'This order is not waiting for payment.', {
-          status: order.status,
-        });
+        throw new AppError(
+          'PAYMENT_REQUIRED',
+          409,
+          'orderNotAwaitingPayment',
+          'This order is not waiting for payment.',
+          {
+            status: order.status,
+          },
+        );
       const [payment] = await app.db
         .select()
         .from(schema.payments)
@@ -102,7 +109,12 @@ export async function demoPaymentRoutes(app: FastifyInstance) {
         .orderBy(desc(schema.payments.createdAt), desc(schema.payments.id))
         .limit(1);
       if (!payment)
-        throw new AppError('PAYMENT_REQUIRED', 409, 'This order has no payment to complete.');
+        throw new AppError(
+          'PAYMENT_REQUIRED',
+          409,
+          'noPaymentToComplete',
+          'This order has no payment to complete.',
+        );
       const result = await settlePayment(app.db, app.orderEvents, {
         provider: 'demo',
         // One event id per attempt, and the outcome is not part of it: whichever button is

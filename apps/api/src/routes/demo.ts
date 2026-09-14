@@ -30,7 +30,7 @@ export async function demoRoutes(app: FastifyInstance) {
     },
     async () => {
       const { config } = app;
-      if (!config.demoMode) throw new AppError('NOT_FOUND', 404, 'Not found.');
+      if (!config.demoMode) throw new AppError('NOT_FOUND', 404, 'notFound', 'Not found.');
       const [restaurant] = await app.db
         .select({ id: schema.restaurants.id })
         .from(schema.restaurants)
@@ -60,11 +60,13 @@ export async function demoRoutes(app: FastifyInstance) {
       // active table 7 means an admin renumbered or deactivated it - the deployment is fine and the
       // landing should say what is missing rather than quietly losing its cards, its QR and its
       // sign-in buttons.
-      if (!restaurant) throw new AppError('NOT_FOUND', 404, 'Demo data is not seeded.');
+      if (!restaurant)
+        throw new AppError('NOT_FOUND', 404, 'demoNotSeeded', 'Demo data is not seeded.');
       if (!table)
         throw new AppError(
           'CONFLICT',
           409,
+          'demoTableMissing',
           `The demo landing needs an active table ${DEMO_TABLE_NUMBER}. Restore it in the admin.`,
         );
       const token = await signTableToken(
@@ -107,9 +109,14 @@ export async function demoRoutes(app: FastifyInstance) {
       schema: { response: { 200: RushResponseSchema } },
     },
     async () => {
-      if (!app.config.demoMode) throw new AppError('NOT_FOUND', 404, 'Not found.');
+      if (!app.config.demoMode) throw new AppError('NOT_FOUND', 404, 'notFound', 'Not found.');
       if (!app.rush.start())
-        throw new AppError('CONFLICT', 409, 'A rush is already running. Give it a minute.');
+        throw new AppError(
+          'CONFLICT',
+          409,
+          'rushAlreadyRunning',
+          'A rush is already running. Give it a minute.',
+        );
       return {
         started: true as const,
         durationSeconds: app.rush.durationSeconds,

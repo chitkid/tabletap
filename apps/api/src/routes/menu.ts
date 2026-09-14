@@ -47,7 +47,12 @@ const PhotoUrlRequestSchema = z.object({ contentType: z.enum(PHOTO_CONTENT_TYPES
 /** A deployment that names no bucket serves no photographs; say so rather than crash on a null. */
 function requireStorage(storage: ObjectStorage | null): ObjectStorage {
   if (storage === null)
-    throw new AppError('INTERNAL', 503, 'Photographs are not configured for this deployment.');
+    throw new AppError(
+      'INTERNAL',
+      503,
+      'photosNotConfigured',
+      'Photographs are not configured for this deployment.',
+    );
   return storage;
 }
 
@@ -59,7 +64,12 @@ function requireStorage(storage: ObjectStorage | null): ObjectStorage {
  */
 function requireUploadsEnabled(config: Config): void {
   if (!config.demoUploadsEnabled)
-    throw new AppError('FORBIDDEN', 403, 'Photo upload is disabled in this deployment.');
+    throw new AppError(
+      'FORBIDDEN',
+      403,
+      'photoUploadDisabled',
+      'Photo upload is disabled in this deployment.',
+    );
 }
 
 export async function loadMenu(db: Db, restaurantId: string): Promise<MenuResponse> {
@@ -140,7 +150,7 @@ export async function menuRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const restaurantId = await restaurantIdFor(app.db, p);
       const body = validate(MenuCategoryWriteSchema, request.body);
       const category = await createCategory(app.db, restaurantId, body, p.userId);
@@ -156,7 +166,7 @@ export async function menuRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const restaurantId = await restaurantIdFor(app.db, p);
       const { id } = validate(IdParamsSchema, request.params);
       const body = validate(CategoryUpdateSchema, request.body);
@@ -170,7 +180,7 @@ export async function menuRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const restaurantId = await restaurantIdFor(app.db, p);
       const { id } = validate(IdParamsSchema, request.params);
       await deleteCategory(app.db, restaurantId, id, p.userId);
@@ -184,7 +194,7 @@ export async function menuRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const restaurantId = await restaurantIdFor(app.db, p);
       const body = validate(MenuItemWriteSchema, request.body);
       const item = await createItem(app.db, restaurantId, body, p.userId);
@@ -197,7 +207,7 @@ export async function menuRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const restaurantId = await restaurantIdFor(app.db, p);
       const { id } = validate(IdParamsSchema, request.params);
       const body = validate(ItemUpdateSchema, request.body);
@@ -211,7 +221,7 @@ export async function menuRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       const restaurantId = await restaurantIdFor(app.db, p);
       const { id } = validate(IdParamsSchema, request.params);
       await deleteItem(app.db, restaurantId, id, p.userId, app.storage);
@@ -239,7 +249,7 @@ export async function menuRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       requireUploadsEnabled(app.config);
       const storage = requireStorage(app.storage);
       const restaurantId = await restaurantIdFor(app.db, p);
@@ -259,7 +269,7 @@ export async function menuRoutes(app: FastifyInstance) {
     async (request) => {
       const p = request.principal;
       if (p.kind !== 'staff')
-        throw new AppError('FORBIDDEN', 403, 'You do not have access to this.');
+        throw new AppError('FORBIDDEN', 403, 'noAccess', 'You do not have access to this.');
       requireUploadsEnabled(app.config);
       const storage = requireStorage(app.storage);
       const restaurantId = await restaurantIdFor(app.db, p);
