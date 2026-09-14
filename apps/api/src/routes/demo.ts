@@ -8,7 +8,18 @@ import { DEMO_RESTAURANT_SLUG, DEMO_STAFF } from '@tabletap/db/seed';
 import { clientKey } from '../lib/client-key';
 import { AppError } from '../lib/errors';
 
-/** Public in demo mode only: everything it returns is already public demo data (README). */
+/**
+ * Public in demo mode only: everything it returns is already public demo data (README).
+ *
+ * **"In demo mode only" is `server.ts`'s business, not a check in here.** Both handlers used to
+ * open with `if (!config.demoMode) throw new AppError(…, 'notFound', …)`, which answered a refusal
+ * no other route in this API raises — so an unauthenticated caller could tell a deployment with
+ * the demo routes compiled in and `DEMO_MODE` off from one without them, which is exactly the bit
+ * the refusal was supposed to hide. `server.ts` now registers this plugin only when demo mode is
+ * on, so the path is answered by `setNotFoundHandler` and is the same answer as any other address
+ * that does not exist. Do not reinstate an in-handler check: it can only ever be a second,
+ * distinguishable way of saying no.
+ */
 export async function demoRoutes(app: FastifyInstance) {
   const r = app.withTypeProvider<ZodTypeProvider>();
   r.get(
@@ -28,7 +39,6 @@ export async function demoRoutes(app: FastifyInstance) {
     },
     async () => {
       const { config } = app;
-      if (!config.demoMode) throw new AppError('NOT_FOUND', 404, 'notFound', 'Not found.');
       const [restaurant] = await app.db
         .select({ id: schema.restaurants.id })
         .from(schema.restaurants)
@@ -107,7 +117,6 @@ export async function demoRoutes(app: FastifyInstance) {
       schema: { response: { 200: RushResponseSchema } },
     },
     async () => {
-      if (!app.config.demoMode) throw new AppError('NOT_FOUND', 404, 'notFound', 'Not found.');
       if (!app.rush.start())
         throw new AppError(
           'CONFLICT',

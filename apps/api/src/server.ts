@@ -120,7 +120,15 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   // real one to stand in for - and only in the demo deployment.
   if (config.paymentProvider === 'demo' && config.demoMode)
     await app.register(demoPaymentRoutes, { prefix: '/api' });
-  await app.register(demoRoutes, { prefix: '/api' });
+  // Gated for the same reason, and it used to be the exception. Registered unconditionally, both
+  // handlers answered their own 404 - `notFound`, which nothing else in this API raises - so the
+  // refusal was a stable, machine-readable fingerprint available to any unauthenticated caller:
+  // *this deployment has the demo routes compiled in and `DEMO_MODE` is false*. The ledger
+  // recorded the property as "demo-mode-off must look like a missing route, so it shares the
+  // framework's 404 key", and the mechanism chosen for it did not hold it. Not registering the
+  // routes is what makes the path 404 through `setNotFoundHandler` for real, which is the only
+  // answer that is *the same answer* a missing route gives.
+  if (config.demoMode) await app.register(demoRoutes, { prefix: '/api' });
   await app.register(socketTokenRoutes, { prefix: '/api' });
   await app.register(realtimePlugin);
   return app;

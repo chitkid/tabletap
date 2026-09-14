@@ -35,26 +35,59 @@ describe('GET /api/demo/links', () => {
     expect(body.staff.every((s) => s.password === TEST_DEMO_PASSWORD)).toBe(true);
     expect(body.resetsEveryMinutes).toBeNull();
   });
-  it('is 404 when demo mode is off', async () => {
-    const { db, close } = await createTestDb();
-    await seed(db, {
-      mode: 'reset',
-      demoPassword: TEST_DEMO_PASSWORD,
-      tableTokenSecret: TEST_CONFIG.TABLE_TOKEN_SECRET,
-      tableTokenTtlDays: 1,
-      webOrigin: TEST_CONFIG.WEB_ORIGIN,
-    });
-    const app = await buildApp({
-      db,
-      config: { ...TEST_CONFIG, DEMO_MODE: 'false', demoMode: false },
-      logger: false,
-    });
-    const res = await app.inject({ method: 'GET', url: '/api/demo/links' });
-    expect(res.statusCode).toBe(404);
-    expect(res.json().error.code).toBe('NOT_FOUND');
-    await app.close();
-    await close();
-  });
+  /**
+   * **Not "is 404" — "is the *same* 404".** The property the ledger recorded is that demo mode
+   * being off must be indistinguishable from the routes not existing, so that an unauthenticated
+   * caller cannot fingerprint a deployment by asking. A status code alone cannot say that: the
+   * previous version of this test asserted 404 and `NOT_FOUND`, and passed for two years' worth of
+   * builds in which the handlers answered `messageKey: 'notFound'` — a key nothing else in this
+   * API raises, and therefore a unique answer to exactly the question the refusal exists to refuse.
+   *
+   * So the comparison is against a path that genuinely does not exist, whole envelope, with only
+   * the echoed method and url differing. Both demo routes, because they were two separate checks.
+   */
+  it.each([
+    ['GET', '/api/demo/links'],
+    ['POST', '/api/demo/rush'],
+  ])(
+    'answers %s %s exactly as it answers an address that never existed, when demo mode is off',
+    async (method, url) => {
+      const { db, close } = await createTestDb();
+      await seed(db, {
+        mode: 'reset',
+        demoPassword: TEST_DEMO_PASSWORD,
+        tableTokenSecret: TEST_CONFIG.TABLE_TOKEN_SECRET,
+        tableTokenTtlDays: 1,
+        webOrigin: TEST_CONFIG.WEB_ORIGIN,
+      });
+      const app = await buildApp({
+        db,
+        config: { ...TEST_CONFIG, DEMO_MODE: 'false', demoMode: false },
+        logger: false,
+      });
+      const demo = await app.inject({ method: method as 'GET' | 'POST', url });
+      const absent = await app.inject({
+        method: method as 'GET' | 'POST',
+        url: '/api/no-such-address',
+      });
+      expect(demo.statusCode).toBe(404);
+      expect(demo.statusCode).toBe(absent.statusCode);
+      // The message echoes the caller's own method and path, so it is the one field that may
+      // differ; everything a caller could learn something from has to match.
+      // Everything the envelope carries except `message`, rather than the two fields named by
+      // hand: a field added to the envelope later has to be compared too, and naming fields here
+      // would quietly stop comparing it.
+      const strip = (res: typeof demo) => {
+        const error: Record<string, unknown> = { ...res.json().error };
+        delete error.message;
+        return error;
+      };
+      expect(strip(demo)).toEqual(strip(absent));
+      expect(strip(demo)).toEqual({ code: 'NOT_FOUND', messageKey: 'routeNotFound' });
+      await app.close();
+      await close();
+    },
+  );
   /**
    * The landing reads "demo mode is off" out of a 404 and degrades to a plain product page. Since
    * M5 an admin can renumber or deactivate table 7 in two presses, and answering the same 404 for
