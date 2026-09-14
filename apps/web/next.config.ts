@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import createNextIntlPlugin from 'next-intl/plugin';
 import path from 'node:path';
 
 const apiUrl = process.env.API_URL ?? 'http://localhost:4000';
@@ -34,4 +35,6 @@ const nextConfig: NextConfig = {
     return [{ source: '/api/:path*', destination: `${apiUrl}/api/:path*` }];
   },
 };
-export default nextConfig;
+
+const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
+export default withNextIntl(nextConfig);

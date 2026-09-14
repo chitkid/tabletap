@@ -1,15 +1,21 @@
 import type { Metadata } from 'next';
-import { Bricolage_Grotesque, IBM_Plex_Sans } from 'next/font/google';
+import { IBM_Plex_Sans, PT_Sans_Narrow } from 'next/font/google';
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages } from 'next-intl/server';
 import type { CSSProperties, ReactNode } from 'react';
 import './globals.css';
 
-const display = Bricolage_Grotesque({
-  subsets: ['latin'],
+// Bricolage Grotesque serves vietnamese, latin-ext and latin only — no Cyrillic — so it cannot
+// carry a Russian interface. PT Sans Narrow is drawn from Cyrillic by Paratype and is the face of
+// Russian printed forms and timetables, which is the vernacular a printed ticket belongs to.
+const display = PT_Sans_Narrow({
+  subsets: ['latin', 'cyrillic'],
+  weight: ['400', '700'],
   variable: '--font-display',
   display: 'swap',
 });
 const text = IBM_Plex_Sans({
-  subsets: ['latin'],
+  subsets: ['latin', 'cyrillic'],
   weight: ['400', '500', '600'],
   variable: '--font-text',
   display: 'swap',
@@ -39,10 +45,13 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title, description },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const messages = await getMessages();
   return (
-    <html lang="en" className={`${display.variable} ${text.variable}`} style={fontVariables}>
-      <body className="min-h-dvh">{children}</body>
+    <html lang="ru" className={`${display.variable} ${text.variable}`} style={fontVariables}>
+      <body className="min-h-dvh">
+        <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
+      </body>
     </html>
   );
 }
