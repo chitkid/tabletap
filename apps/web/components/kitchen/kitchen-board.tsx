@@ -319,6 +319,14 @@ export function KitchenBoard({
       ) : null}
       <main className="grid flex-1 grid-cols-1 gap-6 p-6 md:grid-cols-3">
         {COLUMNS.map((col) => (
+          /**
+           * **`kitchen.columns` is plural and `status.kitchen` is singular, on purpose.** Both
+           * are the glossary's kitchen column (docs/design/02b-copy-ru.md) applied in two
+           * grammatical positions: the glossary defines the word for *one order's* state, which
+           * is what the badge on a ticket shows — «Новый» — while a column heading names the
+           * group of tickets in it and so reads «Новые». Do not align them; `ticket-card.tsx`
+           * carries the other half of this note. Ruled by the copy owner, 2026-09-14.
+           */
           <section
             key={col.key}
             aria-label={t(`columns.${col.key}`)}
@@ -331,7 +339,10 @@ export function KitchenBoard({
             >{`${t(`columns.${col.key}`)} · ${columns[col.key].length}`}</h2>
             {columns[col.key].length === 0 ? (
               // Each column says what its own emptiness means; three copies of "пусто" tell a
-              // cook reading the board at a glance less than one line each does.
+              // cook reading the board at a glance less than one line each does. A stated
+              // exception to "empty states are an invitation", which is written for a guest who
+              // has somewhere to go: a cook cannot fill an empty column, and an empty one is
+              // good news. Ruled by the copy owner, 2026-09-14.
               <p className="text-muted-foreground">{t(`empty.${col.key}`)}</p>
             ) : null}
             <ul className="flex flex-col gap-4">

@@ -44,8 +44,16 @@ export function TicketCard({
   onBump: (order: OrderDto, to: OrderStatus) => void;
   onCancel: (order: OrderDto) => void;
 }) {
-  // The board's own column of the glossary: the staff are told what the order is, so `ready` here
-  // is «Готов» and not the guest's «Готов — сейчас принесут».
+  /**
+   * The board's own column of the glossary: the staff are told what the order is, so `ready` here
+   * is «Готов» and not the guest's «Готов — сейчас принесут».
+   *
+   * **Singular, and it does not match the column heading above it.** `status.kitchen` is the word
+   * for *one order's* state and belongs on a ticket; `kitchen.columns` names a group of tickets
+   * and is plural — «Готов» on this badge, «Готовы» on the heading. Same glossary, two
+   * grammatical positions. Do not align them; `kitchen-board.tsx` carries the other half of this
+   * note. Ruled by the copy owner, 2026-09-14.
+   */
   const status = useTranslations('status.kitchen');
   const t = useTranslations('kitchen.ticket');
   const [confirming, setConfirming] = useState(false);

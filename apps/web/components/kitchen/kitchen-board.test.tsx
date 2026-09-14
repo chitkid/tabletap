@@ -81,11 +81,15 @@ const SERVER_NOW = Date.parse('2026-09-03T10:00:00Z');
 describe('KitchenBoard', () => {
   /**
    * The three columns are the glossary's kitchen words for `paid`, `cooking` and `ready` - the
-   * board's own column of docs/design/02b-copy-ru.md, not the guest's. An empty column says what
-   * it means rather than "nothing here": a cook reads the board at a glance and "пусто" three
-   * times over says less than one line each.
+   * board's own column of docs/design/02b-copy-ru.md, not the guest's - and they are **plural**,
+   * because a column heading names the group of tickets in it while the glossary defines the
+   * word for one order's state. The badge on a ticket keeps the singular. Aligning the two is
+   * the regression the last three assertions pin; both components carry a note saying so.
+   *
+   * An empty column says what it means rather than "nothing here": a cook reads the board at a
+   * glance and "пусто" three times over says less than one line each.
    */
-  it('heads its columns with the board’s own status words and counts them', () => {
+  it('heads its columns with the board’s own status words, in the plural, and counts them', () => {
     const socket = fakeSocket();
     render(
       <KitchenBoard
@@ -113,6 +117,14 @@ describe('KitchenBoard', () => {
     }
     // The guest's words for the same statuses never reach this surface.
     expect(screen.queryByText(ru.status.guest.paid)).toBeNull();
+    // Both tickets in New are badged with the singular, which is a different word from the
+    // heading over them. The heading is «Новые · 2» and neither badge says it.
+    expect(
+      within(screen.getByRole('region', { name: COL.new })).getAllByText(ru.status.kitchen.paid),
+    ).toHaveLength(2);
+    expect(COL.new).not.toBe(ru.status.kitchen.paid);
+    expect(COL.cooking).not.toBe(ru.status.kitchen.cooking);
+    expect(COL.ready).not.toBe(ru.status.kitchen.ready);
   });
   it('renders the first snapshot from the server, subscribes on connect and applies events', () => {
     const socket = fakeSocket();
