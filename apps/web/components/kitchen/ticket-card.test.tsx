@@ -43,7 +43,7 @@ const order = (patch: Partial<OrderDto> = {}): OrderDto => ({
     {
       id: 'i1',
       menuItemId: 'm1',
-      name: 'Margherita Flatbread',
+      name: 'Хачапури по-аджарски',
       unitPriceCents: 1200,
       quantity: 2,
       lineTotalCents: 2400,
@@ -72,7 +72,7 @@ describe('TicketCard', () => {
     expect(
       screen.getByRole('heading', { name: fill(T.heading, { table: 7, number: 42 }) }),
     ).toBeInTheDocument();
-    expect(screen.getByText('2 × Margherita Flatbread')).toBeInTheDocument();
+    expect(screen.getByText('2 × Хачапури по-аджарски')).toBeInTheDocument();
     expect(screen.getByText(plain(fill(T.note, { note: 'No basil' })))).toBeInTheDocument();
     expect(screen.getByRole('timer')).toHaveTextContent('1:05');
     expect(

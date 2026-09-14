@@ -13,18 +13,18 @@ test('a guest orders from the landing page QR link and pays for it', async ({ pa
   await page.getByRole('link', { name: /Открыть меню стола\s7/ }).click();
   await page.waitForURL('**/menu');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Little Furnace');
-  await expect(page.getByText('Table 7')).toBeVisible();
+  await expect(page.getByText('Стол 7')).toBeVisible();
   // The first tap can land before React has hydrated the menu, and a click on a button that is
   // painted but not yet wired does nothing. Retry until the card answers by turning into a
   // stepper, then carry on.
   await expect(async () => {
-    await page.getByRole('button', { name: 'Add Margherita Flatbread' }).click();
+    await page.getByRole('button', { name: 'Add Хачапури по-аджарски' }).click();
     await expect(
-      page.getByRole('button', { name: 'Add one more Margherita Flatbread' }),
+      page.getByRole('button', { name: 'Add one more Хачапури по-аджарски' }),
     ).toBeVisible({ timeout: 1_000 });
   }).toPass();
-  await page.getByRole('button', { name: 'Add one more Margherita Flatbread' }).click();
-  await page.getByRole('button', { name: 'Add House Lemonade' }).click();
+  await page.getByRole('button', { name: 'Add one more Хачапури по-аджарски' }).click();
+  await page.getByRole('button', { name: 'Add Морс из клюквы' }).click();
   await expect(page.getByRole('region', { name: 'Basket' })).toContainText('3 items · $28.00');
   await page.getByRole('button', { name: 'View basket' }).click();
   await page.getByRole('link', { name: 'Go to checkout' }).click();
@@ -39,8 +39,8 @@ test('a guest orders from the landing page QR link and pays for it', async ({ pa
     /^Order #\d+ is waiting for payment\.$/,
   );
   const number = await orderNumberFrom(page);
-  await expect(page.getByText('2 × Margherita Flatbread')).toBeVisible();
-  await expect(page.getByText('1 × House Lemonade')).toBeVisible();
+  await expect(page.getByText('2 × Хачапури по-аджарски')).toBeVisible();
+  await expect(page.getByText('1 × Морс из клюквы')).toBeVisible();
   await expect(page.getByText('No basil')).toBeVisible();
   // Scoped to the badge, not to a landmark: the progress rail names all five stages, so the bare
   // word matches its label too. What this line means is the order's *current* status, and the
@@ -60,7 +60,7 @@ test('a guest orders from the landing page QR link and pays for it', async ({ pa
   await page.waitForLoadState('networkidle');
   // The terminal names the order it is settling, shows the amount the API priced (never one the
   // browser worked out) and says out loud that none of it is real.
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Table 7 · Order #${number}`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Стол 7 · Order #${number}`);
   await expect(page.getByText('$28.00', { exact: true })).toBeVisible();
   await expect(page.getByText('This is a demo. No card, no money.')).toBeVisible();
 
@@ -82,8 +82,8 @@ test('a declined payment leaves the order waiting and offers another attempt', a
   await page.getByRole('link', { name: /Открыть меню стола\s7/ }).click();
   await page.waitForURL('**/menu');
   await expect(async () => {
-    await page.getByRole('button', { name: 'Add House Lemonade' }).click();
-    await expect(page.getByRole('button', { name: 'Add one more House Lemonade' })).toBeVisible({
+    await page.getByRole('button', { name: 'Add Морс из клюквы' }).click();
+    await expect(page.getByRole('button', { name: 'Add one more Морс из клюквы' })).toBeVisible({
       timeout: 1_000,
     });
   }).toPass();

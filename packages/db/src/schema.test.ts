@@ -57,7 +57,7 @@ describe('migrations', () => {
     )) as unknown as Rows;
     const rid = r.rows[0]?.id as string;
     await ctx.db.execute(
-      sql`insert into tables (restaurant_id, number, label, seats) values (${rid}, 1, 'Table 1', 2)`,
+      sql`insert into tables (restaurant_id, number, label, seats) values (${rid}, 1, 'Стол 1', 2)`,
     );
     await expect(
       ctx.db.execute(

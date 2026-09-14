@@ -20,13 +20,14 @@ const menu: MenuResponse = {
   categories: [
     {
       id: U(2),
-      name: 'Flatbreads',
+      name: 'Из печи',
+      plateKind: 'flatbread',
       sortOrder: 0,
       items: [
         {
           id: U(3),
           categoryId: U(2),
-          name: 'Margherita Flatbread',
+          name: 'Хачапури по-аджарски',
           description: '',
           priceCents: 1200,
           allergens: [],
@@ -37,7 +38,7 @@ const menu: MenuResponse = {
         {
           id: U(4),
           categoryId: U(2),
-          name: 'Burrata & Peaches',
+          name: 'Баклажаны с ореховым соусом',
           description: '',
           priceCents: 1100,
           allergens: [],
@@ -70,8 +71,8 @@ describe('cart functions', () => {
     expect(
       lines.map((l) => [l.item?.name ?? null, l.quantity, l.lineTotalCents, l.available]),
     ).toEqual([
-      ['Margherita Flatbread', 2, 2400, true],
-      ['Burrata & Peaches', 1, 1100, false],
+      ['Хачапури по-аджарски', 2, 2400, true],
+      ['Баклажаны с ореховым соусом', 1, 1100, false],
       [null, 1, 0, false],
     ]);
     expect(cartTotalCents(c, menu)).toBe(2400);

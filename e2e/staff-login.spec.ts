@@ -9,7 +9,7 @@ test('kitchen staff signs in through the same-origin API proxy and lands on the 
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.waitForURL('**/kitchen');
   await expect(page.getByRole('heading', { name: 'Kitchen' })).toBeVisible();
-  await expect(page.getByText('Theo Baptiste')).toBeVisible();
+  await expect(page.getByText('Тимофей Басов')).toBeVisible();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await page.waitForURL('**/login');
   await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();

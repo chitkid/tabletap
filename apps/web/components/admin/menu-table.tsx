@@ -1,5 +1,6 @@
 'use client';
 import {
+  DEFAULT_PLATE_KIND,
   MenuCategoryDtoSchema,
   type MenuCategoryDto,
   type MenuCategoryWrite,
@@ -105,7 +106,12 @@ export function MenuTable({
     const id = randomUuid();
     setCategories((list) => {
       const saved = withoutDraft(list, draftId);
-      return [...saved, { id, name: '', sortOrder: after(saved), items: [] }];
+      // A draft that never reached the server carries the same plate kind a saved one would:
+      // the field is not on the write contract, so the server will answer DEFAULT_PLATE_KIND.
+      return [
+        ...saved,
+        { id, name: '', plateKind: DEFAULT_PLATE_KIND, sortOrder: after(saved), items: [] },
+      ];
     });
     setDraftId(id);
     setEditing(id);

@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { signTableToken, verifyTableToken } from '@tabletap/shared/server';
 import * as schema from '../schema/index';
 import { createTestDb } from '../testing';
-import { DEMO_RESTAURANT_SLUG, DEMO_STAFF } from './data';
+import { DEMO_MENU, DEMO_RESTAURANT_SLUG, DEMO_STAFF } from './data';
 import { seed, type SeedOptions } from './run';
 
 const opts: SeedOptions = {
@@ -78,14 +78,37 @@ describe('seed', () => {
       .from(schema.restaurants)
       .where(eq(schema.restaurants.slug, DEMO_RESTAURANT_SLUG));
     expect(restaurant?.name).toBe('Little Furnace');
-    expect(restaurant?.currency).toBe('USD');
+    expect(restaurant?.currency).toBe('RUB');
+    expect(restaurant?.timezone).toBe('Europe/Moscow');
   });
   it('marks exactly one item unavailable', async () => {
     const unavailable = await ctx.db
       .select()
       .from(schema.menuItems)
       .where(eq(schema.menuItems.isAvailable, false));
-    expect(unavailable.map((i) => i.name)).toEqual(['Burrata & Peaches']);
+    expect(unavailable.map((i) => i.name)).toEqual(['Баклажаны с ореховым соусом']);
+  });
+  /**
+   * `data.test.ts` proves the four kinds are declared and distinct in the source. This proves they
+   * survive the write: the seed inserts them, the column keeps them, and the menu the API reads
+   * back is four different shapes rather than four copies of the column's default. Drop
+   * `plateKind` from the insert in `run.ts` and this is the test that goes red — nothing else in
+   * the repository looks at a category as a picture.
+   */
+  it('stores each category under the plate kind its seed declares', async () => {
+    const rows = await ctx.db
+      .select({
+        name: schema.menuCategories.name,
+        plateKind: schema.menuCategories.plateKind,
+        sortOrder: schema.menuCategories.sortOrder,
+      })
+      .from(schema.menuCategories);
+    const seeded = [...rows].sort((a, b) => a.sortOrder - b.sortOrder);
+    expect(seeded.map((c) => [c.name, c.plateKind])).toEqual(
+      DEMO_MENU.map((group) => [group.name, group.plateKind]),
+    );
+    const kinds = seeded.map((c) => c.plateKind);
+    expect([...new Set(kinds)]).toEqual(kinds);
   });
   it('creates staff accounts whose password verifies with better-auth', async () => {
     for (const staff of DEMO_STAFF) {

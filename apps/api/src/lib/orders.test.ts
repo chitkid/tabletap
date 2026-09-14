@@ -27,7 +27,7 @@ describe('createOrder', () => {
     const [item] = await ctx.db
       .select({ id: schema.menuItems.id })
       .from(schema.menuItems)
-      .where(eq(schema.menuItems.name, 'Cold Brew'));
+      .where(eq(schema.menuItems.name, 'Раф с облепихой'));
     if (!item) throw new Error('menu is not seeded');
     body = { items: [{ menuItemId: item.id, quantity: 1 }] };
   });

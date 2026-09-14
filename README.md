@@ -41,7 +41,7 @@ Bring the stack up (Docker section below, or local development), then open <http
 6. **Order page.** "Order #42 is waiting for payment.", the table, a status badge, the lines, the note, and "Placed 2 min ago" ticking every 30 seconds. A **Pay $28.00** button sits under the headline.
 7. **Pay.** The button opens a payment attempt and follows wherever the provider points. In demo mode that is `/pay/<order id>`, the restaurant's own terminal — the amount, a dead keypad, **Pay** and **Decline** side by side, and "This is a demo. No card, no money." Pay, and you land back on the order page reading "Order #42 sent to the kitchen."; decline, and it says "Payment declined. Try again." with the Pay button still there.
 8. **Watch it cook.** The ticket is on the kitchen board the moment the payment settles. The status updates in place as the kitchen works it, and "Order #42 is ready." is announced when it is.
-9. **Run the restaurant.** Open <http://localhost:3000/login?demo=admin&next=/admin> to arrive as Mara Quinn on the admin surface: the day's figures, the menu edited row by row, and the tables with their printed codes. Change a price and reload the guest menu; it is the same menu.
+9. **Run the restaurant.** Open <http://localhost:3000/login?demo=admin&next=/admin> to arrive as Марина Ковалёва on the admin surface: the day's figures, the menu edited row by row, and the tables with their printed codes. Change a price and reload the guest menu; it is the same menu.
 
 The two staff cards sign you in with one click: **Open the kitchen display** and **Open the admin** go to `/login?demo=kitchen` and `/login?demo=admin`, which sign in with the seeded credentials below. Both land on the kitchen board, because that is what `/login` defaults to — so the admin card opens the board as an admin rather than the admin surface M5 built. Reach it with the `&next=/admin` link above, or by opening `/admin` once signed in. Pointing the card at it is on the backlog. **Simulate rush** on the landing gives the board something to do without a second device.
 
@@ -281,11 +281,11 @@ The API exposes demo mode behind three variables:
 
 Password for all three: `tabletap-demo` (override with `DEMO_PASSWORD` before seeding).
 
-| Email                        | Name          | Role    |
-| ---------------------------- | ------------- | ------- |
-| `admin@littlefurnace.demo`   | Mara Quinn    | admin   |
-| `kitchen@littlefurnace.demo` | Theo Baptiste | kitchen |
-| `waiter@littlefurnace.demo`  | Jun Okafor    | waiter  |
+| Email                        | Name            | Role    |
+| ---------------------------- | --------------- | ------- |
+| `admin@littlefurnace.demo`   | Марина Ковалёва | admin   |
+| `kitchen@littlefurnace.demo` | Тимофей Басов   | kitchen |
+| `waiter@littlefurnace.demo`  | Юлия Окулова    | waiter  |
 
 Sign in at `/login`. There is no sign-up, and M5's admin surface does not add one: it manages the menu, the tables and their codes, not the people. Staff accounts come from the seed.
 

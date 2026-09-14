@@ -1,5 +1,4 @@
-export const PLATE_KINDS = ['flatbread', 'bowl', 'side', 'drink'] as const;
-export type PlateKind = (typeof PLATE_KINDS)[number];
+import type { PlateKind } from '@tabletap/shared';
 
 /** Palette slots resolve to CSS custom properties --plate-slot-N in theme.css. */
 export const PALETTE_SLOTS = 6;
@@ -60,14 +59,6 @@ export function mulberry32(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-export function kindFromCategory(categoryName: string): PlateKind {
-  const n = categoryName.toLowerCase();
-  if (n.includes('flatbread') || n.includes('pizza')) return 'flatbread';
-  if (n.includes('bowl')) return 'bowl';
-  if (n.includes('drink') || n.includes('beverage')) return 'drink';
-  return 'side';
 }
 
 const round = (v: number) => Math.round(v * 10) / 10;

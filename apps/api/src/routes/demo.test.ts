@@ -29,9 +29,9 @@ describe('GET /api/demo/links', () => {
     });
     expect(claims.tableNumber).toBe(7);
     expect(body.staff.map((s) => [s.role, s.email, s.name])).toEqual([
-      ['admin', 'admin@littlefurnace.demo', 'Mara Quinn'],
-      ['kitchen', 'kitchen@littlefurnace.demo', 'Theo Baptiste'],
-      ['waiter', 'waiter@littlefurnace.demo', 'Jun Okafor'],
+      ['admin', 'admin@littlefurnace.demo', 'Марина Ковалёва'],
+      ['kitchen', 'kitchen@littlefurnace.demo', 'Тимофей Басов'],
+      ['waiter', 'waiter@littlefurnace.demo', 'Юлия Окулова'],
     ]);
     expect(body.staff.every((s) => s.password === TEST_DEMO_PASSWORD)).toBe(true);
     expect(body.resetsEveryMinutes).toBeNull();

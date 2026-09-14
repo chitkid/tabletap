@@ -41,7 +41,7 @@ describe('POST /api/guest/claim', () => {
     const res = await claim(await tokenFor(7));
     expect(res.statusCode).toBe(200);
     const body = ClaimResponseSchema.parse(res.json());
-    expect(body.table).toMatchObject({ number: 7, label: 'Table 7' });
+    expect(body.table).toMatchObject({ number: 7, label: 'Стол 7' });
     const cookie = res.cookies.find((c) => c.name === 'tt_guest');
     expect(cookie).toBeDefined();
     expect(cookie?.httpOnly).toBe(true);

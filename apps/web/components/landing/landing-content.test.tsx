@@ -11,13 +11,13 @@ const links = {
     {
       role: 'kitchen' as const,
       email: 'kitchen@littlefurnace.demo',
-      name: 'Theo Baptiste',
+      name: 'Тимофей Басов',
       password: 'tabletap-demo',
     },
     {
       role: 'admin' as const,
       email: 'admin@littlefurnace.demo',
-      name: 'Mara Quinn',
+      name: 'Марина Ковалёва',
       password: 'tabletap-demo',
     },
   ],

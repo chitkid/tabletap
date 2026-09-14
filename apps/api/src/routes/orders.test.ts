@@ -42,10 +42,10 @@ describe('orders', () => {
     const { cookie, tableId } = await claimTable(ctx.app, ctx.db, 7);
     const res = await post(cookie, {
       items: [
-        { menuItemId: byName['Margherita Flatbread']!.id, quantity: 2, priceCents: 1 },
-        { menuItemId: byName['House Lemonade']!.id, quantity: 1 },
+        { menuItemId: byName['Хачапури по-аджарски']!.id, quantity: 2, priceCents: 1 },
+        { menuItemId: byName['Морс из клюквы']!.id, quantity: 1 },
       ],
-      note: 'No basil',
+      note: 'Без кинзы, пожалуйста.',
     });
     expect(res.statusCode).toBe(201);
     expect(res.json().order).not.toHaveProperty('guestSessionId');
@@ -54,10 +54,10 @@ describe('orders', () => {
       status: 'placed',
       tableId,
       tableNumber: 7,
-      note: 'No basil',
-      subtotalCents: 2800,
-      totalCents: 2800,
-      currency: 'USD',
+      note: 'Без кинзы, пожалуйста.',
+      subtotalCents: 164_000,
+      totalCents: 164_000,
+      currency: 'RUB',
     });
     expect(order.number).toBeGreaterThan(0);
     expect(order.placedAt).not.toBeNull();
@@ -71,8 +71,8 @@ describe('orders', () => {
     expect(
       order.items.map((i) => [i.name, i.unitPriceCents, i.quantity, i.lineTotalCents]),
     ).toEqual([
-      ['Margherita Flatbread', 1200, 2, 2400],
-      ['House Lemonade', 400, 1, 400],
+      ['Хачапури по-аджарски', 69_000, 2, 138_000],
+      ['Морс из клюквы', 26_000, 1, 26_000],
     ]);
     const audit = await ctx.db
       .select()
@@ -86,7 +86,7 @@ describe('orders', () => {
       method: 'POST',
       url: '/api/orders',
       headers: { cookie },
-      payload: { items: [{ menuItemId: byName['House Lemonade']!.id, quantity: 1 }] },
+      payload: { items: [{ menuItemId: byName['Морс из клюквы']!.id, quantity: 1 }] },
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error.code).toBe('VALIDATION_FAILED');
@@ -96,12 +96,12 @@ describe('orders', () => {
     const a = await claimTable(ctx.app, ctx.db, 8);
     const first = await post(
       a.cookie,
-      { items: [{ menuItemId: byName['Cold Brew']!.id, quantity: 1 }] },
+      { items: [{ menuItemId: byName['Раф с облепихой']!.id, quantity: 1 }] },
       key,
     );
     const second = await post(
       a.cookie,
-      { items: [{ menuItemId: byName['Cold Brew']!.id, quantity: 3 }] },
+      { items: [{ menuItemId: byName['Раф с облепихой']!.id, quantity: 3 }] },
       key,
     );
     expect(first.statusCode).toBe(201);
@@ -111,7 +111,7 @@ describe('orders', () => {
     const b = await claimTable(ctx.app, ctx.db, 9);
     const other = await post(
       b.cookie,
-      { items: [{ menuItemId: byName['Cold Brew']!.id, quantity: 1 }] },
+      { items: [{ menuItemId: byName['Раф с облепихой']!.id, quantity: 1 }] },
       key,
     );
     expect(other.statusCode).toBe(409);
@@ -121,15 +121,20 @@ describe('orders', () => {
     const { cookie } = await claimTable(ctx.app, ctx.db, 7);
     const res = await post(cookie, {
       items: [
-        { menuItemId: byName['Burrata & Peaches']!.id, quantity: 1 },
-        { menuItemId: byName['Marinated Olives']!.id, quantity: 1 },
+        { menuItemId: byName['Баклажаны с ореховым соусом']!.id, quantity: 1 },
+        { menuItemId: byName['Тандырная лепёшка']!.id, quantity: 1 },
       ],
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toMatchObject({
       code: 'ITEM_UNAVAILABLE',
       details: {
-        unavailable: [{ menuItemId: byName['Burrata & Peaches']!.id, name: 'Burrata & Peaches' }],
+        unavailable: [
+          {
+            menuItemId: byName['Баклажаны с ореховым соусом']!.id,
+            name: 'Баклажаны с ореховым соусом',
+          },
+        ],
       },
     });
   });
@@ -139,7 +144,7 @@ describe('orders', () => {
     expect(unknown.statusCode).toBe(400);
     expect(unknown.json().error.code).toBe('VALIDATION_FAILED');
     expect(
-      (await post(cookie, { items: [{ menuItemId: byName['Cold Brew']!.id, quantity: 21 }] }))
+      (await post(cookie, { items: [{ menuItemId: byName['Раф с облепихой']!.id, quantity: 21 }] }))
         .statusCode,
     ).toBe(400);
   });
@@ -156,7 +161,7 @@ describe('orders', () => {
     ).toBe(401);
     const staff = await signInAs(ctx.app, 'waiter@littlefurnace.demo');
     expect(
-      (await post(staff, { items: [{ menuItemId: byName['Cold Brew']!.id, quantity: 1 }] }))
+      (await post(staff, { items: [{ menuItemId: byName['Раф с облепихой']!.id, quantity: 1 }] }))
         .statusCode,
     ).toBe(403);
   });
@@ -166,7 +171,7 @@ describe('orders', () => {
     const created = OrderResponseSchema.parse(
       (
         await post(a.cookie, {
-          items: [{ menuItemId: byName['Furnace Potatoes']!.id, quantity: 1 }],
+          items: [{ menuItemId: byName['Соленья из бочки']!.id, quantity: 1 }],
         })
       ).json(),
     ).order;
@@ -235,14 +240,14 @@ describe('orders', () => {
     for (let i = 0; i < 11; i++)
       last = (
         await post(a.cookie, {
-          items: [{ menuItemId: byName['Sparkling Water']!.id, quantity: 1 }],
+          items: [{ menuItemId: byName['Чай с чабрецом']!.id, quantity: 1 }],
         })
       ).statusCode;
     expect(last).toBe(429);
     expect(
       (
         await post(b.cookie, {
-          items: [{ menuItemId: byName['Sparkling Water']!.id, quantity: 1 }],
+          items: [{ menuItemId: byName['Чай с чабрецом']!.id, quantity: 1 }],
         })
       ).statusCode,
     ).toBe(201);
@@ -256,7 +261,7 @@ describe('orders', () => {
         seen.push(`${o.tableNumber}:${o.status}:${o.restaurantId.length}`),
       );
       const res = await post(cookie, {
-        items: [{ menuItemId: byName['Cold Brew']!.id, quantity: 1 }],
+        items: [{ menuItemId: byName['Раф с облепихой']!.id, quantity: 1 }],
       });
       expect(res.statusCode).toBe(201);
       expect(seen).toEqual(['5:placed:36']);
@@ -303,7 +308,7 @@ describe('orders', () => {
     const place = async (tableNumber: number) => {
       const { cookie } = await claimTable(ctx.app, ctx.db, tableNumber);
       const res = await post(cookie, {
-        items: [{ menuItemId: byName['House Lemonade']!.id, quantity: 1 }],
+        items: [{ menuItemId: byName['Морс из клюквы']!.id, quantity: 1 }],
       });
       return OrderResponseSchema.parse(res.json()).order;
     };

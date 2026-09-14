@@ -16,7 +16,7 @@ describe('API contracts', () => {
     const ok = TableDtoSchema.safeParse({
       id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f60',
       number: 7,
-      label: 'Table 7',
+      label: 'Стол 7',
       seats: 4,
       isActive: true,
     });
@@ -29,7 +29,7 @@ describe('API contracts', () => {
   it('validates claim and me responses', () => {
     expect(
       ClaimResponseSchema.safeParse({
-        table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f60', number: 7, label: 'Table 7' },
+        table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f60', number: 7, label: 'Стол 7' },
         expiresAt: '2026-09-02T12:00:00.000Z',
       }).success,
     ).toBe(true);
@@ -69,6 +69,7 @@ describe('API contracts', () => {
 import {
   DemoLinksResponseSchema,
   ERROR_CODES,
+  MenuCategoryDtoSchema,
   MenuResponseSchema,
   OrderCreateRequestSchema,
   OrderDtoSchema,
@@ -84,20 +85,21 @@ describe('M2 contracts', () => {
   });
   it('validates a menu response', () => {
     const ok = MenuResponseSchema.safeParse({
-      restaurant: { id: U1, name: 'Little Furnace', currency: 'USD' },
+      restaurant: { id: U1, name: 'Little Furnace', currency: 'RUB' },
       categories: [
         {
           id: U2,
-          name: 'Flatbreads',
+          name: 'Из печи',
+          plateKind: 'flatbread',
           sortOrder: 0,
           items: [
             {
               id: U1,
               categoryId: U2,
-              name: 'Margherita Flatbread',
+              name: 'Хачапури по-аджарски',
               description: '',
-              priceCents: 1200,
-              allergens: ['gluten', 'dairy'],
+              priceCents: 69_000,
+              allergens: ['gluten', 'dairy', 'egg'],
               isAvailable: true,
               imageUrl: null,
               sortOrder: 0,
@@ -107,6 +109,23 @@ describe('M2 contracts', () => {
       ],
     });
     expect(ok.success).toBe(true);
+  });
+  /**
+   * `plateKind` is how a dish with no photograph gets drawn, and it has no default on purpose: a
+   * response that forgot the column would otherwise parse, and every dish in the menu would come
+   * out as the same shape with nothing failing.
+   */
+  it('refuses a menu category with no plate kind, and one with a kind it does not know', () => {
+    const category = (over: Record<string, unknown>) => ({
+      id: U2,
+      name: 'Из печи',
+      sortOrder: 0,
+      items: [],
+      ...over,
+    });
+    expect(MenuCategoryDtoSchema.safeParse(category({})).success).toBe(false);
+    expect(MenuCategoryDtoSchema.safeParse(category({ plateKind: 'platter' })).success).toBe(false);
+    expect(MenuCategoryDtoSchema.safeParse(category({ plateKind: 'bowl' })).success).toBe(true);
   });
   it('bounds an order request', () => {
     expect(
@@ -152,7 +171,7 @@ describe('M2 contracts', () => {
           {
             id: U1,
             menuItemId: U2,
-            name: 'House Lemonade',
+            name: 'Морс из клюквы',
             unitPriceCents: 400,
             quantity: 1,
             lineTotalCents: 400,
@@ -179,7 +198,7 @@ describe('M2 contracts', () => {
           {
             role: 'kitchen',
             email: 'kitchen@littlefurnace.demo',
-            name: 'Theo Baptiste',
+            name: 'Тимофей Басов',
             password: 'tabletap-demo',
           },
         ],
@@ -354,28 +373,30 @@ describe('M5 contracts', () => {
   });
 
   it('validates a menu category write', () => {
-    expect(MenuCategoryWriteSchema.safeParse({ name: 'Drinks' }).success).toBe(true);
+    expect(MenuCategoryWriteSchema.safeParse({ name: 'Напитки' }).success).toBe(true);
     expect(MenuCategoryWriteSchema.safeParse({ name: '' }).success).toBe(false);
     // Withdrawn on purpose: no route lists an inactive category, so accepting the write would
     // create a state the API has no way out of. Zod strips the unknown key rather than refusing
     // the body, so the assertion is that it never reaches the parsed value.
-    expect(MenuCategoryWriteSchema.parse({ name: 'Drinks', isActive: false })).toEqual({
-      name: 'Drinks',
+    expect(MenuCategoryWriteSchema.parse({ name: 'Напитки', isActive: false })).toEqual({
+      name: 'Напитки',
     });
   });
 
   it('validates a menu item write', () => {
     expect(
-      MenuItemWriteSchema.safeParse({ categoryId: U1, name: 'Cold Brew', priceCents: 450 }).success,
+      MenuItemWriteSchema.safeParse({ categoryId: U1, name: 'Раф с облепихой', priceCents: 450 })
+        .success,
     ).toBe(true);
     expect(
-      MenuItemWriteSchema.safeParse({ categoryId: U1, name: 'Cold Brew', priceCents: -1 }).success,
+      MenuItemWriteSchema.safeParse({ categoryId: U1, name: 'Раф с облепихой', priceCents: -1 })
+        .success,
     ).toBe(false);
   });
 
   it('validates a table write', () => {
-    expect(TableWriteSchema.safeParse({ number: 1, label: 'Table 1' }).success).toBe(true);
-    expect(TableWriteSchema.safeParse({ number: 0, label: 'Table 1' }).success).toBe(false);
+    expect(TableWriteSchema.safeParse({ number: 1, label: 'Стол 1' }).success).toBe(true);
+    expect(TableWriteSchema.safeParse({ number: 0, label: 'Стол 1' }).success).toBe(false);
   });
 
   it('validates the photo upload and confirm shapes', () => {

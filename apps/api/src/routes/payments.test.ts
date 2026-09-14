@@ -252,7 +252,7 @@ describe('payments routes', () => {
             orderId: order.id,
             provider: 'stripe',
             amountCents: order.totalCents,
-            currency: 'USD',
+            currency: 'RUB',
             status: 'pending',
             providerSessionId: 'cs_test_1',
           })

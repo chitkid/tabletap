@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AllergenSchema } from './menu';
+import { AllergenSchema, PlateKindSchema } from './menu';
 import { OrderStatusSchema } from './orders';
 import { PrincipalSchema } from './principal';
 import { StaffRoleSchema } from './roles';
@@ -51,6 +51,12 @@ export type MenuItemDto = z.infer<typeof MenuItemDtoSchema>;
 export const MenuCategoryDtoSchema = z.object({
   id: z.uuid(),
   name: z.string().min(1),
+  /**
+   * Required, with no default. The browser draws every dish from it (the demo carries no
+   * photographs), and a default here would let a response that forgot the column parse cleanly and
+   * flatten the whole menu onto one shape — exactly the silent failure this field replaced.
+   */
+  plateKind: PlateKindSchema,
   sortOrder: z.number().int(),
   items: z.array(MenuItemDtoSchema),
 });

@@ -19,9 +19,9 @@ describe('GET /api/me', () => {
     });
   });
   it.each([
-    ['admin@littlefurnace.demo', 'admin', 'Mara Quinn'],
-    ['kitchen@littlefurnace.demo', 'kitchen', 'Theo Baptiste'],
-    ['waiter@littlefurnace.demo', 'waiter', 'Jun Okafor'],
+    ['admin@littlefurnace.demo', 'admin', 'Марина Ковалёва'],
+    ['kitchen@littlefurnace.demo', 'kitchen', 'Тимофей Басов'],
+    ['waiter@littlefurnace.demo', 'waiter', 'Юлия Окулова'],
   ])('returns the staff principal for %s', async (email, role, name) => {
     const cookie = await signInAs(ctx.app, email);
     const res = await ctx.app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });

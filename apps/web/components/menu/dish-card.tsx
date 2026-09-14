@@ -1,20 +1,26 @@
 'use client';
-import type { MenuItemDto } from '@tabletap/shared';
-import { Button, Plate, cn, kindFromCategory } from '@tabletap/ui';
+import type { MenuItemDto, PlateKind } from '@tabletap/shared';
+import { Button, Plate, cn } from '@tabletap/ui';
 import { useTranslations } from 'next-intl';
 import { formatCents } from '../../lib/money';
 import { QuantityStepper } from './quantity-stepper';
 
 export function DishCard({
   item,
-  category,
+  plateKind,
   quantity,
   currency,
   onAdd,
   onSetQuantity,
 }: {
   item: MenuItemDto;
-  category: string;
+  /**
+   * The category's own declared kind, off `MenuCategoryDto`. It used to be the category's display
+   * name, which the plate planner then matched against English words — so every category named in
+   * Russian drew the same fallback shape for every dish, and no test could see it, because the
+   * category names live in seed data.
+   */
+  plateKind: PlateKind;
   quantity: number;
   currency: string;
   onAdd: () => void;
@@ -48,13 +54,7 @@ export function DishCard({
         <img src={item.imageUrl} alt="" className="size-24 shrink-0 rounded-md object-cover" />
       ) : (
         // The heading right beside it says the name, so the plate is decoration.
-        <Plate
-          name={item.name}
-          kind={kindFromCategory(category)}
-          decorative
-          size={96}
-          className="size-24"
-        />
+        <Plate name={item.name} kind={plateKind} decorative size={96} className="size-24" />
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h3 className="font-display text-lg leading-tight font-semibold">{item.name}</h3>

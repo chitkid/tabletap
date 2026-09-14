@@ -35,7 +35,7 @@ const order = {
     {
       id: 'a',
       menuItemId: 'm',
-      name: 'Margherita Flatbread',
+      name: 'Хачапури по-аджарски',
       unitPriceCents: 1200,
       quantity: 2,
       lineTotalCents: 2400,
@@ -64,7 +64,7 @@ describe('OrderScreen', () => {
     // The badge takes the glossary's guest column: what happens to the guest, not what the order
     // is - docs/design/02b-copy-ru.md.
     expect(screen.getByText('Ожидает оплаты')).toBeInTheDocument();
-    expect(screen.getByText('2 × Margherita Flatbread')).toBeInTheDocument();
+    expect(screen.getByText('2 × Хачапури по-аджарски')).toBeInTheDocument();
     expect(screen.getByText('24 $')).toBeInTheDocument();
     expect(screen.getByText('No basil')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: ru.guest.order.backToMenu })).toHaveAttribute(

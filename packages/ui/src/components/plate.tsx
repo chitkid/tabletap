@@ -1,5 +1,6 @@
+import type { PlateKind } from '@tabletap/shared';
 import type { SVGProps } from 'react';
-import { planPlate, type PlateKind, type PlateShape } from '../lib/plate-plan';
+import { planPlate, type PlateShape } from '../lib/plate-plan';
 import { cn } from '../lib/utils';
 
 const fill = (slot: number) => `var(--plate-slot-${slot})`;

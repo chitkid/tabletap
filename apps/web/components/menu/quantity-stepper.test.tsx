@@ -19,16 +19,16 @@ describe('QuantityStepper', () => {
   it('labels both buttons with the dish name and shows the value', async () => {
     const onChange = vi.fn();
     render(
-      withProvider(<QuantityStepper name="Margherita Flatbread" value={2} onChange={onChange} />),
+      withProvider(<QuantityStepper name="Хачапури по-аджарски" value={2} onChange={onChange} />),
     );
     // The dish name is an appositive in ёлочки rather than an inflected object, so a name the
     // dictionary cannot decline still reads as Russian.
     await userEvent.click(
-      screen.getByRole('button', { name: 'Добавить ещё одну порцию «Margherita Flatbread»' }),
+      screen.getByRole('button', { name: 'Добавить ещё одну порцию «Хачапури по-аджарски»' }),
     );
     expect(onChange).toHaveBeenCalledWith(3);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Убрать одну порцию «Margherita Flatbread»' }),
+      screen.getByRole('button', { name: 'Убрать одну порцию «Хачапури по-аджарски»' }),
     );
     expect(onChange).toHaveBeenCalledWith(1);
     // The basket bar announces the totals; a live count on every card would make one tap

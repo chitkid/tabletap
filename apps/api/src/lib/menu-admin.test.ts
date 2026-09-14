@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { schema } from '@tabletap/db';
-import { IDEMPOTENCY_KEY_HEADER, OrderResponseSchema } from '@tabletap/shared';
+import { DEFAULT_PLATE_KIND, IDEMPOTENCY_KEY_HEADER, OrderResponseSchema } from '@tabletap/shared';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ObjectStorage } from '../storage/types';
 import { claimTable, createTestApp } from '../test/helpers';
@@ -74,16 +74,20 @@ describe('menu-admin', () => {
   });
 
   it('creates a category with the next sort order when none is given', async () => {
-    // Seeded categories are Flatbreads(0), Bowls(1), Sides(2), Drinks(3): the next one lands at 4.
+    // Seeded categories are «Из печи»(0), «Горячее»(1), «Салаты и закуски»(2), «Напитки»(3): the
+    // next one lands at 4.
     const category = await createCategory(ctx.db, restaurantId, { name: 'Desserts' }, ACTOR);
     expect(category.sortOrder).toBe(4);
     expect(category.name).toBe('Desserts');
     expect(category.items).toEqual([]);
+    // A plate shape is not on the write contract, so a category made here takes the column's
+    // default. The seeded four declare their own; this is the only path that reaches the fallback.
+    expect(category.plateKind).toBe(DEFAULT_PLATE_KIND);
   });
 
   it('creates an item with the next sort order within its own category when none is given', async () => {
-    // Drinks holds 4 seeded items (0..3): the next one lands at 4.
-    const drinks = await categoryByName('Drinks');
+    // «Напитки» holds 4 seeded items (0..3): the next one lands at 4.
+    const drinks = await categoryByName('Напитки');
     const item = await createItem(
       ctx.db,
       restaurantId,
@@ -95,20 +99,20 @@ describe('menu-admin', () => {
   });
 
   it('hides a category or item outside the restaurant behind 404, never 403', async () => {
-    const bowls = await categoryByName('Bowls');
+    const bowls = await categoryByName('Горячее');
     const otherRestaurantId = randomUUID();
     await expect(
       updateCategory(ctx.db, otherRestaurantId, bowls.id, { name: 'Hijacked' }, ACTOR),
     ).rejects.toMatchObject({ code: 'NOT_FOUND', statusCode: 404 });
 
-    const roastSquash = await itemByName('Roast Squash & Feta');
+    const herring = await itemByName('Сельдь с печёным картофелем');
     await expect(
-      updateItem(ctx.db, otherRestaurantId, roastSquash.id, { name: 'Hijacked' }, ACTOR),
+      updateItem(ctx.db, otherRestaurantId, herring.id, { name: 'Hijacked' }, ACTOR),
     ).rejects.toMatchObject({ code: 'NOT_FOUND', statusCode: 404 });
   });
 
   it('refuses to delete a category holding items (409 IN_USE) and deletes nothing', async () => {
-    const sides = await categoryByName('Sides');
+    const sides = await categoryByName('Салаты и закуски');
     await expect(deleteCategory(ctx.db, restaurantId, sides.id, ACTOR)).rejects.toMatchObject({
       code: 'IN_USE',
       statusCode: 409,
@@ -126,16 +130,18 @@ describe('menu-admin', () => {
   });
 
   it('refuses to delete an item that appears on an order (409 IN_USE)', async () => {
-    const focaccia = await itemByName('Wood-Fired Focaccia');
-    await orderFor(focaccia.id);
-    await expect(deleteItem(ctx.db, restaurantId, focaccia.id, ACTOR, null)).rejects.toMatchObject({
-      code: 'IN_USE',
-      statusCode: 409,
-    });
+    const lepyoshka = await itemByName('Тандырная лепёшка');
+    await orderFor(lepyoshka.id);
+    await expect(deleteItem(ctx.db, restaurantId, lepyoshka.id, ACTOR, null)).rejects.toMatchObject(
+      {
+        code: 'IN_USE',
+        statusCode: 409,
+      },
+    );
     const [stillThere] = await ctx.db
       .select()
       .from(schema.menuItems)
-      .where(eq(schema.menuItems.id, focaccia.id));
+      .where(eq(schema.menuItems.id, lepyoshka.id));
     expect(stillThere).toBeDefined();
   });
 
@@ -174,7 +180,7 @@ describe('menu-admin', () => {
   });
 
   it('refuses an item delete from the guarded statement itself, so the order referencing it is untouched', async () => {
-    const bowls = await categoryByName('Bowls');
+    const bowls = await categoryByName('Горячее');
     const item = await createItem(
       ctx.db,
       restaurantId,
@@ -206,19 +212,19 @@ describe('menu-admin', () => {
   });
 
   it('deletes an item with no orders and removes its photo object', async () => {
-    const sparklingWater = await itemByName('Sparkling Water');
-    const key = `menu/${sparklingWater.id}/deadbeef-dead-beef-dead-beefdeadbeef.jpg`;
+    const tea = await itemByName('Чай с чабрецом');
+    const key = `menu/${tea.id}/deadbeef-dead-beef-dead-beefdeadbeef.jpg`;
     await ctx.db
       .update(schema.menuItems)
       .set({ imageUrl: `http://localhost:9000/tabletap/${key}` })
-      .where(eq(schema.menuItems.id, sparklingWater.id));
+      .where(eq(schema.menuItems.id, tea.id));
     const storage = fakeStorage();
-    await deleteItem(ctx.db, restaurantId, sparklingWater.id, ACTOR, storage);
+    await deleteItem(ctx.db, restaurantId, tea.id, ACTOR, storage);
     expect(storage.remove).toHaveBeenCalledWith(key);
     const [gone] = await ctx.db
       .select()
       .from(schema.menuItems)
-      .where(eq(schema.menuItems.id, sparklingWater.id));
+      .where(eq(schema.menuItems.id, tea.id));
     expect(gone).toBeUndefined();
   });
 
@@ -250,36 +256,36 @@ describe('menu-admin', () => {
   });
 
   it('an update writes only the fields it was given', async () => {
-    const flatbreads = await categoryByName('Flatbreads');
+    const fromTheOven = await categoryByName('Из печи');
     const updated = await updateCategory(
       ctx.db,
       restaurantId,
-      flatbreads.id,
+      fromTheOven.id,
       { sortOrder: 9 },
       ACTOR,
     );
     expect(updated.sortOrder).toBe(9);
-    expect(updated.name).toBe('Flatbreads'); // untouched
+    expect(updated.name).toBe('Из печи'); // untouched
     // restore, so later tests (and re-runs within this file) see the seeded order again
-    await updateCategory(ctx.db, restaurantId, flatbreads.id, { sortOrder: 0 }, ACTOR);
+    await updateCategory(ctx.db, restaurantId, fromTheOven.id, { sortOrder: 0 }, ACTOR);
 
-    const margherita = await itemByName('Margherita Flatbread');
-    const originalPrice = margherita.priceCents;
+    const khachapuri = await itemByName('Хачапури по-аджарски');
+    const originalPrice = khachapuri.priceCents;
     const updatedItem = await updateItem(
       ctx.db,
       restaurantId,
-      margherita.id,
+      khachapuri.id,
       { isAvailable: false },
       ACTOR,
     );
     expect(updatedItem.isAvailable).toBe(false);
     expect(updatedItem.priceCents).toBe(originalPrice); // untouched
-    expect(updatedItem.name).toBe('Margherita Flatbread'); // untouched
-    await updateItem(ctx.db, restaurantId, margherita.id, { isAvailable: true }, ACTOR);
+    expect(updatedItem.name).toBe('Хачапури по-аджарски'); // untouched
+    await updateItem(ctx.db, restaurantId, khachapuri.id, { isAvailable: true }, ACTOR);
   });
 
   it('a concurrent item edit loses the race: 409 CONFLICT, and no audit row records a stale transition', async () => {
-    const bowls = await categoryByName('Bowls');
+    const bowls = await categoryByName('Горячее');
     const item = await createItem(
       ctx.db,
       restaurantId,
@@ -344,7 +350,7 @@ describe('menu-admin', () => {
   });
 
   it('a price change leaves an audit row both the old and new price can be read from', async () => {
-    const bowls = await categoryByName('Bowls');
+    const bowls = await categoryByName('Горячее');
     const item = await createItem(
       ctx.db,
       restaurantId,
@@ -365,7 +371,7 @@ describe('menu-admin', () => {
   });
 
   it("records the item's price when it is created, not just its name and category", async () => {
-    const bowls = await categoryByName('Bowls');
+    const bowls = await categoryByName('Горячее');
     const item = await createItem(
       ctx.db,
       restaurantId,

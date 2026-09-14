@@ -142,7 +142,7 @@ describe('admin table routes', () => {
       .select()
       .from(schema.tables)
       .where(eq(schema.tables.id, tableId));
-    expect(stillThere!.label).toBe('Table 2');
+    expect(stillThere!.label).toBe('Стол 2');
     expect(stillThere!.qrVersion).toBe(1);
   });
 
@@ -232,7 +232,7 @@ describe('admin table routes', () => {
     const [item] = await ctx.db
       .select()
       .from(schema.menuItems)
-      .where(eq(schema.menuItems.name, 'Margherita Flatbread'));
+      .where(eq(schema.menuItems.name, 'Хачапури по-аджарски'));
     const order = await ctx.app.inject({
       method: 'POST',
       url: '/api/orders',

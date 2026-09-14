@@ -16,13 +16,14 @@ const menu: MenuResponse = {
   categories: [
     {
       id: U(2),
-      name: 'Drinks',
+      name: 'Напитки',
+      plateKind: 'drink',
       sortOrder: 0,
       items: [
         {
           id: U(3),
           categoryId: U(2),
-          name: 'House Lemonade',
+          name: 'Морс из клюквы',
           description: '',
           priceCents: 400,
           allergens: [],
@@ -60,7 +61,7 @@ describe('CheckoutScreen hydration', () => {
     await act(async () => {
       hydrateRoot(container, tree);
     });
-    expect(container.textContent).toContain('2 × House Lemonade');
+    expect(container.textContent).toContain('2 × Морс из клюквы');
     expect(replace).not.toHaveBeenCalled();
   });
 });

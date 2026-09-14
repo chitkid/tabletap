@@ -1,0 +1,1 @@
+ALTER TABLE "menu_categories" ADD COLUMN "plate_kind" text DEFAULT 'side' NOT NULL;

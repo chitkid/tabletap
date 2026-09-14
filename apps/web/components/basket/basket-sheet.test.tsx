@@ -39,7 +39,7 @@ describe('BasketSheet', () => {
         <BasketSheet
           open
           onOpenChange={() => undefined}
-          lines={[line('House Lemonade', 2, 400)]}
+          lines={[line('Морс из клюквы', 2, 400)]}
           currency="USD"
           onSetQuantity={() => undefined}
           onRemove={onRemove}
@@ -48,8 +48,8 @@ describe('BasketSheet', () => {
     );
     expect(screen.getByRole('dialog', { name: 'Ваша корзина' })).toBeInTheDocument();
     expect(screen.getByText('8 $')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Убрать «House Lemonade»' }));
-    expect(onRemove).toHaveBeenCalledWith('House Lemonade');
+    await userEvent.click(screen.getByRole('button', { name: 'Убрать «Морс из клюквы»' }));
+    expect(onRemove).toHaveBeenCalledWith('Морс из клюквы');
     // `getByRole`'s name matcher runs an identity normaliser, so «Перейти к оформлению» has to
     // carry the real U+00A0 the dictionary binds the preposition with. Read from the dictionary
     // rather than retyped, because an invisible byte typed by hand drifts silently.
@@ -79,7 +79,7 @@ describe('BasketSheet', () => {
         <BasketSheet
           open
           onOpenChange={() => undefined}
-          lines={[line('Burrata & Peaches', 1, 1100, false)]}
+          lines={[line('Баклажаны с ореховым соусом', 1, 1100, false)]}
           currency="USD"
           onSetQuantity={() => undefined}
           onRemove={() => undefined}

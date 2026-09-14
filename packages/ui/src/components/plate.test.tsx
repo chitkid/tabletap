@@ -5,12 +5,12 @@ import { Plate } from './plate';
 
 describe('Plate', () => {
   it('is an image named after the dish by default', () => {
-    render(<Plate name="Margherita Flatbread" kind="flatbread" />);
-    const svg = screen.getByRole('img', { name: 'Margherita Flatbread' });
+    render(<Plate name="Хачапури по-аджарски" kind="flatbread" />);
+    const svg = screen.getByRole('img', { name: 'Хачапури по-аджарски' });
     expect(svg.getAttribute('aria-hidden')).toBeNull();
   });
   it('says nothing when it is decorative', () => {
-    const { container } = render(<Plate name="Margherita Flatbread" kind="flatbread" decorative />);
+    const { container } = render(<Plate name="Хачапури по-аджарски" kind="flatbread" decorative />);
     const svg = container.querySelector('svg');
     expect(svg?.getAttribute('aria-hidden')).toBe('true');
     expect(svg?.getAttribute('role')).toBeNull();

@@ -63,8 +63,8 @@ describe('rush', () => {
     expect(payment?.currency).toBe(dto.currency);
   });
   it('writes the payment in the restaurant’s own currency, not a literal', async () => {
-    // The seeded demo restaurant charges in USD, which is also what the literal used to say, so
-    // the only way to see the difference is to move the restaurant off it.
+    // The seeded demo restaurant charges in roubles, which is also what the payments column now
+    // defaults to, so the only way to see the difference is to move the restaurant off it.
     const [restaurant] = await ctx.db.select().from(schema.restaurants);
     await ctx.db
       .update(schema.restaurants)

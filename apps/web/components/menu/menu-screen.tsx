@@ -47,7 +47,7 @@ export function MenuScreen({
             <DishCard
               key={item.id}
               item={item}
-              category={category.name}
+              plateKind={category.plateKind}
               currency={currency}
               quantity={cart.items[item.id] ?? 0}
               onAdd={() => add(item.id)}

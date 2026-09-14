@@ -19,13 +19,14 @@ const menu: MenuResponse = {
   categories: [
     {
       id: U(2),
-      name: 'Flatbreads',
+      name: 'Из печи',
+      plateKind: 'flatbread',
       sortOrder: 0,
       items: [
         {
           id: U(3),
           categoryId: U(2),
-          name: 'Margherita Flatbread',
+          name: 'Хачапури по-аджарски',
           description: '',
           priceCents: 1200,
           allergens: ['gluten'],

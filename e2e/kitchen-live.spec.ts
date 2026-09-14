@@ -13,7 +13,7 @@ const OFFLINE_DETECTION_MS = 20_000;
  * the guest's problem, not the kitchen's — and the board holds it without ever giving it a column.
  */
 const BOARD_STATUSES = ['paid', 'cooking', 'ready'];
-/** One House Lemonade, so the amount on the button and on the terminal is this one. */
+/** One Морс из клюквы, so the amount on the button and on the terminal is this one. */
 const AMOUNT = '$4.00';
 
 /** The guest flow as far as the receipt: an order that exists, owes money and is nobody's ticket. */
@@ -22,8 +22,8 @@ async function guestOrders(page: Page): Promise<{ id: string; number: number }> 
   await page.getByRole('link', { name: /Открыть меню стола\s7/ }).click();
   await page.waitForURL('**/menu');
   await expect(async () => {
-    await page.getByRole('button', { name: 'Add House Lemonade' }).click();
-    await expect(page.getByRole('button', { name: 'Add one more House Lemonade' })).toBeVisible({
+    await page.getByRole('button', { name: 'Add Морс из клюквы' }).click();
+    await expect(page.getByRole('button', { name: 'Add one more Морс из клюквы' })).toBeVisible({
       timeout: 1_000,
     });
   }).toPass();
@@ -68,7 +68,7 @@ test('a paid order is on the kitchen board within 500 ms and the guest follows i
   await expect(banner).toHaveCount(0, { timeout: 10_000 }); // banner gone: the socket is up
 
   const { id, number } = await guestOrders(guest);
-  const ticket = kitchen.getByRole('heading', { name: `Table 7 · #${number}` });
+  const ticket = kitchen.getByRole('heading', { name: `Стол 7 · #${number}` });
   // The order is placed, the socket has had the whole guest round trip to deliver it, and the
   // pass has still never seen it: an unpaid order is not work the kitchen may start.
   await expect(ticket).toHaveCount(0);
@@ -103,7 +103,7 @@ test('a paid order is on the kitchen board within 500 ms and the guest follows i
   await expect(
     kitchen
       .getByRole('region', { name: 'Cooking' })
-      .getByRole('heading', { name: `Table 7 · #${number}` }),
+      .getByRole('heading', { name: `Стол 7 · #${number}` }),
   ).toBeVisible();
   await expect(guest.getByRole('heading', { level: 1 })).toHaveText(
     `Order #${number} is being made.`,
@@ -127,7 +127,7 @@ test('a paid order is on the kitchen board within 500 ms and the guest follows i
   expect(boardCount).toBe(active.orders.filter((o) => BOARD_STATUSES.includes(o.status)).length);
 
   await kitchen.getByRole('button', { name: `Served #${number}` }).click();
-  await expect(kitchen.getByRole('heading', { name: `Table 7 · #${number}` })).toHaveCount(0);
+  await expect(kitchen.getByRole('heading', { name: `Стол 7 · #${number}` })).toHaveCount(0);
   await expect(guest.getByRole('heading', { level: 1 })).toHaveText(
     `Order #${number} was served. Enjoy.`,
   );

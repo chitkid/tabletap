@@ -30,14 +30,15 @@ const FOCACCIA = U(5);
 const menu: MenuResponse = {
   restaurant: { id: U(1), name: 'Little Furnace', currency: 'RUB' },
   categories: [
-    { id: DRINKS, name: 'Напитки', sortOrder: 3, items: [] },
+    { id: DRINKS, name: 'Напитки', plateKind: 'drink', sortOrder: 3, items: [] },
     {
       id: SMALL_PLATES,
       name: 'Закуски',
+      plateKind: 'side',
       sortOrder: 0,
       items: [dish(FOCACCIA, SMALL_PLATES, 'Фокачча', 1), dish(OLIVES, SMALL_PLATES, 'Оливки', 0)],
     },
-    { id: DESSERTS, name: 'Десерты', sortOrder: 5, items: [] },
+    { id: DESSERTS, name: 'Десерты', plateKind: 'side', sortOrder: 5, items: [] },
   ],
 };
 
@@ -177,6 +178,7 @@ describe('MenuTable', () => {
         {
           id: SMALL_PLATES,
           name: 'Закуски',
+          plateKind: 'side',
           sortOrder: 0,
           items: [
             dish(OLIVES, SMALL_PLATES, 'Оливки', 0),

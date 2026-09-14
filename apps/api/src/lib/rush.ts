@@ -6,13 +6,18 @@ import { recordAudit } from './audit';
 import type { OrderEvents } from './order-events';
 import { hydrate, insertPlacedOrder, type InternalOrderDto, type OrderLine } from './orders';
 
+/**
+ * The six заметки к заказу a simulated guest leaves. They reach a cook's board verbatim, so they
+ * are written the way a guest types on a phone — short, on «вы», no punctuation a person would not
+ * bother with — and they name dishes this menu actually has («лепёшка», not a flatbread).
+ */
 export const RUSH_NOTES = [
-  'No onions, please.',
-  'Extra chili on the side.',
-  'Birthday at the table.',
-  'Allergic to nuts.',
-  'Split the flatbread in two.',
-  'We are in a hurry.',
+  'Без лука, пожалуйста.',
+  'Острый соус отдельно.',
+  'У нас день рождения.',
+  'Аллергия на орехи.',
+  'Разрежьте лепёшку пополам.',
+  'Мы торопимся.',
 ] as const;
 
 const pick = <T>(items: readonly T[], random: () => number): T =>

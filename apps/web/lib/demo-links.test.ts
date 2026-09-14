@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const LINKS = {
   guest: { tableNumber: 7, url: 'http://localhost:3000/t/token' },
   staff: [
-    { role: 'admin', email: 'admin@littlefurnace.demo', name: 'Mara Quinn', password: 'demo' },
+    { role: 'admin', email: 'admin@littlefurnace.demo', name: 'Марина Ковалёва', password: 'demo' },
   ],
   resetsEveryMinutes: null,
   payments: { provider: 'demo', testCard: null },

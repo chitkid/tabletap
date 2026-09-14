@@ -44,7 +44,7 @@ describe('tables-admin', () => {
     const [item] = await ctx.db
       .select()
       .from(schema.menuItems)
-      .where(eq(schema.menuItems.name, 'Margherita Flatbread'));
+      .where(eq(schema.menuItems.name, 'Хачапури по-аджарски'));
     const res = await ctx.app.inject({
       method: 'POST',
       url: '/api/orders',

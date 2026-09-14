@@ -1,35 +1,22 @@
+import { PLATE_KINDS } from '@tabletap/shared';
 import { describe, expect, it } from 'vitest';
-import {
-  PALETTE_SLOTS,
-  PLATE_KINDS,
-  hashSeed,
-  kindFromCategory,
-  mulberry32,
-  planPlate,
-} from './plate-plan';
+import { PALETTE_SLOTS, hashSeed, mulberry32, planPlate } from './plate-plan';
 
 const inPlate = (x: number, y: number, r: number, plateR: number) =>
   Math.hypot(x - 64, y - 64) + r <= plateR + 0.001;
 
 describe('plate planner', () => {
   it('is deterministic', () => {
-    expect(planPlate('Margherita Flatbread', 'flatbread')).toEqual(
-      planPlate('Margherita Flatbread', 'flatbread'),
+    expect(planPlate('Хачапури по-аджарски', 'flatbread')).toEqual(
+      planPlate('Хачапури по-аджарски', 'flatbread'),
     );
-    expect(JSON.stringify(planPlate('Margherita Flatbread', 'flatbread'))).not.toEqual(
-      JSON.stringify(planPlate('Mushroom & Taleggio', 'flatbread')),
+    expect(JSON.stringify(planPlate('Хачапури по-аджарски', 'flatbread'))).not.toEqual(
+      JSON.stringify(planPlate('Лепёшка с грибами и сулугуни', 'flatbread')),
     );
-  });
-  it('maps categories to kinds', () => {
-    expect(kindFromCategory('Flatbreads')).toBe('flatbread');
-    expect(kindFromCategory('Bowls')).toBe('bowl');
-    expect(kindFromCategory('Sides')).toBe('side');
-    expect(kindFromCategory('Drinks')).toBe('drink');
-    expect(kindFromCategory('Specials')).toBe('side');
   });
   it('keeps every shape inside the plate and every slot in range', () => {
     for (const kind of PLATE_KINDS) {
-      for (const seed of ['a', 'Ember Salmon Bowl', 'House Lemonade', 'Furnace Potatoes']) {
+      for (const seed of ['a', 'Плов с бараниной', 'Морс из клюквы', 'Тандырная лепёшка']) {
         const plan = planPlate(seed, kind);
         expect(plan.viewBox).toBe(128);
         expect(plan.plate.r).toBeGreaterThan(40);

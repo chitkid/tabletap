@@ -77,19 +77,22 @@ export async function seed(db: Db, opts: SeedOptions): Promise<SeedResult> {
 
     let items = 0;
     for (const [categoryIndex, group] of DEMO_MENU.entries()) {
+      // Hashed from `group.key`, not from the words a guest reads: re-wording a category — which
+      // this milestone did to all four at once — is no longer a change of identity.
       const [category] = await tx
         .insert(schema.menuCategories)
         .values({
-          id: stableId('category', `${slug}:${group.category}`),
+          id: stableId('category', `${slug}:${group.key}`),
           restaurantId: restaurant.id,
-          name: group.category,
+          name: group.name,
+          plateKind: group.plateKind,
           sortOrder: categoryIndex,
         })
         .returning();
       if (!category) throw new Error('seed: category insert returned nothing');
       await tx.insert(schema.menuItems).values(
         group.items.map((item, index) => ({
-          id: stableId('item', `${slug}:${group.category}:${item.name}`),
+          id: stableId('item', `${slug}:${group.key}:${item.name}`),
           categoryId: category.id,
           name: item.name,
           description: item.description,

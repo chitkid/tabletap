@@ -77,7 +77,7 @@ describe('payments', () => {
       provider: 'demo',
       status: 'pending',
       amountCents: order.totalCents,
-      currency: 'USD',
+      currency: 'RUB',
     });
   });
 

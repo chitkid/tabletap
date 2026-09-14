@@ -90,13 +90,13 @@ describe('LoginForm', () => {
     const navigate = vi.fn();
     const client = makeClient({
       useSession: () => ({
-        data: { user: { name: 'Theo Baptiste', role: 'kitchen' } },
+        data: { user: { name: 'Тимофей Басов', role: 'kitchen' } },
         isPending: false,
       }),
     });
     render(<LoginForm client={client} next="/kitchen" navigate={navigate} />);
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Signed in as Theo Baptiste. Opening the kitchen…',
+      'Signed in as Тимофей Басов. Opening the kitchen…',
     );
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/kitchen'));
   });
@@ -110,11 +110,11 @@ describe('LoginForm', () => {
         demo={{
           email: 'kitchen@littlefurnace.demo',
           password: 'tabletap-demo',
-          name: 'Theo Baptiste',
+          name: 'Тимофей Басов',
         }}
       />,
     );
-    expect(screen.getByRole('status')).toHaveTextContent('Signing in as Theo Baptiste…');
+    expect(screen.getByRole('status')).toHaveTextContent('Signing in as Тимофей Басов…');
     await waitFor(() =>
       expect(email).toHaveBeenCalledWith({
         email: 'kitchen@littlefurnace.demo',

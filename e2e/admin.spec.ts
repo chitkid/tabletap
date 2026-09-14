@@ -7,7 +7,7 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 /** The seed's first category, which is where the brief puts the new dish. */
-const FIRST_CATEGORY = 'Flatbreads';
+const FIRST_CATEGORY = 'Из печи';
 /** The demo table every guest spec claims; the one `GET /api/demo/links` hands out. */
 const DEMO_TABLE = 7;
 

@@ -23,13 +23,14 @@ const menu: MenuResponse = {
   categories: [
     {
       id: U(2),
-      name: 'Drinks',
+      name: 'Напитки',
+      plateKind: 'drink',
       sortOrder: 0,
       items: [
         {
           id: U(3),
           categoryId: U(2),
-          name: 'House Lemonade',
+          name: 'Морс из клюквы',
           description: '',
           priceCents: 400,
           allergens: [],
@@ -40,7 +41,7 @@ const menu: MenuResponse = {
         {
           id: U(4),
           categoryId: U(2),
-          name: 'Cold Brew',
+          name: 'Раф с облепихой',
           description: '',
           priceCents: 450,
           allergens: [],
@@ -92,7 +93,7 @@ describe('CheckoutScreen', () => {
       vi.fn(async () => json(201, orderBody)),
     );
     render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
-    expect(screen.getByText('2 × House Lemonade')).toBeInTheDocument();
+    expect(screen.getByText('2 × Морс из клюквы')).toBeInTheDocument();
     expect(screen.getByText('Итого')).toBeInTheDocument();
     expect(screen.getByText('13 $')).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Заметка к заказу'), 'No ice');
@@ -119,7 +120,7 @@ describe('CheckoutScreen', () => {
           error: {
             code: 'ITEM_UNAVAILABLE',
             message: 'x',
-            details: { unavailable: [{ menuItemId: U(4), name: 'Cold Brew' }] },
+            details: { unavailable: [{ menuItemId: U(4), name: 'Раф с облепихой' }] },
           },
         }),
       )
@@ -130,7 +131,7 @@ describe('CheckoutScreen', () => {
     expect(
       await screen.findByText('Сегодня закончилось. Уберите из корзины, чтобы продолжить.'),
     ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Убрать «Cold Brew»' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Убрать «Раф с облепихой»' }));
     await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
     await vi.waitFor(() => expect(f).toHaveBeenCalledTimes(2));
     const keys = f.mock.calls.map((c) =>

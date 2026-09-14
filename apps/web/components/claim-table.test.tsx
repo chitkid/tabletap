@@ -29,7 +29,7 @@ describe('ClaimTable', () => {
       'fetch',
       vi.fn(async () =>
         json(200, {
-          table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f01', number: 7, label: 'Table 7' },
+          table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f01', number: 7, label: 'Стол 7' },
           expiresAt: '2026-09-03T14:00:00.000Z',
         }),
       ),
@@ -42,7 +42,7 @@ describe('ClaimTable', () => {
   it('claims the table once under StrictMode', async () => {
     const f = vi.fn(async () =>
       json(200, {
-        table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f01', number: 7, label: 'Table 7' },
+        table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f01', number: 7, label: 'Стол 7' },
         expiresAt: '2026-09-03T14:00:00.000Z',
       }),
     );
@@ -63,7 +63,7 @@ describe('ClaimTable', () => {
       .mockResolvedValueOnce(json(401, { error: { code: 'TOKEN_EXPIRED', message: 'x' } }))
       .mockResolvedValueOnce(
         json(200, {
-          table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f01', number: 7, label: 'Table 7' },
+          table: { id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f01', number: 7, label: 'Стол 7' },
           expiresAt: '2026-09-03T14:00:00.000Z',
         }),
       );

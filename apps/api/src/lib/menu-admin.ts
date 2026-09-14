@@ -36,8 +36,14 @@ function toItemDto(row: ItemRow): MenuItemDto {
   };
 }
 
+/**
+ * `plateKind` is read, never written: it is not on `MenuCategoryWriteSchema`, so a category created
+ * or renamed through the admin editor keeps whatever the column holds — `DEFAULT_PLATE_KIND` for a
+ * new one. Choosing a plate shape per category is a product decision this milestone does not make;
+ * what it fixes is the shape being inferred from the words a restaurant happened to use.
+ */
 function toCategoryDto(row: CategoryRow, items: MenuItemDto[]): MenuCategoryDto {
-  return { id: row.id, name: row.name, sortOrder: row.sortOrder, items };
+  return { id: row.id, name: row.name, plateKind: row.plateKind, sortOrder: row.sortOrder, items };
 }
 
 async function itemsOf(db: Db, categoryId: string): Promise<MenuItemDto[]> {

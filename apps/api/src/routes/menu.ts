@@ -77,6 +77,10 @@ export async function loadMenu(db: Db, restaurantId: string): Promise<MenuRespon
     .select({
       id: schema.menuCategories.id,
       name: schema.menuCategories.name,
+      // The guest menu draws every dish from this; the demo has no photographs. Dropping it here
+      // would not break a type - the spread below carries whatever this selects - so
+      // `MenuCategoryDtoSchema` makes it required and the response fails to serialise instead.
+      plateKind: schema.menuCategories.plateKind,
       sortOrder: schema.menuCategories.sortOrder,
     })
     .from(schema.menuCategories)

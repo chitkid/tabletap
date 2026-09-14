@@ -29,7 +29,7 @@ describe('loadDashboard', () => {
       .returning();
     const [table] = await ctx.db
       .insert(schema.tables)
-      .values({ restaurantId: restaurant!.id, number: 1, label: 'Table 1' })
+      .values({ restaurantId: restaurant!.id, number: 1, label: 'Стол 1' })
       .returning();
     return { restaurantId: restaurant!.id, tableId: table!.id };
   }

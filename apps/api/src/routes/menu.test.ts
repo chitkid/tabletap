@@ -30,12 +30,34 @@ describe('GET /api/menu', () => {
     expect(res.statusCode).toBe(200);
     const menu = MenuResponseSchema.parse(res.json());
     expect(menu.restaurant.name).toBe('Little Furnace');
-    expect(menu.categories.map((c) => c.name)).toEqual(['Flatbreads', 'Bowls', 'Sides', 'Drinks']);
+    expect(menu.categories.map((c) => c.name)).toEqual([
+      'Из печи',
+      'Горячее',
+      'Салаты и закуски',
+      'Напитки',
+    ]);
     expect(menu.categories.flatMap((c) => c.items)).toHaveLength(20);
-    const burrata = menu.categories[2]!.items.find((i) => i.name === 'Burrata & Peaches');
-    expect(burrata?.isAvailable).toBe(false);
-    expect(menu.categories[0]!.items.map((i) => i.name)[0]).toBe('Margherita Flatbread');
-    expect(menu.categories[0]!.items[0]!.allergens).toEqual(['gluten', 'dairy']);
+    const aubergines = menu.categories[2]!.items.find(
+      (i) => i.name === 'Баклажаны с ореховым соусом',
+    );
+    expect(aubergines?.isAvailable).toBe(false);
+    expect(menu.categories[0]!.items.map((i) => i.name)[0]).toBe('Хачапури по-аджарски');
+    expect(menu.categories[0]!.items[0]!.allergens).toEqual(['gluten', 'dairy', 'egg']);
+  });
+  /**
+   * The far end of the journey a plate kind makes: declared in the seed, stored on the row, read
+   * here. Every dish in the demo is drawn from it, because the demo has no photographs. Take
+   * `plateKind` out of `loadMenu`'s select and the response stops parsing; leave it in but let the
+   * four collapse to one kind and this is what says so.
+   */
+  it('carries a distinct plate kind per category to the guest', async () => {
+    const { cookie } = await claimTable(ctx.app, ctx.db, 5);
+    const menu = MenuResponseSchema.parse(
+      (await ctx.app.inject({ method: 'GET', url: '/api/menu', headers: { cookie } })).json(),
+    );
+    const kinds = menu.categories.map((c) => c.plateKind);
+    expect(kinds).toEqual(['flatbread', 'bowl', 'side', 'drink']);
+    expect([...new Set(kinds)]).toEqual(kinds);
   });
   it('returns the menu for staff', async () => {
     const cookie = await signInAs(ctx.app, 'kitchen@littlefurnace.demo');
@@ -47,16 +69,16 @@ describe('GET /api/menu', () => {
     await ctx.db
       .update(schema.menuCategories)
       .set({ isActive: false })
-      .where(eq(schema.menuCategories.name, 'Drinks'));
+      .where(eq(schema.menuCategories.name, 'Напитки'));
     const { cookie } = await claimTable(ctx.app, ctx.db, 4);
     const menu = MenuResponseSchema.parse(
       (await ctx.app.inject({ method: 'GET', url: '/api/menu', headers: { cookie } })).json(),
     );
-    expect(menu.categories.map((c) => c.name)).toEqual(['Flatbreads', 'Bowls', 'Sides']);
+    expect(menu.categories.map((c) => c.name)).toEqual(['Из печи', 'Горячее', 'Салаты и закуски']);
     await ctx.db
       .update(schema.menuCategories)
       .set({ isActive: true })
-      .where(eq(schema.menuCategories.name, 'Drinks'));
+      .where(eq(schema.menuCategories.name, 'Напитки'));
   });
 });
 
@@ -76,12 +98,12 @@ describe('admin menu routes', () => {
     const [category] = await ctx.db
       .select()
       .from(schema.menuCategories)
-      .where(eq(schema.menuCategories.name, 'Bowls'));
+      .where(eq(schema.menuCategories.name, 'Горячее'));
     categoryId = category!.id;
     const [item] = await ctx.db
       .select()
       .from(schema.menuItems)
-      .where(eq(schema.menuItems.name, 'Ember Salmon Bowl'));
+      .where(eq(schema.menuItems.name, 'Уха из судака на углях'));
     itemId = item!.id;
   });
   afterAll(async () => {
@@ -294,7 +316,7 @@ describe('menu photographs', () => {
     const [category] = await ctx.db
       .select()
       .from(schema.menuCategories)
-      .where(eq(schema.menuCategories.name, 'Bowls'));
+      .where(eq(schema.menuCategories.name, 'Горячее'));
     const res = await ctx.app.inject({
       method: 'POST',
       url: '/api/menu/items',
@@ -351,7 +373,7 @@ describe('menu photographs', () => {
     const [item] = await ctx.db
       .select()
       .from(schema.menuItems)
-      .where(eq(schema.menuItems.name, 'Ember Salmon Bowl'));
+      .where(eq(schema.menuItems.name, 'Уха из судака на углях'));
     itemId = item!.id;
     configuredStorage = ctx.app.storage;
   });
@@ -731,7 +753,7 @@ describe('demo upload gate', () => {
       const [item] = await ctx.db
         .select()
         .from(schema.menuItems)
-        .where(eq(schema.menuItems.name, 'Ember Salmon Bowl'));
+        .where(eq(schema.menuItems.name, 'Уха из судака на углях'));
       const itemId = item!.id;
       const message = 'Photo upload is disabled in this deployment.';
 
