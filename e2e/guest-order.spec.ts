@@ -1,5 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 
+/**
+ * The two amounts this file asserts, priced by the API off the seed and formatted `ru-RU` with no
+ * kopecks: two Хачапури по-аджарски at 690 ₽ plus one Морс из клюквы at 260 ₽, and the drink on its
+ * own. Named rather than written inline so a re-priced seed is one edit here, not six scattered
+ * literals a reader checks against a dish name and never re-computes.
+ *
+ * Regexes with `\s`, because `ru-RU` puts U+00A0 inside «1 640» and before «₽». Playwright
+ * normalises whitespace before matching, so a plain space would very likely work too; `\s` means
+ * the specs cannot turn on that behaviour.
+ */
+const BASKET_TOTAL = String.raw`1\s640\s₽`;
+const DRINK_TOTAL = String.raw`260\s₽`;
+
 /** The number out of the receipt's own headline: the only place a guest is ever shown it. */
 async function orderNumberFrom(page: Page): Promise<number> {
   const headline = await page.getByRole('heading', { level: 1 }).textContent();
@@ -25,7 +38,9 @@ test('a guest orders from the landing page QR link and pays for it', async ({ pa
   }).toPass();
   await page.getByRole('button', { name: 'Add one more Хачапури по-аджарски' }).click();
   await page.getByRole('button', { name: 'Add Морс из клюквы' }).click();
-  await expect(page.getByRole('region', { name: 'Basket' })).toContainText('3 items · $28.00');
+  await expect(page.getByRole('region', { name: 'Basket' })).toContainText(
+    new RegExp(`3 items · ${BASKET_TOTAL}`),
+  );
   await page.getByRole('button', { name: 'View basket' }).click();
   await page.getByRole('link', { name: 'Go to checkout' }).click();
   await page.waitForURL('**/checkout');
@@ -52,7 +67,7 @@ test('a guest orders from the landing page QR link and pays for it', async ({ pa
   // The receipt keeps a socket open, so `networkidle` never arrives there: retry the tap, the way
   // the menu does above, until the navigation it should have started actually starts.
   await expect(async () => {
-    await page.getByRole('button', { name: 'Pay $28.00' }).click();
+    await page.getByRole('button', { name: new RegExp(`Pay ${BASKET_TOTAL}`) }).click();
     await page.waitForURL(/\/pay\/[0-9a-f-]{36}$/, { timeout: 2_000 });
   }).toPass();
   // Nothing on the terminal touches the network until a button is pressed, so an idle one has its
@@ -61,10 +76,10 @@ test('a guest orders from the landing page QR link and pays for it', async ({ pa
   // The terminal names the order it is settling, shows the amount the API priced (never one the
   // browser worked out) and says out loud that none of it is real.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Стол 7 · Order #${number}`);
-  await expect(page.getByText('$28.00', { exact: true })).toBeVisible();
+  await expect(page.getByText(new RegExp(`^${BASKET_TOTAL}$`))).toBeVisible();
   await expect(page.getByText('This is a demo. No card, no money.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Pay $28.00' }).click();
+  await page.getByRole('button', { name: new RegExp(`Pay ${BASKET_TOTAL}`) }).click();
   await page.waitForURL(/\/orders\/[0-9a-f-]{36}\?paid=1$/);
   // The settlement, not the redirect, is what changed the headline: the query string only says
   // which way the guest came back.
@@ -95,7 +110,7 @@ test('a declined payment leaves the order waiting and offers another attempt', a
   const number = await orderNumberFrom(page);
 
   await expect(async () => {
-    await page.getByRole('button', { name: 'Pay $4.00' }).click();
+    await page.getByRole('button', { name: new RegExp(`Pay ${DRINK_TOTAL}`) }).click();
     await page.waitForURL(/\/pay\/[0-9a-f-]{36}$/, { timeout: 2_000 });
   }).toPass();
   await page.waitForLoadState('networkidle');
@@ -110,7 +125,7 @@ test('a declined payment leaves the order waiting and offers another attempt', a
   await expect(
     page.locator('[data-slot="status-badge"]').getByText('Placed', { exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Pay $4.00' })).toBeVisible();
+  await expect(page.getByRole('button', { name: new RegExp(`Pay ${DRINK_TOTAL}`) })).toBeVisible();
 });
 
 test('an expired QR code explains itself', async ({ page }) => {

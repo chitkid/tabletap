@@ -13,8 +13,13 @@ const OFFLINE_DETECTION_MS = 20_000;
  * the guest's problem, not the kitchen's — and the board holds it without ever giving it a column.
  */
 const BOARD_STATUSES = ['paid', 'cooking', 'ready'];
-/** One Морс из клюквы, so the amount on the button and on the terminal is this one. */
-const AMOUNT = '$4.00';
+/**
+ * One Морс из клюквы at 260 ₽, so the amount on the button and on the terminal is this one — the
+ * API prices it off the seed and formats it `ru-RU` with no kopecks. A regex with `\s` because
+ * `ru-RU` puts U+00A0 before «₽»; Playwright normalises whitespace anyway, and this does not rely
+ * on it.
+ */
+const PAY = /Pay 260\s₽/;
 
 /** The guest flow as far as the receipt: an order that exists, owes money and is nobody's ticket. */
 async function guestOrders(page: Page): Promise<{ id: string; number: number }> {
@@ -76,7 +81,7 @@ test('a paid order is on the kitchen board within 500 ms and the guest follows i
   // The receipt keeps a socket open, so `networkidle` never arrives there: retry the tap, the way
   // the menu does, until the navigation it should have started actually starts.
   await expect(async () => {
-    await guest.getByRole('button', { name: `Pay ${AMOUNT}` }).click();
+    await guest.getByRole('button', { name: PAY }).click();
     await guest.waitForURL(/\/pay\/[0-9a-f-]{36}$/, { timeout: 2_000 });
   }).toPass();
   // Nothing on the terminal touches the network until a button is pressed, so an idle one has its
@@ -85,7 +90,7 @@ test('a paid order is on the kitchen board within 500 ms and the guest follows i
   await guest.waitForLoadState('networkidle');
   // The clock starts on the press, not on the trip back: the guest's own page is still being
   // rendered while the ticket is already crossing to the board.
-  await guest.getByRole('button', { name: `Pay ${AMOUNT}` }).click();
+  await guest.getByRole('button', { name: PAY }).click();
   await expect(ticket).toBeVisible({ timeout: 5_000 });
   const visibleAt = Date.now();
   await guest.waitForURL(/\/orders\/[0-9a-f-]{36}\?paid=1$/);

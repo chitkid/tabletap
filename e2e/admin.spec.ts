@@ -76,8 +76,13 @@ test('an admin adds a dish and a guest sees it', async ({ browser }) => {
   // Unique to the run: the dish is left on the menu afterwards, and a second run must not collide
   // with the first one's row.
   const dish = `Test dish ${Date.now()}`;
-  const price = '9.50';
-  const shown = '$9.50';
+  // A whole rouble. The editor's input takes major units and `formatCents` prints none, so 9.50 —
+  // what this was — is typed in and read back as «10 ₽»: a fixture that cannot round-trip, and an
+  // assertion that would fail on a price the server stored correctly.
+  const price = '750.00';
+  /** `\s` for the U+00A0 `ru-RU` puts before the symbol. Playwright normalises it; this does not
+   *  depend on that. */
+  const shown = /750\s₽/;
 
   const category = admin.getByRole('rowgroup', { name: FIRST_CATEGORY });
   // The first press can land before React has hydrated the table, and a click on a button that is
