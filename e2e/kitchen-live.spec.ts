@@ -19,7 +19,7 @@ const AMOUNT = '$4.00';
 /** The guest flow as far as the receipt: an order that exists, owes money and is nobody's ticket. */
 async function guestOrders(page: Page): Promise<{ id: string; number: number }> {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Table 7 as a guest' }).click();
+  await page.getByRole('link', { name: /Открыть меню стола\s7/ }).click();
   await page.waitForURL('**/menu');
   await expect(async () => {
     await page.getByRole('button', { name: 'Add House Lemonade' }).click();

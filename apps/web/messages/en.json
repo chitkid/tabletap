@@ -1,47 +1,41 @@
 {
   "landing": {
     "meta": {
-      "title": "TableTap — QR ordering with a live kitchen display",
-      "description": "The guest scans a code at the table, picks dishes and places the order. The kitchen sees it the same moment. The demo is open, no sign-up required."
+      "title": "Little Furnace — order from your table by QR code",
+      "description": "Scan the code on your table, pick dishes and place the order. The kitchen gets it right away, no waiting for a server."
     },
+    "brand": "Little Furnace",
+    "staffEntrance": "Staff entrance",
     "hero": {
       "line1": "Order from your table.",
-      "line2": "The kitchen sees it in real time.",
-      "subtitle": "The guest taps — the ticket prints in the kitchen. Try it yourself below."
+      "line2": "A second later it is in the kitchen.",
+      "subtitle": "Scan the code on your table, pick dishes and place the order. No waiting for a server — the kitchen gets the order right away."
     },
-    "roles": {
-      "guest": {
-        "text": "Scan the code with your phone, or open table 7 right here.",
-        "cta": "Open table 7 as a guest"
-      },
-      "kitchen": {
-        "text": "Tickets appear the moment a guest orders. Opens the live board signed in as kitchen staff.",
-        "cta": "Open the kitchen display"
-      },
-      "admin": {
-        "text": "Edit the menu, the tables and the codes, and read the day. Opens the dashboard signed in as an admin.",
-        "cta": "Open the admin"
-      }
-    },
-    "notices": {
-      "demoPayments": "Payments run in demo mode: no card, no money.",
-      "demoReset": "Demo data resets every 60 minutes.",
-      "coldStart": "On the free tier the API sleeps when nobody is here, so the first page after a quiet spell can take about a minute."
-    },
-    "rush": {
-      "button": "Simulate rush",
-      "caption": "Twelve orders over one minute, so the board has something to do."
-    },
+    "guestCta": "Open the menu for table {table}",
     "howItWorks": {
       "heading": "How it works",
       "steps": [
-        "Scan the QR code on the table.",
-        "Pick dishes and add a note.",
-        "Place the order.",
-        "Follow its status on your phone."
+        "Scan the QR code on the table",
+        "Pick dishes and add a note",
+        "Place the order",
+        "Follow its status on your phone"
       ]
     },
-    "footer": "Source, ADRs and the case study live in the repository README."
+    "hours": {
+      "heading": "Opening hours",
+      "weekdays": "Monday–Thursday",
+      "weekdaysTime": "12:00 — 23:00",
+      "weekend": "Friday and Saturday",
+      "weekendTime": "12:00 — 01:00",
+      "sunday": "Sunday",
+      "sundayTime": "12:00 — 22:00"
+    },
+    "staff": {
+      "heading": "Staff area",
+      "text": "For front-of-house and kitchen staff. Sign in with your account.",
+      "kitchen": "Kitchen display",
+      "admin": "Admin dashboard"
+    }
   },
   "guest": {
     "basketItems": "{n, plural, one {# item} other {# items}}"

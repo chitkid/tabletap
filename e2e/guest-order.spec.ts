@@ -10,7 +10,7 @@ async function orderNumberFrom(page: Page): Promise<number> {
 
 test('a guest orders from the landing page QR link and pays for it', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Table 7 as a guest' }).click();
+  await page.getByRole('link', { name: /Открыть меню стола\s7/ }).click();
   await page.waitForURL('**/menu');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Little Furnace');
   await expect(page.getByText('Table 7')).toBeVisible();
@@ -79,7 +79,7 @@ test('a guest orders from the landing page QR link and pays for it', async ({ pa
 
 test('a declined payment leaves the order waiting and offers another attempt', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Table 7 as a guest' }).click();
+  await page.getByRole('link', { name: /Открыть меню стола\s7/ }).click();
   await page.waitForURL('**/menu');
   await expect(async () => {
     await page.getByRole('button', { name: 'Add House Lemonade' }).click();

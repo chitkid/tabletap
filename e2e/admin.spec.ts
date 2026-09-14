@@ -99,7 +99,7 @@ test('an admin adds a dish and a guest sees it', async ({ browser }) => {
 
   // The guest arrives the way a guest does: the landing's QR link, a claim, the menu.
   await guest.goto('/');
-  await guest.getByRole('link', { name: `Table ${DEMO_TABLE} as a guest` }).click();
+  await guest.getByRole('link', { name: new RegExp(`Открыть меню стола\\s${DEMO_TABLE}`) }).click();
   await guest.waitForURL('**/menu');
   const card = guest
     .getByRole('article')
