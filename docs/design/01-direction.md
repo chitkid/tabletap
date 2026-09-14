@@ -215,6 +215,22 @@ rather than from the display, a utilitarian face is the honest one.
 Its cost is real and accepted: two weights, no variable axis, and more restraint at hero size than
 Oswald would give.
 
+## Standing constraint added by the owner, 2026-09-14
+
+**Rounded corners nearly everywhere.** This is a system-level instruction and belongs in the radius
+scale of Phase 2, not in any one screen.
+
+It pulls against the chosen direction, and the tension is worth stating rather than smoothing over:
+a ticket is cut, not rounded, and the paper world reaches for square edges. Resolving it by halves
+would produce the worst outcome — a page that is neither.
+
+The rule that keeps both: **radius belongs to everything a hand touches**, buttons, inputs, cards,
+chips, tickets, sheets; **the square edge is reserved for where the paper is literally torn**, which
+on this product is the tear line between sections and nothing else. Radius then reads as a property
+of objects, and the one straight edge on the page carries meaning rather than being a leftover.
+
+Phase 2 sets the scale; a single value applied everywhere is as thoughtless as none.
+
 ## Recommendation as presented (superseded by the decision above)
 
 **B, «Смена».** It is the only one whose central idea is the product's central claim: two places,
