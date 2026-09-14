@@ -266,7 +266,7 @@
     },
     "font": {
       "display": {
-        "$value": "'Bricolage Grotesque', 'Trebuchet MS', system-ui, sans-serif"
+        "$value": "'PT Sans Narrow', 'Arial Narrow', system-ui, sans-serif"
       },
       "text": {
         "$value": "'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif"

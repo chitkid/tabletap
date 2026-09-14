@@ -67,7 +67,7 @@
   --primitive-radius-md: 0.625rem;
   --primitive-radius-lg: 1rem;
   --primitive-radius-full: 9999px;
-  --primitive-font-display: 'Bricolage Grotesque', 'Trebuchet MS', system-ui, sans-serif;
+  --primitive-font-display: 'PT Sans Narrow', 'Arial Narrow', system-ui, sans-serif;
   --primitive-font-text: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --primitive-font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
   --primitive-size-14: 0.875rem;
@@ -122,7 +122,7 @@
   --timer-ok: #2D853C;
   --timer-warn: #B7791F;
   --timer-late: #B3261E;
-  --font-display: 'Bricolage Grotesque', 'Trebuchet MS', system-ui, sans-serif;
+  --font-display: 'PT Sans Narrow', 'Arial Narrow', system-ui, sans-serif;
   --font-text: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
   --kitchen-body-size: 1.25rem;

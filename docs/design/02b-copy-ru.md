@@ -95,54 +95,61 @@ Russian breaks: «1 заказ», «2 заказа», «5 заказов» needs
 
 Working from the owner's draft, with the changes noted.
 
-**`<title>`** — «TableTap — заказ по QR-коду и живая доска заказов на кухне»
+**`apps/web/messages/ru.json` is the authoritative artifact for typography, not this file.** It
+carries the non-breaking spaces (U+00A0) this section describes below — before short prepositions
+and conjunctions (на, в, с, и, от, по, без, под, со, как, или…) and between a number and its noun
+(«стол 7», «60 минут») — and this file has been updated to match it, so the two agree rather than
+quietly diverging. If they ever disagree again, the dictionary wins; fix this file to match it, not
+the other way round.
 
-**Description** — «Гость сканирует код на столе, выбирает блюда и оформляет заказ. Кухня видит его
-в тот же момент. Демо открыто, без регистрации.»
+**`<title>`** — «TableTap — заказ по QR-коду и живая доска заказов на кухне»
+
+**Description** — «Гость сканирует код на столе, выбирает блюда и оформляет заказ. Кухня видит его
+в тот же момент. Демо открыто, без регистрации.»
 
 **Hero.** The owner's line is kept almost intact; it is already the thesis, and the direction's
 display face is set in uppercase, so it is written to survive that:
 
-> ## Заказ со стола.
+> ## Заказ со стола.
 >
-> ## Через секунду он на кухне.
+> ## Через секунду он на кухне.
 
 The draft's «Кухня видит его в тот же момент» is the more literal sentence and the weaker one — «в
 тот же момент» is an abstraction, «через секунду» is a measurement, and this product has the
 measurement: 34 мс от оплаты до доски. The subtitle carries it:
 
-> Гость нажимает — тикет печатается на кухне. Ниже это можно сделать самому.
+> Гость нажимает — тикет печатается на кухне. Ниже это можно сделать самому.
 
 **Role cards.**
 
 | Карточка | Текст                                                                                  | Кнопка                   |
 | -------- | -------------------------------------------------------------------------------------- | ------------------------ |
-| Гость    | Отсканируйте код телефоном или откройте стол 7 прямо здесь.                            | Открыть стол 7 как гость |
-| Кухня    | Тикеты появляются в момент заказа. Откроется живая доска под учётной записью повара.   | Открыть доску кухни      |
-| Админ    | Меню, столы, QR-коды и итоги дня. Откроется панель под учётной записью администратора. | Открыть панель админа    |
+| Гость    | Отсканируйте код телефоном или откройте стол 7 прямо здесь.                            | Открыть стол 7 как гость |
+| Кухня    | Тикеты появляются в момент заказа. Откроется живая доска под учётной записью повара.   | Открыть доску кухни      |
+| Админ    | Меню, столы, QR-коды и итоги дня. Откроется панель под учётной записью администратора. | Открыть панель админа    |
 
 Changed from the draft: «сотрудника кухни» → «повара» (shorter, and it is a person rather than a
 role title); «итоги дня» kept over «отчёт» because the admin screen is a day, not a report.
 
 **Notices.**
 
-- «Оплата в демо-режиме: без карты и без денег.»
-- «Демо-данные сбрасываются каждые 60 минут.»
-- «На бесплатном тарифе кухня засыпает, когда никого нет, поэтому первая страница после затишья
-  может открываться до минуты.» — this line already exists in English and is measured (34 s cold,
+- «Оплата в демо-режиме: без карты и без денег.»
+- «Демо-данные сбрасываются каждые 60 минут.»
+- «На бесплатном тарифе кухня засыпает, когда никого нет, поэтому первая страница после затишья
+  может открываться до минуты.» — this line already exists in English and is measured (34 s cold,
   0.6 s warm); the Russian keeps the measurement rather than softening it.
 
-**Час пик.** Button «Устроить час пик», under it «Двенадцать заказов за минуту, чтобы доске было чем
+**Час пик.** Button «Устроить час пик», under it «Двенадцать заказов за минуту, чтобы доске было чем
 заняться.»
 
 **«Как это работает»** — the one place numbering is earned, because the content is a sequence:
 
-1. Отсканируйте QR-код на столе
-2. Выберите блюда и добавьте заметку
+1. Отсканируйте QR-код на столе
+2. Выберите блюда и добавьте заметку
 3. Оформите заказ
-4. Следите за статусом на телефоне
+4. Следите за статусом на телефоне
 
-**Footer** — «Исходный код, решения и разбор проекта — в README репозитория.»
+**Footer** — «Исходный код, решения и разбор проекта — в README репозитория.»
 
 ## What is not settled here
 
