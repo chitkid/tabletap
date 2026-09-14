@@ -67,6 +67,21 @@ describe('stripe provider', () => {
     expect(params.success_url).toBe(`${WEB}/orders/${session.orderId}?paid=1`);
     expect(params.cancel_url).toBe(`${WEB}/orders/${session.orderId}?paid=0`);
   });
+
+  /**
+   * Stripe's page is the one screen in this product we do not draw, and all but one word of it is
+   * Stripe's own. Left unset, `locale` is `'auto'` and follows the guest's browser, so a guest
+   * whose phone is in English would read a Russian line item on an English payment form. The line
+   * item itself is `lib/payments.ts`'s `checkoutLineName`, and this test passes it through
+   * untouched to prove the adapter does not translate, reword or truncate what it is handed.
+   */
+  it('asks Stripe for its own chrome in Russian, and prints the name it was given', async () => {
+    const { provider, create } = providerWith();
+    await provider.createSession({ ...session, description: 'Стол 7 · Заказ № 42' });
+    const params = create.mock.calls[0]![0];
+    expect(params.locale).toBe('ru');
+    expect(params.line_items[0].price_data.product_data.name).toBe('Стол 7 · Заказ № 42');
+  });
   it('reads a completed session into a settle input', () => {
     const { provider } = providerWith();
     const body = completed();

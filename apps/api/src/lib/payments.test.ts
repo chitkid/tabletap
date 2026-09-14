@@ -4,9 +4,9 @@ import { IDEMPOTENCY_KEY_HEADER, MenuResponseSchema, OrderResponseSchema } from 
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDemoProvider } from '../payments/demo';
-import type { SettleInput } from '../payments/types';
+import type { PaymentProvider, SettleInput } from '../payments/types';
 import { claimTable, createTestApp } from '../test/helpers';
-import { settlePayment, startPayment } from './payments';
+import { checkoutLineName, settlePayment, startPayment } from './payments';
 
 describe('payments', () => {
   let ctx: Awaited<ReturnType<typeof createTestApp>>;
@@ -417,5 +417,44 @@ describe('payments', () => {
         event({ orderId: randomUUID(), paymentId: randomUUID(), amountCents: 100 }),
       ),
     ).toBe('unknown-order');
+  });
+
+  /**
+   * The one string this process puts in front of a guest without the web tier ever touching it.
+   * Everything else user-visible leaves here as an `ErrorMessageKey` and is worded in
+   * `apps/web/messages/ru.json`; this one is handed to Stripe, which prints it on its own hosted
+   * page, so the words have to be written in this app.
+   */
+  describe('the line item a payment provider shows the guest', () => {
+    it('names the table and the order in Russian, with the copy contract’s bound spaces', () => {
+      // Transcribed rather than derived, because there is nothing here to derive it from: this app
+      // cannot import the web's dictionary, and that is the whole reason the string lives here.
+      // The two U+00A0 are built from their code point so they are visible in this file.
+      const nbsp = String.fromCharCode(0xa0);
+      expect(checkoutLineName({ number: 12, tableNumber: 7 })).toBe(
+        `Стол${nbsp}7 · Заказ №${nbsp}12`,
+      );
+    });
+
+    it('is what startPayment hands the provider, in place of the English it used to', async () => {
+      const { order, guestSessionId } = await placeOrder(6);
+      const seen: string[] = [];
+      const spy: PaymentProvider = {
+        name: 'demo',
+        createSession: async (input) => {
+          seen.push(input.description);
+          return { url: `/pay/${input.orderId}`, providerSessionId: null };
+        },
+        readEvent: () => null,
+      };
+      await startPayment(ctx.db, spy, { orderId: order.id, guestSessionId });
+      expect(seen).toEqual([
+        checkoutLineName({ number: order.number, tableNumber: order.tableNumber }),
+      ]);
+      // Aimed at the exact shape this replaced - `Order #12 · Table 7` - so it goes red if the
+      // English template comes back, rather than at a word neither version could produce.
+      expect(seen[0]).not.toContain('Table');
+      expect(seen[0]).not.toContain('Order');
+    });
   });
 });

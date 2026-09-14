@@ -75,9 +75,23 @@ describe('GET /api/demo/links', () => {
       expect(res.statusCode).toBe(409);
       expect(res.json().error.code).toBe('CONFLICT');
       expect(res.json().error.message).toMatch(/table 7/i);
+      expect(res.json().error.messageKey).toBe('demoTableMissing');
     } finally {
       await own.close();
     }
+  });
+
+  /**
+   * The number is baked into the Russian the landing renders for this refusal - `demoTableMissing`
+   * in `apps/web/messages/ru.json` says «активный стол 7» - because a message key carries no
+   * parameters, only a name. The English sentence beside it still templates the constant, so the
+   * two would part company silently: the log would say 9 while the screen said 7.
+   *
+   * This is where that is noticed. Changing `DEMO_TABLE_NUMBER` means editing the dictionary in
+   * the same commit, and this assertion is the reminder.
+   */
+  it('is still table 7, which the dictionary’s sentence for this refusal spells out', () => {
+    expect(DEMO_TABLE_NUMBER).toBe(7);
   });
 
   // Every landing render asks for these links from the web container, so one ip is every

@@ -12,6 +12,26 @@ export type SettleResult = 'paid' | 'declined' | 'replayed' | 'mismatch' | 'late
 class ForeignPayment extends Error {}
 
 /**
+ * **The one interface string this API writes itself, and the only Russian in `apps/api`.**
+ *
+ * Stripe draws it, on Stripe's hosted Checkout page, as the name of the single line item beside
+ * the amount — the last thing a guest reads before paying. Every other user-visible sentence this
+ * process produces travels as an `ErrorMessageKey` and is worded by `apps/web/messages/ru.json`;
+ * this one cannot, because the web tier is nowhere in the path. Stripe asks this process for a
+ * string and prints what it is given.
+ *
+ * Worded to match `guest.pay.terminalHeading`, which is what the demo terminal shows the same
+ * guest for the same order — «Стол 7 · Заказ № 12» — so switching a deployment from the demo
+ * provider to Stripe does not change what the payment step is called. Both non-breaking spaces are
+ * the copy contract's — it binds a number to the noun in front of it — and both are written as
+ * escapes rather than pasted, so they are visible in the source and survive a diff.
+ *
+ * If a second string like this ever appears, it stops being a note and becomes a dictionary.
+ */
+export const checkoutLineName = (order: { number: number; tableNumber: number }): string =>
+  `Стол\u00a0${order.tableNumber} · Заказ №\u00a0${order.number}`;
+
+/**
  * Opens a payment attempt for an order the guest owns. The amount is the order's, read here and
  * never taken from the caller; the provider only learns what it must charge.
  */
@@ -56,7 +76,8 @@ export async function startPayment(
     number: order.number,
     amountCents: order.totalCents,
     currency: order.currency,
-    description: `Order #${order.number} · Table ${order.tableNumber}`,
+    // Not a log line: Stripe prints this to the guest. See `checkoutLineName`.
+    description: checkoutLineName(order),
   });
   await db
     .update(schema.payments)

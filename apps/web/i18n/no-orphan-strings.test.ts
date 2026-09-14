@@ -38,18 +38,22 @@ import { beforeAll, describe, expect, it } from 'vitest';
  *
  * - **English arriving over the wire.** The API's refusals, better-auth's messages and Stripe's
  *   product names are never in this source tree, so a source scan cannot see them *by
- *   construction*. They are Task 12's, and this gate is not widened to chase them: widening it
- *   would mean asserting on strings that live in another process. Do not read a green run here as
- *   "no English reaches the screen" — read it as "no English is written or derived in a component".
+ *   construction*. Widening this gate to chase them would mean asserting on strings that live in
+ *   another process. Do not read a green run here as "no English reaches the screen" — read it as
+ *   "no English is written or derived in a component".
+ *
+ *   Task 12 answered them a different way, and the answer is not a wider scan: every refusal the
+ *   API raises now carries an `ErrorMessageKey` beside its English sentence, and the web renders
+ *   the key through `errors.*` in the dictionary. What guards it is a set-equality test in
+ *   `apps/web/lib/api.test.ts` (every key the API can send has a Russian sentence, and no sentence
+ *   is dead copy) plus the bijection test in `apps/api/src/lib/errors.test.ts`.
  *
  * - **Modules that are not components.** `apps/web/lib/**`, `apps/api/**` and `packages/shared/**`
- *   are not walked. One user-visible English sentence lives there today:
- *   `apps/web/lib/demo-links.ts`'s `UNAVAILABLE`, the landing's fallback notice, which
- *   `loadDemoLinks` returns whenever the fetch throws something that is not an `ApiError`. It is
- *   *not* half of a message — it is the alternative to the API's own, on the other branch of one
- *   ternary — and it could be localised here without touching the API at all. It is being bundled
- *   with its sibling on the `ApiError` branch, which genuinely is Task 12's, so that the landing's
- *   notice goes Russian in one move rather than two. A deliberate deferral, not a blind spot.
+ *   are not walked. The one user-visible English sentence that used to live there —
+ *   `apps/web/lib/demo-links.ts`'s `UNAVAILABLE`, the landing's fallback notice — is gone: that
+ *   module now hands the landing a key (`unreachable`) and `LandingContent` looks up the words.
+ *   Nothing in this paragraph is a guarantee that the next such string will be caught here; it
+ *   will not be, and `landing-content.test.tsx` is where the landing's notice is now pinned.
  *
  * - **Content, as opposed to copy.** Dish names, category names and the restaurant's name come out
  *   of `packages/db`'s seed and the database. A Russian interface can still be filled with English

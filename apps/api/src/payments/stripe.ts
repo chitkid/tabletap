@@ -26,6 +26,12 @@ export function createStripeProvider(opts: {
     async createSession(input) {
       const session = await opts.client.checkout.sessions.create({
         mode: 'payment',
+        // Stripe's own chrome - «Оплатить», «Номер карты», «Электронная почта» - in the language
+        // the rest of the product speaks. Without this it is `'auto'`, which follows the guest's
+        // browser rather than the restaurant's, so a guest with an English phone would be handed a
+        // Russian line item on an English payment form. The one word on the page we do write, the
+        // line item's name, comes from `lib/payments.ts`'s `checkoutLineName`.
+        locale: 'ru',
         // The order is the whole basket: Stripe shows one line, the amount the database holds.
         line_items: [
           {
