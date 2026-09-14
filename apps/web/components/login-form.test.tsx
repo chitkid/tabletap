@@ -22,6 +22,14 @@ const render = (ui: ReactElement, options?: RenderOptions) =>
  * name with an identity normaliser, so it takes the dictionary's bytes as they are;
  * `toHaveTextContent` and `getByText` collapse U+00A0 to a plain space in the *element* and leave
  * the expected string alone, so those take `plain()`.
+ *
+ * **`plain()` belongs to a matcher, not to a sentence.** The first version of this file wrote
+ * `expect(alert.textContent).not.toContain(plain(L.wrongCredentials))`, and that assertion cannot
+ * fail: `.textContent` is raw and still carries three U+00A0, while `plain()` had already taken
+ * them out of the needle, so `raw.includes(plain(raw))` is false whatever the component renders.
+ * A *negative* assertion is where this is silent — a positive one would have gone red on the first
+ * run. Nothing in this file compares against a raw `.textContent` any more, and
+ * `apps/web/i18n/no-mixed-normalisation.test.ts` now refuses the shape across the suite.
  */
 const L = ru.login;
 const NBSP = String.fromCharCode(0xa0);
@@ -70,7 +78,7 @@ describe('LoginForm', () => {
     await typeCredentials(user);
     const alert = await screen.findByRole('status');
     expect(alert).toHaveTextContent(plain(L.wrongCredentials));
-    expect(alert.textContent).not.toContain('Invalid password');
+    expect(alert).not.toHaveTextContent('Invalid password');
     expect(screen.getByLabelText(L.password)).toHaveAttribute('aria-describedby', alert.id);
   });
   it('names the rate limit on a 429, and not the same sentence as a wrong password', async () => {
@@ -84,7 +92,7 @@ describe('LoginForm', () => {
     await typeCredentials(user);
     const alert = await screen.findByRole('status');
     expect(alert).toHaveTextContent(plain(L.rateLimited));
-    expect(alert.textContent).not.toContain(plain(L.wrongCredentials));
+    expect(alert).not.toHaveTextContent(plain(L.wrongCredentials));
   });
   it('shows the network message when the request never reached a status', async () => {
     const user = userEvent.setup();

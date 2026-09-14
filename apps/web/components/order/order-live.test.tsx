@@ -91,11 +91,13 @@ describe('OrderLive', () => {
         },
       }),
     );
-    // The guest is told what happens to them, not what the order is: «Готов» alone is the
-    // kitchen's word - docs/design/02b-copy-ru.md.
+    // The whole sentence, assertively, because this is the moment a guest is waiting for. The
+    // *badge* on this screen is `order-screen.test.tsx`'s — this file renders `OrderScreen` but
+    // never queries it, and a negative assertion here about the badge's word was dead: pointing
+    // `order-screen.tsx:65` at `status.kitchen` left this file at 12/12 and turned
+    // `order-screen.test.tsx` red on exactly the two rows where the glossary's columns differ.
+    // The dictionary's own split is pinned in `apps/web/i18n/glossary.test.ts`.
     expect(screen.getByRole('alert')).toHaveTextContent(headline('ready'));
-    // And not the kitchen's «Готов», which is the other half of the glossary's one split row.
-    expect(screen.getByRole('alert').textContent).not.toBe(ru.status.kitchen.ready);
   });
   it('keeps the order when the server could not answer the resync', () => {
     const socket = fakeSocket();

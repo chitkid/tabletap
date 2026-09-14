@@ -73,6 +73,15 @@ export function OrphanFixture({
       {/* Case 8: English inside a template literal, which is neither a JSX text node nor a plain
           string literal. */}
       <p>{`Signed in as a guest of table ${table}`}</p>
+
+      {/* Case 9: a sentence built with `+`. Invisible to all three passes at once until the
+          binary-expression skip was narrowed to equality operators — it is not a string-literal
+          expression, it is `string` by the time the checker sees it, and its literals sat in a
+          skipped position. Two findings, one per fragment. */}
+      <p>{'Served by ' + String(table) + ' the usual way'}</p>
+
+      {/* Not a finding: the comparison the skip is actually for. A DOM key name is not copy. */}
+      {status === 'cooking' ? <span>Готовится</span> : null}
     </section>
   );
 }

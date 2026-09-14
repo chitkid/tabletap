@@ -29,6 +29,17 @@ const fill = (message: string, values: Record<string, string | number>) =>
   String(new IntlMessageFormat(message, 'ru-RU').format(values));
 const HEADLINE = ru.guest.order.headline;
 const PAY_28 = fill(ru.guest.pay.pay, { amount: formatCents(2800, 'USD') });
+/**
+ * The pay button at *any* amount: the dictionary's own words up to the placeholder, anchored.
+ *
+ * A broad matcher in a **negative** assertion is stricter, not weaker — `queryByRole(…).toBeNull()`
+ * with an exact name only refuses the one button whose amount the test happens to pin, while this
+ * refuses the control however it is priced. The first pass of this file replaced a hand-written
+ * `/^Оплатить/` with the exact name to get the last retyped Russian out, and that traded reach for
+ * safety when it did not have to: derived from `guest.pay.pay` and broad is both.
+ */
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const PAY_ANY = new RegExp('^' + escapeRegExp(ru.guest.pay.pay.split('{amount}')[0] ?? ''));
 
 const order = {
   id: '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f60',
@@ -145,7 +156,7 @@ describe('OrderScreen', () => {
         />,
       ),
     );
-    expect(screen.queryByRole('button', { name: PAY_28 })).toBeNull();
+    expect(screen.queryByRole('button', { name: PAY_ANY })).toBeNull();
   });
   it('does not offer to pay once the money has arrived', () => {
     render(
@@ -153,6 +164,6 @@ describe('OrderScreen', () => {
         <OrderScreen order={{ ...order, status: 'paid', totalCents: 2800 }} currency="USD" />,
       ),
     );
-    expect(screen.queryByRole('button', { name: PAY_28 })).toBeNull();
+    expect(screen.queryByRole('button', { name: PAY_ANY })).toBeNull();
   });
 });

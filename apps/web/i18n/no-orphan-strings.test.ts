@@ -44,9 +44,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
  *
  * - **Modules that are not components.** `apps/web/lib/**`, `apps/api/**` and `packages/shared/**`
  *   are not walked. One user-visible English sentence lives there today:
- *   `apps/web/lib/demo-links.ts`'s `UNAVAILABLE`, the landing's fallback notice. It is the second
- *   half of a notice whose first half is the API's own message, so it travels with Task 12 rather
- *   than being half-fixed here.
+ *   `apps/web/lib/demo-links.ts`'s `UNAVAILABLE`, the landing's fallback notice, which
+ *   `loadDemoLinks` returns whenever the fetch throws something that is not an `ApiError`. It is
+ *   *not* half of a message — it is the alternative to the API's own, on the other branch of one
+ *   ternary — and it could be localised here without touching the API at all. It is being bundled
+ *   with its sibling on the `ApiError` branch, which genuinely is Task 12's, so that the landing's
+ *   notice goes Russian in one move rather than two. A deliberate deferral, not a blind spot.
  *
  * - **Content, as opposed to copy.** Dish names, category names and the restaurant's name come out
  *   of `packages/db`'s seed and the database. A Russian interface can still be filled with English
@@ -57,18 +60,43 @@ import { beforeAll, describe, expect, it } from 'vitest';
  *   English is indistinguishable from `string` holding Russian. Pass 2 covers the common shape of
  *   that — the table written in the file — and nothing covers the rest.
  *
+ *   **The sharpest form of this, because it is where the two derived passes cancel each other
+ *   out:** a *single lowercase* English word reached through a widened lookup. Given
+ *   `const SERVER_STATE: Record<string, string> = { down: 'unavailable' }`, rendering
+ *   `{SERVER_STATE.down}` is missed by pass 3 (the annotation widened the literal type away) and by
+ *   pass 2 (`isProse` wants two bare Latin words, or one that is capitalised). Drop the annotation
+ *   — or write the same word straight into the JSX — and both catch it. The hole is narrow and it
+ *   is deliberate: widening `isProse` to single lowercase words would flag most of the Tailwind in
+ *   the repository.
+ *
  * - **Positions skipped by name.** `className`/`class`, the arguments of `cn`/`cva`/`clsx`, `seed`
- *   (documented on `Plate` as an identity that is never rendered), and the message of a
- *   `new Error(…)` or a `console.*` call are not read at all, so English parked under one of those
- *   names is invisible. That is the price of pass 2 not drowning in Tailwind and stack traces.
+ *   (documented on `Plate` as an identity that is never rendered), `id`/`htmlFor`/`key`, the
+ *   message of a `console.*` call, and the first argument of the error constructors named in
+ *   `ERROR_CONSTRUCTORS`. English parked under one of those names is invisible. That is the price
+ *   of pass 2 not drowning in Tailwind and stack traces.
+ *
+ *   Two of these skips were wider than their comments claimed, and both were found by review
+ *   rather than by this file's own fixture:
+ *   - the comparison skip covered *every* binary operator, so a sentence built with `+` was
+ *     invisible to all three passes at once. It is now equality operators only, and case 9 of the
+ *     fixture is that sentence.
+ *   - the diagnostic skip covered *every* `new` expression, so `new Notification('Your order is
+ *     ready')` was invisible. It is now the error constructors by name.
  *
  * - **Text drawn rather than laid out.** `apps/web/app/opengraph-image.tsx` and the printed QR
  *   sheet compose strings for an image; their literals are read like any others, but what they
  *   compose at runtime is not.
  *
+ * - **A file the TypeScript program never loaded.** `scan()` can only read what the program has.
+ *   The first test asserts that every file the walk found is a file the program holds, so a future
+ *   `exclude` in `apps/web/tsconfig.json` cannot quietly take a directory out of the gate and
+ *   leave a green run behind it.
+ *
  * The second test is the one that keeps all of the above honest: it points the same scanner at
  * `__fixtures__/orphan-strings-fixture.tsx`, which plants one of each shape, and asserts it finds
- * every one of them. Without it, a scanner that returned `[]` unconditionally would pass.
+ * every one of them. Without it, a scanner that returned `[]` unconditionally would pass. Every
+ * entry in the list above that is a *decision* rather than an oversight has a line in the fixture
+ * or a sentence here saying so; the two that were oversights are named as such.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -123,6 +151,16 @@ const SKIP_CALLS = new Set([
   'getAttribute',
   'setAttribute',
   'getPropertyValue',
+]);
+
+/** Constructors whose first argument is a message for a developer, not for a guest. */
+const ERROR_CONSTRUCTORS = new Set([
+  'Error',
+  'TypeError',
+  'RangeError',
+  'SyntaxError',
+  'AggregateError',
+  'ApiError',
 ]);
 
 /** Props whose value is a class list, an id or a seed — never a word on screen. */
@@ -182,13 +220,35 @@ function inSkippedPosition(node: ts.Node, source: ts.SourceFile): boolean {
   if (ts.isImportTypeNode(parent) || ts.isExternalModuleReference(parent)) return true;
   if (ts.isLiteralTypeNode(parent)) return true;
   // `event.key === 'Escape'`, `case 'Escape':` — a comparison against a DOM constant.
-  if (ts.isBinaryExpression(parent) || ts.isCaseClause(parent)) return true;
+  //
+  // **Equality only.** This used to skip every `ts.isBinaryExpression`, which meant `+` as well,
+  // and a sentence built with `+` is invisible to all three passes at once: it is not a
+  // `StringLiteralLike` expression (pass 1 misses it), it is `string` by the time the checker sees
+  // it (pass 3 misses it), and every literal in it was skipped right here (pass 2 missed it).
+  // `{'Signed in as ' + name + ' member of staff'}` in a JSX children position left the gate at
+  // 3 passed.
+  if (ts.isCaseClause(parent)) return true;
+  if (ts.isBinaryExpression(parent)) {
+    const operator = parent.operatorToken.kind;
+    return (
+      operator === ts.SyntaxKind.EqualsEqualsEqualsToken ||
+      operator === ts.SyntaxKind.ExclamationEqualsEqualsToken ||
+      operator === ts.SyntaxKind.EqualsEqualsToken ||
+      operator === ts.SyntaxKind.ExclamationEqualsToken
+    );
+  }
   // An object key is a key, not a message.
   if (ts.isPropertyAssignment(parent) && parent.name === node) return true;
   if (ts.isComputedPropertyName(parent)) return true;
   // A diagnostic is addressed to whoever is reading a stack trace, and this repository's code and
-  // comments are English by policy. `new Error('…')` and `console.warn('…')` are that, not copy.
-  if (ts.isNewExpression(parent) || ts.isThrowStatement(parent)) return true;
+  // comments are English by policy. Narrowed to the error constructors by name: `new Error(…)` is
+  // a diagnostic, but `new Notification('Your order is ready')` is copy, and skipping every `new`
+  // expression made the second one invisible. (`ts.isThrowStatement` was here too and is
+  // unreachable — a bare literal is never the direct parent of a throw's expression in the shapes
+  // this repository uses; `throw new Error('…')` is caught by the line below, as the `new`.)
+  if (ts.isNewExpression(parent) && ERROR_CONSTRUCTORS.has(parent.expression.getText(source))) {
+    return true;
+  }
   if (ts.isCallExpression(parent) && parent.expression.getText(source).startsWith('console.')) {
     return true;
   }
@@ -318,6 +378,13 @@ beforeAll(() => {
 
 describe('the orphan-string gate', () => {
   it('finds no Latin text a guest or a member of staff can reach, anywhere on the four surfaces', () => {
+    // First that the program actually holds every file the walk found. `scan()` iterates the
+    // program and filters by the wanted set, so a file the program never loaded is silently not
+    // scanned and this test passes for the wrong reason. Nothing is wrong today — 69 files, 0
+    // missing — but an `exclude` added to `apps/web/tsconfig.json`, or a directory moved out of
+    // its include globs, would take files out of the gate with no signal at all.
+    const loaded = new Set(program.getSourceFiles().map((source) => posix(source.fileName)));
+    expect(surfaces.filter((file) => !loaded.has(file))).toEqual([]);
     // `toEqual([])` rather than a length check: a failure has to name the file, the line and the
     // word, or the next person reads "expected 3 to be 0" and goes looking by hand.
     expect(scan(program, surfaces)).toEqual([]);
@@ -349,10 +416,18 @@ describe('the orphan-string gate', () => {
     for (const union of unions) expect(union.text).toContain('cooking');
     // 8 — a template literal, which is neither a JSX text node nor a plain string.
     expect(at('Signed in as a guest of table').map((f) => f.kind)).toEqual(['jsx-text']);
+    // 9 — a sentence built with `+`, which every pass missed until the binary-expression skip was
+    //     narrowed to equality operators. Two fragments, two findings.
+    // `record()` trims, so the fragments arrive without the spaces that joined them.
+    expect(at('Served by').map((f) => f.kind)).toEqual(['literal-table']);
+    expect(at('the usual way').map((f) => f.kind)).toEqual(['literal-table']);
+    // And the comparison that skip is actually for is still skipped: `'cooking'` is a DOM-adjacent
+    // constant, not copy, and «Готовится» beside it is Russian.
+    expect(findings.filter((finding) => finding.text === 'cooking')).toEqual([]);
 
-    // Exactly ten: a case planted in the fixture without an expectation above is a case the gate
-    // is not proven to catch, and this is what makes that a failure rather than a silence.
-    expect(findings).toHaveLength(10);
+    // Exactly twelve: a case planted in the fixture without an expectation above is a case the
+    // gate is not proven to catch, and this is what makes that a failure rather than a silence.
+    expect(findings).toHaveLength(12);
   });
 
   it('leaves the fixture’s Russian, its allow-listed names and its class list alone', () => {

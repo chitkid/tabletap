@@ -17,6 +17,7 @@
         "tsconfig.e2e.json",
         "tsconfig.base.json",
         "apps/web/messages/**",
+        "apps/web/lib/**",
         "packages/*/src/**"
       ]
     },
