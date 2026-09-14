@@ -582,3 +582,27 @@ single shared rate-limit bucket — rather than repeated here.
   work that touches numerals, timers or the money column, all of which the milestone moved to
   IBM Plex Sans with `tabular-nums` for a separate reason (the mono zero carries a dot the owner
   rejected) — so the question of what `font-mono` is even for is now open.
+
+- **`errors.notFound` has no producer, and the guard that exists to catch dead copy cannot see it.**
+  Gating the demo routes on `config.demoMode` left `GENERIC_4XX[404]` as the only raise site for this
+  key, and Fastify's own 404 bypasses `setErrorHandler`, so nothing reaches it. Its Russian
+  «Такого адреса нет. Проверьте ссылку.» and its English twin are unrenderable. `api.test.ts:139-141`'s own
+  comment says "a dictionary entry no key reaches is dead copy nobody will maintain" — and it cannot
+  see this one, because it tests membership of `ERROR_MESSAGE_KEYS`, not reachability. Two things to
+  decide together: whether the sentence goes, and whether that test should check reachability, which
+  is the property it says it cares about. Trigger: the next refusal added or removed.
+
+- **Nine citations in the design audits point into a file that has since been rewritten.**
+  `docs/design/00-audit-ui.md:86,87,88,89,107,180`, `00-audit.md:48` and `00-audit-motion.md:13,417`
+  cite `landing-content.tsx:133-187`, `:199-206` and `:133-206`; the file is 192 lines. The audits
+  are dated records of what was measured on the day, so the line numbers were true when written —
+  which is the argument for a note rather than a rewrite, the same treatment the ADRs got. Trigger:
+  the next time anyone follows one of those citations and lands in the wrong place.
+
+- **`ALLOWED` is now shared between two gates, and `'API'` was added to it for the dictionary's
+  sake.** `latinLeft` and `ALLOWED` moved to `apps/web/i18n/latin.ts`, so `no-orphan-strings.test.ts`
+  imports the same allow-list as `dictionary.test.ts`. A component whose only user-visible Latin text
+  is the bare word `API` now passes the orphan gate where it would previously have failed. Narrow in
+  practice — `latinLeft` needs two consecutive Latin letters after stripping — and sharing was the
+  right call, but the decision was recorded against the dictionary only. Trigger: the next word added
+  to `ALLOWED`, which now widens two gates rather than one.
