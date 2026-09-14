@@ -1,13 +1,10 @@
 'use client';
 import { TableResponseSchema, type TableDto } from '@tabletap/shared';
 import { Button } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { clientFetch } from '../../lib/api';
-import { refusal } from './row-editor';
-
-const question = (number: number) =>
-  `Reissue the QR for table ${number}? Every printed code for this table stops working immediately.`;
-const reissued = (number: number) => `Table ${number} has a new code. Print the sheet again.`;
+import { useRefusal } from './row-editor';
 
 /**
  * The reissue, and the question it has to ask first.
@@ -30,6 +27,8 @@ export function QrActions({
   fetcher?: typeof clientFetch;
   children?: ReactNode;
 }) {
+  const t = useTranslations('admin.qr');
+  const { refuse } = useRefusal();
   const questionId = useId();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -52,11 +51,11 @@ export function QrActions({
         schema: TableResponseSchema,
         init: { method: 'POST' },
       });
-      setNotice(reissued(table.number));
+      setNotice(t('reissued', { number: table.number }));
     } catch (error) {
       // The old code is still the live one: say what was refused and leave the control as it was.
       // Named for the act, not for a save: nothing was being saved and no editor was open.
-      setNotice(refusal(error, 'reissue the code'));
+      setNotice(refuse(error, 'reissueCode'));
     } finally {
       setBusy(false);
       setConfirming(false);
@@ -83,7 +82,7 @@ export function QrActions({
       {confirming ? (
         <>
           <p id={questionId} className="basis-full text-sm text-foreground">
-            {question(table.number)}
+            {t('question', { number: table.number })}
           </p>
           <Button
             type="button"
@@ -93,7 +92,7 @@ export function QrActions({
             aria-describedby={questionId}
             onClick={() => void send()}
           >
-            Yes, reissue
+            {t('confirm')}
           </Button>
           <Button
             type="button"
@@ -103,7 +102,7 @@ export function QrActions({
             aria-describedby={questionId}
             onClick={() => setConfirming(false)}
           >
-            Keep the current code
+            {t('keep')}
           </Button>
         </>
       ) : (
@@ -119,7 +118,7 @@ export function QrActions({
               setConfirming(true);
             }}
           >
-            Reissue QR
+            {t('reissue')}
           </Button>
         </>
       )}

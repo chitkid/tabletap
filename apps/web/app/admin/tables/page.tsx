@@ -1,11 +1,15 @@
 import { TablesResponseSchema, type TableDto } from '@tabletap/shared';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { TablesTable } from '../../../components/admin/tables-table';
 import { ApiError, apiFetch } from '../../../lib/api';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Tables · TableTap' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('admin.meta'))('tables') };
+}
 
 export default async function AdminTablesPage() {
   const jar = (await cookies()).toString();

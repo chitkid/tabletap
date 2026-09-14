@@ -2,14 +2,20 @@
 import { Button, Mark, cn } from '@tabletap/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 import { authClient } from '../../lib/auth-client';
 
-/** The contract the later admin pages are built against: three sections, in this order. */
+/**
+ * The contract the later admin pages are built against: three sections, in this order. The word
+ * lives in `admin.nav`, keyed by the last segment of the route — the module holds the structure
+ * and the dictionary holds the language, which is the split `lib/board-store.ts` made for the
+ * kitchen's columns.
+ */
 const SECTIONS = [
-  { href: '/admin/menu', label: 'Menu' },
-  { href: '/admin/tables', label: 'Tables' },
-  { href: '/admin/dashboard', label: 'Dashboard' },
+  { href: '/admin/menu', key: 'menu' },
+  { href: '/admin/tables', key: 'tables' },
+  { href: '/admin/dashboard', key: 'dashboard' },
 ] as const;
 
 async function signOut(): Promise<void> {
@@ -37,6 +43,7 @@ export function AdminShell({
   onSignOut?: () => void | Promise<void>;
 }) {
   const pathname = usePathname();
+  const t = useTranslations('admin');
 
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
@@ -44,10 +51,10 @@ export function AdminShell({
         href="#admin-content"
         className="sr-only rounded-md bg-card px-3 py-2 text-sm font-semibold underline underline-offset-4 focus-visible:not-sr-only focus-visible:absolute focus-visible:top-2 focus-visible:left-2 focus-visible:z-50 focus-visible:shadow-md"
       >
-        Skip to content
+        {t('skipToContent')}
       </a>
       <nav
-        aria-label="Admin sections"
+        aria-label={t('sections')}
         className="shrink-0 border-b border-border/60 bg-secondary px-3 py-3 md:w-56 md:border-r md:border-b-0 md:py-4"
       >
         <p className="flex items-center gap-2 px-2 font-display text-lg font-semibold tracking-tight">
@@ -69,7 +76,7 @@ export function AdminShell({
                       : 'font-medium hover:bg-card/70 md:justify-start',
                   )}
                 >
-                  {section.label}
+                  {t(`nav.${section.key}`)}
                 </Link>
               </li>
             );
@@ -82,7 +89,7 @@ export function AdminShell({
           <div className="flex items-center gap-3">
             <span className="truncate text-sm text-muted-foreground">{staffName}</span>
             <Button type="button" variant="ghost" onClick={() => void onSignOut()}>
-              Sign out
+              {t('signOut')}
             </Button>
           </div>
         </header>

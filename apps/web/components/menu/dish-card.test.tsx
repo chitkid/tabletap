@@ -43,7 +43,12 @@ describe('DishCard', () => {
     // `getByText` collapses the U+00A0 Intl puts before the symbol, so this fixture is a plain
     // space on purpose.
     expect(screen.getByText('12 $')).toBeInTheDocument();
-    expect(screen.getByText('Содержит gluten, dairy')).toBeInTheDocument();
+    // The nine allergen names come from the shared `allergens` namespace, the same one the admin's
+    // menu editor reads. `item.allergens` holds the enum — nine English identifiers — and printing
+    // it directly is what «Содержит gluten, dairy» was.
+    const list = [ru.allergens.gluten, ru.allergens.dairy].join(', ');
+    expect(screen.getByText(ru.guest.menu.allergens.replace('{list}', list))).toBeInTheDocument();
+    expect(screen.queryByText(/gluten/)).toBeNull();
     // The plate repeats the heading beside it, so it is decoration, not an image worth naming.
     expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
     expect(screen.queryByRole('img')).toBeNull();

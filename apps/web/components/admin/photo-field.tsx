@@ -1,6 +1,7 @@
 'use client';
 import { MenuItemDtoSchema, PhotoUploadResponseSchema, type MenuItemDto } from '@tabletap/shared';
 import { Button, Input, Label } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useId, useRef, useState } from 'react';
 import { z } from 'zod';
 import { clientFetch } from '../../lib/api';
@@ -18,12 +19,6 @@ type PhotoType = (typeof PHOTO_TYPES)[number];
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const isPhotoType = (type: string): type is PhotoType =>
   (PHOTO_TYPES as readonly string[]).includes(type);
-
-const HINT = 'JPEG, PNG or WebP, up to 5 MB.';
-const BUSY = 'Uploading…';
-const FAILED = "Couldn't upload that. Try again.";
-const UPLOADS_OFF_HINT =
-  'Photo upload is off in this demo. Everything else here is real, and it resets every hour.';
 
 /**
  * The web's copy of the same decision the API makes with `DEMO_UPLOADS_ENABLED` - an explanation,
@@ -68,6 +63,7 @@ export function PhotoField({
   /** The web's explanation of `DEMO_UPLOADS_ENABLED`; the API enforces the actual refusal. */
   uploadsEnabled?: boolean;
 }) {
+  const t = useTranslations('admin.photo');
   const fieldId = useId();
   const hintId = useId();
   const offHintId = useId();
@@ -81,7 +77,7 @@ export function PhotoField({
   const send = async () => {
     if (chosen === null) return;
     if (!isPhotoType(chosen.type) || chosen.size > MAX_PHOTO_BYTES) {
-      setNotice(FAILED);
+      setNotice(t('failed'));
       return;
     }
     const contentType = chosen.type;
@@ -105,7 +101,7 @@ export function PhotoField({
     } catch {
       // Every failure reads the same because every fix is the same: choose the file again. The
       // hint above the control says what will be taken, so the line does not have to repeat it.
-      setNotice(FAILED);
+      setNotice(t('failed'));
     } finally {
       setBusy(false);
     }
@@ -127,7 +123,10 @@ export function PhotoField({
         />
       )}
       <div className="flex min-w-0 flex-col gap-2">
-        <Label htmlFor={fieldId}>Photo file</Label>
+        {/* Visible, not `sr-only` and never a placeholder: a file input in a panel has no column
+            heading above it to borrow a name from, and this surface's standing rule is that the
+            name of a field is on screen rather than inside it. */}
+        <Label htmlFor={fieldId}>{t('field')}</Label>
         <div className="flex flex-wrap items-center gap-2">
           <Input
             id={fieldId}
@@ -149,15 +148,15 @@ export function PhotoField({
             aria-busy={busy || undefined}
             onClick={() => void send()}
           >
-            {busy ? BUSY : shown === null ? 'Add a photo' : 'Replace the photo'}
+            {busy ? t('uploading') : shown === null ? t('add') : t('replace')}
           </Button>
         </div>
         <p id={hintId} className="text-sm text-muted-foreground">
-          {HINT}
+          {t('hint')}
         </p>
         {uploadsEnabled ? null : (
           <p id={offHintId} className="text-sm text-muted-foreground">
-            {UPLOADS_OFF_HINT}
+            {t('off')}
           </p>
         )}
         {/* Always in the layout, empty when there is nothing to say, so the panel never jumps.

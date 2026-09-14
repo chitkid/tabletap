@@ -198,7 +198,115 @@
     }
   },
   "admin": {
-    "dayOrders": "{n, plural, one {# order} other {# orders}}"
+    "dayOrders": "{n, plural, one {# order} other {# orders}}",
+    "skipToContent": "Skip to content",
+    "sections": "Admin sections",
+    "signOut": "Sign out",
+    "rowControls": "Row controls",
+    "nav": {
+      "menu": "Menu",
+      "tables": "Tables",
+      "dashboard": "Dashboard"
+    },
+    "meta": {
+      "admin": "Admin · Little Furnace",
+      "menu": "Menu · Little Furnace",
+      "tables": "Tables · Little Furnace",
+      "dashboard": "Dashboard · Little Furnace"
+    },
+    "actions": {
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete"
+    },
+    "today": {
+      "heading": "Today",
+      "orders": "Orders",
+      "revenue": "Revenue",
+      "averageReady": "Average time to ready",
+      "openTickets": "Open tickets",
+      "nothingReady": "No order reached ready today.",
+      "seconds": "{s}s",
+      "minutesSeconds": "{m}m {s}s"
+    },
+    "week": {
+      "heading": "Paid orders, last seven days",
+      "empty": "No orders yet — the first one appears here as soon as a guest places it.",
+      "day": "{date}: {orders}"
+    },
+    "menu": {
+      "heading": "Menu",
+      "caption": "Categories and dishes in the order guests see them",
+      "addCategory": "Add category",
+      "addDish": "Add dish",
+      "noDishes": "No dishes yet — add the first one.",
+      "columns": {
+        "dish": "Dish",
+        "price": "Price",
+        "availability": "Availability"
+      },
+      "available": "Available",
+      "soldOut": "Sold out",
+      "name": "Name",
+      "price": "Price",
+      "description": "Description",
+      "allergens": "Allergens",
+      "sortOrder": "Sort order",
+      "categoryIncomplete": "Couldn't save. Give the category a name.",
+      "categoryInUse": "This category still holds dishes. Empty it first.",
+      "dishIncomplete": "Couldn't save. Give the dish a name and a price.",
+      "dishInUse": "This dish is on an order. Mark it sold out instead."
+    },
+    "photo": {
+      "field": "Photo file",
+      "hint": "JPEG, PNG or WebP, up to 5 MB.",
+      "add": "Add a photo",
+      "replace": "Replace the photo",
+      "uploading": "Uploading…",
+      "failed": "Couldn't upload that. Try again.",
+      "off": "Photo upload is off in this demo. Everything else here is real, and it resets every hour."
+    },
+    "tables": {
+      "heading": "Tables",
+      "caption": "Tables in number order, with the state of each",
+      "addTable": "Add table",
+      "printQr": "Print QR sheet",
+      "noTables": "No tables yet — add the first one.",
+      "columns": {
+        "table": "Table",
+        "seats": "Seats",
+        "state": "State"
+      },
+      "table": "Table {number}",
+      "number": "Number",
+      "label": "Label",
+      "seats": "Seats",
+      "active": "Active",
+      "inactive": "Inactive",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "incomplete": "Couldn't save. Give the table a number, a label and a seat count.",
+      "inUse": "This table has orders. Deactivate it instead."
+    },
+    "qr": {
+      "reissue": "Reissue QR",
+      "question": "Reissue the QR for table {number}? Every printed code for this table stops working immediately.",
+      "confirm": "Yes, reissue",
+      "keep": "Keep the current code",
+      "reissued": "Table {number} has a new code. Print the sheet again."
+    },
+    "refusal": {
+      "withReason": "Couldn't {verb}. {message}",
+      "tryAgain": "Couldn't {verb}. Try again.",
+      "verb": {
+        "save": "save",
+        "delete": "delete",
+        "activate": "activate the table",
+        "deactivate": "deactivate the table",
+        "reissueCode": "reissue the code"
+      }
+    }
   },
   "common": {},
   "status": {
@@ -220,5 +328,16 @@
       "served": "Served",
       "cancelled": "Cancelled"
     }
+  },
+  "allergens": {
+    "gluten": "gluten",
+    "dairy": "dairy",
+    "egg": "egg",
+    "fish": "fish",
+    "shellfish": "shellfish",
+    "nuts": "nuts",
+    "peanuts": "peanuts",
+    "soy": "soy",
+    "sesame": "sesame"
   }
 }

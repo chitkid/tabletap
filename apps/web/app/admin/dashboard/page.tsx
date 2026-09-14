@@ -3,14 +3,18 @@ import {
   MenuResponseSchema,
   type DashboardResponse,
 } from '@tabletap/shared';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { DashboardTiles } from '../../../components/admin/dashboard-tiles';
 import { WeekBars } from '../../../components/admin/week-bars';
 import { ApiError, apiFetch } from '../../../lib/api';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Dashboard · TableTap' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('admin.meta'))('dashboard') };
+}
 
 export default async function AdminDashboardPage() {
   const jar = (await cookies()).toString();

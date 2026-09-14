@@ -7,6 +7,7 @@ import {
   type MenuResponse,
 } from '@tabletap/shared';
 import { Button, Input, Label, cn } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState } from 'react';
 import { z } from 'zod';
 import { clientFetch } from '../../lib/api';
@@ -18,15 +19,12 @@ import {
   RowActions,
   RowNotice,
   asJson,
-  deleteRefusal,
   invalidAttr,
-  refusal,
+  useRefusal,
 } from './row-editor';
 
 const CategoryResponseSchema = z.object({ category: MenuCategoryDtoSchema });
 
-const IN_USE = 'This category still holds dishes. Empty it first.';
-const INCOMPLETE = "Couldn't save. Give the category a name.";
 const HEAD_CELL = 'relative border-l-2 px-3 text-left';
 
 /** The order the API answers in, kept as rows move: sort order first, then the name. */
@@ -70,6 +68,8 @@ export function MenuTable({
   fetcher?: typeof clientFetch;
   upload?: (url: string, file: File) => Promise<void>;
 }) {
+  const t = useTranslations('admin.menu');
+  const admin = useTranslations('admin');
   const [categories, setCategories] = useState(initial.categories);
   const [editing, setEditing] = useState<string | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -146,38 +146,38 @@ export function MenuTable({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-semibold">Menu</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('heading')}</h1>
         <Button type="button" onClick={addCategory}>
-          Add category
+          {t('addCategory')}
         </Button>
       </div>
       <div className="overflow-x-auto rounded-lg border border-border/60 bg-card shadow-sm">
         {/* Narrow enough and the table scrolls inside its own panel rather than squeezing the dish
               column down to an ellipsis; the page itself never scrolls sideways. */}
         <table className="w-full min-w-2xl border-collapse text-sm">
-          <caption className="sr-only">Categories and dishes in the order guests see them</caption>
+          <caption className="sr-only">{t('caption')}</caption>
           <thead>
             <tr className="border-b border-border">
               <th
                 scope="col"
                 className="w-full px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase"
               >
-                Dish
+                {t('columns.dish')}
               </th>
               <th
                 scope="col"
                 className="px-3 py-2 text-right text-xs font-semibold tracking-wide text-muted-foreground uppercase"
               >
-                Price
+                {t('columns.price')}
               </th>
               <th
                 scope="col"
                 className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase"
               >
-                Availability
+                {t('columns.availability')}
               </th>
               <th scope="col" className="relative px-3 py-2">
-                <span className="sr-only">Row controls</span>
+                <span className="sr-only">{admin('rowControls')}</span>
               </th>
             </tr>
           </thead>
@@ -242,10 +242,12 @@ export function MenuTable({
                   <td colSpan={MENU_COLUMNS} className="px-3">
                     <div className="flex items-center gap-3">
                       <Button type="button" variant="outline" onClick={() => addDish(category.id)}>
-                        Add dish
+                        {t('addDish')}
                       </Button>
+                      {/* An invitation rather than a statement of absence: the control that fills
+                          the category is right beside the line, so the line points at it. */}
                       {category.items.length === 0 ? (
-                        <span className="text-sm text-muted-foreground">No dishes yet.</span>
+                        <span className="text-sm text-muted-foreground">{t('noDishes')}</span>
                       ) : null}
                     </div>
                   </td>
@@ -303,6 +305,7 @@ function CategoryHeader({
   focusOnRead: boolean;
   onEdit: () => void;
 }) {
+  const actions = useTranslations('admin.actions');
   const edit = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (focusOnRead) edit.current?.focus();
@@ -318,7 +321,7 @@ function CategoryHeader({
       </th>
       <td className="px-3 text-right">
         <Button type="button" ref={edit} variant="ghost" onClick={onEdit}>
-          Edit
+          {actions('edit')}
         </Button>
       </td>
     </tr>
@@ -340,6 +343,9 @@ function CategoryEditor({
   onSaved: (category: MenuCategoryDto) => void;
   onDeleted: () => void;
 }) {
+  const t = useTranslations('admin.menu');
+  const actions = useTranslations('admin.actions');
+  const { refuse, refuseDelete } = useRefusal();
   const nameId = useId();
   const sortId = useId();
   const [name, setName] = useState(category.name);
@@ -358,7 +364,7 @@ function CategoryEditor({
     const order = Number(sortOrder);
     if (trimmed === '' || !Number.isFinite(order)) {
       setInvalid(true);
-      setNotice(INCOMPLETE);
+      setNotice(t('categoryIncomplete'));
       return;
     }
     setInvalid(false);
@@ -379,7 +385,7 @@ function CategoryEditor({
       onSaved(saved);
     } catch (error) {
       restore();
-      setNotice(refusal(error));
+      setNotice(refuse(error));
     } finally {
       setBusy(false);
     }
@@ -396,7 +402,7 @@ function CategoryEditor({
       });
       onDeleted();
     } catch (error) {
-      setNotice(deleteRefusal(error, IN_USE));
+      setNotice(refuseDelete(error, t('categoryInUse')));
     } finally {
       setBusy(false);
     }
@@ -407,7 +413,7 @@ function CategoryEditor({
       <tr className={cn(ROW_LINE, 'border-t border-border bg-secondary/60')}>
         <th scope="rowgroup" colSpan={MENU_COLUMNS - 1} className={cn(HEAD_CELL, 'border-primary')}>
           <Label htmlFor={nameId} className="sr-only">
-            Name
+            {t('name')}
           </Label>
           <Input
             id={nameId}
@@ -425,7 +431,7 @@ function CategoryEditor({
           <RowNotice notice={notice} />
           <div data-panel className={cn('flex flex-wrap items-end gap-4', PANEL_OPENS)}>
             <div className="flex max-w-xs flex-col gap-2">
-              <Label htmlFor={sortId}>Sort order</Label>
+              <Label htmlFor={sortId}>{t('sortOrder')}</Label>
               <Input
                 id={sortId}
                 type="number"
@@ -440,7 +446,7 @@ function CategoryEditor({
               disabled={busy}
               onClick={() => void remove()}
             >
-              Delete
+              {actions('delete')}
             </Button>
           </div>
         </td>

@@ -1,5 +1,6 @@
 'use client';
 import { Button } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { z } from 'zod';
 import { ApiError } from '../../lib/api';
 
@@ -33,24 +34,43 @@ export const PANEL_OPENS =
  */
 export const invalidAttr = (when: boolean): true | undefined => when || undefined;
 
+/** The acts an operator can have refused. Each one is a key under `admin.refusal.verb`. */
+export type RefusalVerb = 'save' | 'delete' | 'activate' | 'deactivate' | 'reissueCode';
+
 /**
  * What went wrong, and then whatever the server said, because the server said it best.
  *
+ * **Half of this sentence is Russian and half of it is not, on purpose.** The frame and the verb
+ * come from `admin.refusal`; `error.message` is the API's own English sentence, passed through
+ * exactly as it arrived. The API has no message keys yet — that is Task 12 of this milestone,
+ * which gives all 53 `AppError` call sites one — and writing a Russian sentence here would put
+ * words in the API's mouth that it never said. When those keys land, the second half is resolved
+ * from them and this interpolation keeps working unchanged.
+ *
  * `verb` is the caller's, because this is reused by controls that are not saves: a refused
- * `Deactivate` and a refused `Reissue QR` both read "Couldn't save." otherwise, which describes an
- * act the operator never asked for. Defaulted rather than required so the row editors - which are
- * saves - read the way they always did.
+ * «Отключить» and a refused «Перевыпустить QR-код» would both read «Не удалось сохранить.»
+ * otherwise, which describes an act the operator never asked for. Defaulted rather than required
+ * so the row editors - which are saves - read the way they always did.
+ *
+ * A hook rather than a function because the words are in the dictionary; every call site is a
+ * client component that already renders inside `NextIntlClientProvider`.
  */
-export const refusal = (error: unknown, verb = 'save') =>
-  error instanceof ApiError ? `Couldn't ${verb}. ${error.message}` : `Couldn't ${verb}. Try again.`;
-
-/**
- * A refused delete. `IN_USE` is the one failure with a way out, and the way out differs by row —
- * empty the category, or mark the dish sold out — so the caller supplies that sentence in the
- * operator's words rather than passing the server's own along.
- */
-export const deleteRefusal = (error: unknown, inUse: string) =>
-  error instanceof ApiError && error.code === 'IN_USE' ? inUse : refusal(error, 'delete');
+export function useRefusal() {
+  const t = useTranslations('admin.refusal');
+  /** A refusal the server explained, or one it did not. */
+  const refuse = (error: unknown, verb: RefusalVerb = 'save') =>
+    error instanceof ApiError
+      ? t('withReason', { verb: t(`verb.${verb}`), message: error.message })
+      : t('tryAgain', { verb: t(`verb.${verb}`) });
+  /**
+   * A refused delete. `IN_USE` is the one failure with a way out, and the way out differs by row —
+   * empty the category, or mark the dish sold out — so the caller supplies that sentence in the
+   * operator's words rather than passing the server's own along.
+   */
+  const refuseDelete = (error: unknown, inUse: string) =>
+    error instanceof ApiError && error.code === 'IN_USE' ? inUse : refuse(error, 'delete');
+  return { refuse, refuseDelete };
+}
 
 export const asJson = (method: 'POST' | 'PATCH', body: unknown): RequestInit => ({
   method,
@@ -80,14 +100,15 @@ export function RowActions({
   onSave: () => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations('admin.actions');
   return (
     <td className="px-3 text-right">
       <div className="flex justify-end gap-2">
         <Button type="button" disabled={busy} aria-busy={busy || undefined} onClick={onSave}>
-          Save
+          {t('save')}
         </Button>
         <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>
-          Cancel
+          {t('cancel')}
         </Button>
       </div>
     </td>

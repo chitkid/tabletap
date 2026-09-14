@@ -1,5 +1,7 @@
 import { MeResponseSchema, MenuResponseSchema, type Principal } from '@tabletap/shared';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { AdminShell } from '../../components/admin/shell';
@@ -7,7 +9,16 @@ import { ApiError, apiFetch } from '../../lib/api';
 import { adminAccess } from './access';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Admin · TableTap' };
+
+/**
+ * The tab is part of the surface: translating only what is inside the page would leave an operator
+ * with three Russian screens behind three English tabs. `X · Little Furnace` is the shape the guest
+ * and kitchen `meta` keys established, and the product's name leaving the tab follows the ruling
+ * that took it off the landing — a restaurant's page is titled with the restaurant's name.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('admin.meta'))('admin') };
+}
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   // The staff session cookie is better-auth's, not tt_guest: forward the whole jar verbatim.

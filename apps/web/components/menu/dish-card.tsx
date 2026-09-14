@@ -21,11 +21,15 @@ export function DishCard({
   onSetQuantity: (q: number) => void;
 }) {
   const t = useTranslations('guest.menu');
+  // The nine allergen names are a shared namespace, not the guest's: the admin's menu editor
+  // prints the same words. `item.allergens` carries the enum from @tabletap/shared, which is nine
+  // English identifiers and is a key — «Содержит gluten, dairy» is what printing it looks like.
+  const allergen = useTranslations('allergens');
   // «Аллергены не указаны» rather than «аллергенов нет»: the menu says nothing about this dish,
   // which is not the same promise as the dish containing nothing.
   const allergens =
     item.allergens.length > 0
-      ? t('allergens', { list: item.allergens.join(', ') })
+      ? t('allergens', { list: item.allergens.map((name) => allergen(name)).join(', ') })
       : t('noAllergens');
   // A sold-out card takes the muted fill from docs/design/components.md, and with it the rule that
   // --muted-foreground must never sit on --muted (4.48:1). Its secondary lines keep their size but

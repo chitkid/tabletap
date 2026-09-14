@@ -1,9 +1,11 @@
 import type { MenuItemDto } from '@tabletap/shared';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState, type ReactNode } from 'react';
+import { NextIntlClientProvider } from 'next-intl';
+import { useState, type ReactElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../lib/api';
+import ru from '../../messages/ru.json';
 import { MenuRow } from './menu-row';
 
 const CATEGORY_ID = '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f02';
@@ -11,8 +13,8 @@ const ITEM_ID = '018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f03';
 const dish: MenuItemDto = {
   id: ITEM_ID,
   categoryId: CATEGORY_ID,
-  name: 'Margherita Flatbread',
-  description: 'Tomato, mozzarella, basil',
+  name: 'Пицца «Маргарита»',
+  description: 'Томаты, моцарелла, базилик',
   priceCents: 1200,
   allergens: ['gluten'],
   isAvailable: true,
@@ -20,11 +22,27 @@ const dish: MenuItemDto = {
   sortOrder: 0,
 };
 
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <table>
-    <tbody>{children}</tbody>
-  </table>
+/**
+ * Every word this row draws comes from `messages/ru.json`. The allergen names come from the
+ * shared `allergens` namespace, which the guest's dish card reads too — the enum itself is nine
+ * English identifiers and is never what an operator sees.
+ */
+const withIntl = ({ children }: { children: ReactNode }) => (
+  <NextIntlClientProvider locale="ru" messages={ru}>
+    <table>
+      <tbody>{children}</tbody>
+    </table>
+  </NextIntlClientProvider>
 );
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: withIntl });
+
+const NBSP = String.fromCharCode(0xa0);
+const plain = (s: string) => s.split(NBSP).join(' ');
+const fill = (message: string, values: Record<string, string | number>) =>
+  message.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key]));
+const M = ru.admin.menu;
+const ACT = ru.admin.actions;
+const R = ru.admin.refusal;
 
 /** What `MenuTable` does for a row: it owns the dish, and it owns which row is open. */
 function Harness({
@@ -47,7 +65,7 @@ function Harness({
   return (
     <MenuRow
       item={item}
-      currency="USD"
+      currency="RUB"
       editing={editing}
       isNew={isNew}
       fetcher={fetcher}
@@ -76,24 +94,32 @@ const noticeOf = () => screen.getAllByRole('status')[0] as HTMLElement;
 describe('MenuRow', () => {
   it('turns the row into inputs without changing the height of the row', async () => {
     const user = userEvent.setup();
-    render(<Harness fetcher={vi.fn()} />, { wrapper });
+    render(<Harness fetcher={vi.fn()} />);
     const height = lineOf().className.match(/(?:^|\s)h-\d+(?:\s|$)/)?.[0];
     expect(height).toBeDefined();
-    expect(screen.queryByLabelText('Name')).toBeNull();
+    expect(screen.queryByLabelText(M.name)).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
 
-    expect(screen.getByLabelText('Name')).toHaveValue('Margherita Flatbread');
-    expect(screen.getByLabelText('Price')).toHaveValue(12);
+    expect(screen.getByLabelText(M.name)).toHaveValue(dish.name);
+    expect(screen.getByLabelText(M.price)).toHaveValue(12);
     expect(lineOf().className.match(/(?:^|\s)h-\d+(?:\s|$)/)?.[0]).toBe(height);
+  });
+
+  it('names a dish by its allergens in Russian, never by the enum the API carries', () => {
+    render(<Harness fetcher={vi.fn()} />);
+    // The read row's second line is the description and the allergens, and the words for the
+    // allergens are the shared ones the guest's dish card reads.
+    expect(screen.getByText(`${dish.description} · ${ru.allergens.gluten}`)).toBeInTheDocument();
+    expect(screen.queryByText(/gluten/)).toBeNull();
   });
 
   it('opens the panel with token-based motion while the row it hangs from stays still (class-level: jsdom does no layout, so this proves the classes are there, not that anything moved)', async () => {
     const user = userEvent.setup();
-    render(<Harness fetcher={vi.fn()} />, { wrapper });
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    render(<Harness fetcher={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
 
-    const panel = screen.getByLabelText('Description').closest('[data-panel]');
+    const panel = screen.getByLabelText(M.description).closest('[data-panel]');
     expect(panel?.className).toContain('starting:opacity-0');
     expect(panel?.className).toContain('transition-[opacity,translate]');
     expect(panel?.className).toContain('duration-[var(--motion-base)]');
@@ -105,25 +131,25 @@ describe('MenuRow', () => {
 
   it('saves only the fields that changed and shows what the server answered', async () => {
     const user = userEvent.setup();
-    const saved: MenuItemDto = { ...dish, name: 'Margherita', priceCents: 1350 };
+    const saved: MenuItemDto = { ...dish, name: 'Маргарита', priceCents: 1350 };
     const fetcher = vi.fn().mockResolvedValue({ item: saved });
-    render(<Harness fetcher={fetcher} />, { wrapper });
+    render(<Harness fetcher={fetcher} />);
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.clear(screen.getByLabelText('Name'));
-    await user.type(screen.getByLabelText('Name'), 'Margherita');
-    await user.clear(screen.getByLabelText('Price'));
-    await user.type(screen.getByLabelText('Price'), '13.50');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
+    await user.clear(screen.getByLabelText(M.name));
+    await user.type(screen.getByLabelText(M.name), 'Маргарита');
+    await user.clear(screen.getByLabelText(M.price));
+    await user.type(screen.getByLabelText(M.price), '13.50');
+    await user.click(screen.getByRole('button', { name: ACT.save }));
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
     expect(fetcher.mock.calls[0]?.[0]).toBe(`/api/menu/items/${ITEM_ID}`);
     expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
-      init: { method: 'PATCH', body: JSON.stringify({ name: 'Margherita', priceCents: 1350 }) },
+      init: { method: 'PATCH', body: JSON.stringify({ name: 'Маргарита', priceCents: 1350 }) },
     });
-    expect(await screen.findByText('Margherita')).toBeInTheDocument();
-    expect(screen.getByText('14 $')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(await screen.findByText('Маргарита')).toBeInTheDocument();
+    expect(screen.getByText('14 ₽')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: ACT.edit })).toBeInTheDocument();
   });
 
   it('posts a new dish whole', async () => {
@@ -137,14 +163,14 @@ describe('MenuRow', () => {
       allergens: [],
       sortOrder: 3,
     };
-    const created: MenuItemDto = { ...draft, id: ITEM_ID, name: 'Focaccia', priceCents: 600 };
+    const created: MenuItemDto = { ...draft, id: ITEM_ID, name: 'Фокачча', priceCents: 600 };
     const fetcher = vi.fn().mockResolvedValue({ item: created });
-    render(<Harness initial={draft} isNew fetcher={fetcher} />, { wrapper });
+    render(<Harness initial={draft} isNew fetcher={fetcher} />);
 
-    await user.type(screen.getByLabelText('Name'), 'Focaccia');
-    await user.clear(screen.getByLabelText('Price'));
-    await user.type(screen.getByLabelText('Price'), '6.00');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.type(screen.getByLabelText(M.name), 'Фокачча');
+    await user.clear(screen.getByLabelText(M.price));
+    await user.type(screen.getByLabelText(M.price), '6.00');
+    await user.click(screen.getByRole('button', { name: ACT.save }));
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
     expect(fetcher.mock.calls[0]?.[0]).toBe('/api/menu/items');
@@ -153,7 +179,7 @@ describe('MenuRow', () => {
         method: 'POST',
         body: JSON.stringify({
           categoryId: CATEGORY_ID,
-          name: 'Focaccia',
+          name: 'Фокачча',
           description: '',
           priceCents: 600,
           allergens: [],
@@ -170,72 +196,99 @@ describe('MenuRow', () => {
     const fetcher = vi
       .fn()
       .mockRejectedValue(new ApiError(409, 'CONFLICT', 'Someone else changed this dish.'));
-    render(<Harness fetcher={fetcher} onSaved={onSaved} />, { wrapper });
+    render(<Harness fetcher={fetcher} onSaved={onSaved} />);
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.clear(screen.getByLabelText('Name'));
-    await user.type(screen.getByLabelText('Name'), 'Marinara');
-    await user.click(screen.getByRole('switch', { name: 'Available' }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
+    await user.clear(screen.getByLabelText(M.name));
+    await user.type(screen.getByLabelText(M.name), 'Маринара');
+    await user.click(screen.getByRole('switch', { name: M.available }));
+    await user.click(screen.getByRole('button', { name: ACT.save }));
 
+    // The frame «Не удалось {verb}. {message}» and the verb are Russian; the server's own sentence
+    // arrives in English and is passed through untouched. Giving it a key is Task 12's work, and
+    // writing a Russian sentence here would put words in the API's mouth.
     await waitFor(() =>
-      expect(noticeOf()).toHaveTextContent("Couldn't save. Someone else changed this dish."),
+      expect(noticeOf()).toHaveTextContent(
+        plain(
+          fill(R.withReason, { verb: R.verb.save, message: 'Someone else changed this dish.' }),
+        ),
+      ),
     );
-    expect(screen.getByLabelText('Name')).toHaveValue('Margherita Flatbread');
-    expect(screen.getByLabelText('Price')).toHaveValue(12);
-    expect(screen.getByRole('switch', { name: 'Available' })).toBeChecked();
+    expect(screen.getByLabelText(M.name)).toHaveValue(dish.name);
+    expect(screen.getByLabelText(M.price)).toHaveValue(12);
+    expect(screen.getByRole('switch', { name: M.available })).toBeChecked();
     expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a whole Russian sentence when the failure carries no server message', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    render(<Harness fetcher={fetcher} />);
+
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
+    await user.clear(screen.getByLabelText(M.name));
+    await user.type(screen.getByLabelText(M.name), 'Маринара');
+    await user.click(screen.getByRole('button', { name: ACT.save }));
+
+    // Nothing of the thrown error reaches the screen: a `TypeError` is not an `ApiError`, so there
+    // is no sentence to pass on and the whole line is the dictionary's.
+    await waitFor(() =>
+      expect(noticeOf()).toHaveTextContent(plain(fill(R.tryAgain, { verb: R.verb.save }))),
+    );
+    expect(noticeOf().textContent).not.toContain('Failed to fetch');
   });
 
   it('marks an emptied price invalid, which is the case that raises the message', async () => {
     const user = userEvent.setup();
     const fetcher = vi.fn();
-    render(<Harness fetcher={fetcher} />, { wrapper });
+    render(<Harness fetcher={fetcher} />);
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.clear(screen.getByLabelText('Price'));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
+    await user.clear(screen.getByLabelText(M.price));
+    await user.click(screen.getByRole('button', { name: ACT.save }));
 
     // `Number('')` is `0` - finite - so a check that only asks whether the text parses marks the
     // emptied field valid at the exact moment the save is refused for it.
     expect(fetcher).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Price')).toHaveAttribute('aria-invalid', 'true');
+    expect(noticeOf()).toHaveTextContent(plain(M.dishIncomplete));
+    expect(screen.getByLabelText(M.price)).toHaveAttribute('aria-invalid', 'true');
     // One convention across both admin screens: valid is the attribute being absent, not
     // `aria-invalid="false"`.
-    expect(screen.getByLabelText('Name')).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByLabelText(M.name)).not.toHaveAttribute('aria-invalid');
   });
 
   it('names the availability switch for what it switches, not for the state it is in', async () => {
     const user = userEvent.setup();
-    render(<Harness fetcher={vi.fn()} />, { wrapper });
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    render(<Harness fetcher={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
 
-    const toggle = screen.getByRole('switch', { name: 'Available' });
+    const toggle = screen.getByRole('switch', { name: M.available });
     expect(toggle).toBeChecked();
-    expect(toggle).toHaveTextContent('Available');
+    expect(toggle).toHaveTextContent(plain(M.available));
 
     await user.click(toggle);
 
     // The same control under the same name: only the state and the word inside it moved. A name
-    // that flipped to "Sold out" would announce an unavailable dish as "Sold out, switch, off".
-    expect(screen.getByRole('switch', { name: 'Available' })).toBe(toggle);
+    // that flipped to «Закончилось» would announce an unavailable dish as "Закончилось,
+    // переключатель, выключен" - a double negative, to the operators least able to afford one.
+    expect(screen.getByRole('switch', { name: M.available })).toBe(toggle);
     expect(toggle).not.toBeChecked();
-    expect(toggle).toHaveTextContent('Sold out');
+    expect(toggle).toHaveTextContent(plain(M.soldOut));
   });
 
   it('restores on cancel without asking the server anything', async () => {
     const user = userEvent.setup();
     const fetcher = vi.fn();
-    render(<Harness fetcher={fetcher} />, { wrapper });
+    render(<Harness fetcher={fetcher} />);
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.clear(screen.getByLabelText('Name'));
-    await user.type(screen.getByLabelText('Name'), 'Marinara');
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
+    await user.clear(screen.getByLabelText(M.name));
+    await user.type(screen.getByLabelText(M.name), 'Маринара');
+    await user.click(screen.getByRole('button', { name: ACT.cancel }));
 
     expect(fetcher).not.toHaveBeenCalled();
-    expect(screen.getByText('Margherita Flatbread')).toBeInTheDocument();
-    expect(screen.queryByText('Marinara')).toBeNull();
+    expect(screen.getByText(dish.name)).toBeInTheDocument();
+    expect(screen.queryByText('Маринара')).toBeNull();
   });
 
   it('keeps a dish that is on an order and says to mark it sold out instead', async () => {
@@ -246,26 +299,27 @@ describe('MenuRow', () => {
       .mockRejectedValue(
         new ApiError(409, 'IN_USE', 'This item appears on an order. Mark it sold out instead.'),
       );
-    render(<Harness fetcher={fetcher} onDeleted={onDeleted} />, { wrapper });
+    render(<Harness fetcher={fetcher} onDeleted={onDeleted} />);
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
+    await user.click(screen.getByRole('button', { name: ACT.delete }));
 
-    await waitFor(() =>
-      expect(noticeOf()).toHaveTextContent('This dish is on an order. Mark it sold out instead.'),
-    );
+    // `IN_USE` is the one refusal with a way out, and the way out is the operator's own sentence
+    // rather than the server's — so this line carries none of the English that arrived.
+    await waitFor(() => expect(noticeOf()).toHaveTextContent(plain(M.dishInUse)));
+    expect(noticeOf().textContent).not.toContain('Mark it sold out instead.');
     expect(onDeleted).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Name')).toHaveValue('Margherita Flatbread');
+    expect(screen.getByLabelText(M.name)).toHaveValue(dish.name);
   });
 
   it('removes a dish nothing depends on', async () => {
     const user = userEvent.setup();
     const onDeleted = vi.fn();
     const fetcher = vi.fn().mockResolvedValue({ ok: true });
-    render(<Harness fetcher={fetcher} onDeleted={onDeleted} />, { wrapper });
+    render(<Harness fetcher={fetcher} onDeleted={onDeleted} />);
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: ACT.edit }));
+    await user.click(screen.getByRole('button', { name: ACT.delete }));
 
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith(ITEM_ID));
     expect(fetcher.mock.calls[0]?.[0]).toBe(`/api/menu/items/${ITEM_ID}`);

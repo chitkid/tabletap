@@ -1,21 +1,25 @@
 import type { DashboardResponse } from '@tabletap/shared';
 import { useTranslations } from 'next-intl';
 
-const EMPTY = 'No orders yet.';
-
 /**
  * The week's days arrive as `YYYY-MM-DD` in the restaurant's own calendar, so they are read back
  * as UTC and printed as UTC: parsing them in the browser's zone would slide a bar a day sideways
  * for anyone west of the restaurant. A day that is not that shape is printed as it arrived rather
  * than as `Invalid Date` — the strip stays legible and the wrong value is visible.
+ *
+ * **`ru-RU`, and it was `en-US` until this milestone.** Dates are the one thing on this surface no
+ * dictionary holds — `Intl` writes them — so a translated screen went on printing «Sun, Aug 30»
+ * under its Russian heading, with the weekday as the visible part. Anything on this surface that
+ * ever prints a time of day belongs in the same formatter, with `hour12: false`: nothing does
+ * today, which is why there is no time format here to copy.
  */
-const FULL = new Intl.DateTimeFormat('en-US', {
+const FULL = new Intl.DateTimeFormat('ru-RU', {
   weekday: 'short',
   month: 'short',
   day: 'numeric',
   timeZone: 'UTC',
 });
-const WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
+const WEEKDAY = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone: 'UTC' });
 
 function labelsFor(date: string): { full: string; weekday: string } {
   const [year, month, day] = date.split('-');
@@ -42,10 +46,13 @@ export function WeekBars({ week }: { week: DashboardResponse['week'] }) {
   return (
     <section aria-labelledby="week-bars-heading" className="flex flex-col gap-4">
       <h2 id="week-bars-heading" className="font-display text-xl font-semibold">
-        Paid orders, last seven days
+        {t('week.heading')}
       </h2>
       {busiest === 0 ? (
-        <p className="text-sm text-muted-foreground">{EMPTY}</p>
+        // An invitation rather than a statement of absence, per the copy contract's editorial
+        // rules: an owner reading this cannot place an order themselves, so the line says what
+        // will fill the chart instead of reporting that nothing has.
+        <p className="text-sm text-muted-foreground">{t('week.empty')}</p>
       ) : (
         <ol className="flex items-end gap-2 rounded-lg border border-border/60 bg-card p-4 pt-6 shadow-sm">
           {days.map((day) => {
@@ -53,7 +60,10 @@ export function WeekBars({ week }: { week: DashboardResponse['week'] }) {
             return (
               <li
                 key={day.date}
-                aria-label={`${full}: ${t('dayOrders', { n: day.orders })}`}
+                aria-label={t('week.day', {
+                  date: full,
+                  orders: t('dayOrders', { n: day.orders }),
+                })}
                 className="flex min-w-0 flex-1 flex-col gap-2"
               >
                 {/* The track is the definite height the bar's percentage resolves against. */}

@@ -1,6 +1,7 @@
 'use client';
 import { TableResponseSchema, type TableDto, type TableWrite } from '@tabletap/shared';
 import { Badge, Button, Input, Label, cn } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState } from 'react';
 import { clientFetch } from '../../lib/api';
 import { randomUuid } from '../../lib/uuid';
@@ -12,16 +13,11 @@ import {
   RowActions,
   RowNotice,
   asJson,
-  deleteRefusal,
   invalidAttr,
-  refusal,
+  useRefusal,
 } from './row-editor';
 
 const TABLE_COLUMNS = 4;
-
-const IN_USE = 'This table has orders. Deactivate it instead.';
-/** Names all three fields the check below can refuse, seats included - `seats < 1` raises this. */
-const INCOMPLETE = "Couldn't save. Give the table a number, a label and a seat count.";
 
 /**
  * What `save` refuses, per field, so the message and the mark on the input can never disagree.
@@ -33,6 +29,15 @@ const badNumber = (text: string) =>
   text.trim() === '' || !Number.isInteger(Number(text)) || Number(text) < 1;
 
 const DEFAULT_SEATS = 4;
+
+/**
+ * Whitespace flattened, for the one comparison on this screen that is between a string the
+ * dictionary wrote and a string a person typed. «Стол 7» binds its number with U+00A0 and a hand
+ * types an ordinary space; treating those as different names would put «Стол 4» on two lines of
+ * the same row over a byte nobody can see.
+ */
+const NBSP = String.fromCharCode(0xa0);
+const flat = (text: string) => text.split(NBSP).join(' ').trim();
 
 type Draft = { number: string; label: string; seats: string };
 
@@ -65,6 +70,8 @@ export function TablesTable({
   initial: TableDto[];
   fetcher?: typeof clientFetch;
 }) {
+  const t = useTranslations('admin.tables');
+  const admin = useTranslations('admin');
   const [tables, setTables] = useState(initial);
   const [editing, setEditing] = useState<string | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -102,44 +109,44 @@ export function TablesTable({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-semibold">Tables</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('heading')}</h1>
         <div className="flex flex-wrap items-center gap-2">
           {/* A link, not a button that fetches: the route answers `content-disposition:
               attachment`, so the browser saves it without leaving this page, and the staff cookie
               rides along the way it does on any same-origin request. */}
           <Button asChild variant="outline">
-            <a href="/api/tables/qr.pdf">Print QR sheet</a>
+            <a href="/api/tables/qr.pdf">{t('printQr')}</a>
           </Button>
           <Button type="button" onClick={addTable}>
-            Add table
+            {t('addTable')}
           </Button>
         </div>
       </div>
       <div className="overflow-x-auto rounded-lg border border-border/60 bg-card shadow-sm">
         <table className="w-full min-w-3xl border-collapse text-sm">
-          <caption className="sr-only">Tables in number order, with the state of each</caption>
+          <caption className="sr-only">{t('caption')}</caption>
           <thead>
             <tr className="border-b border-border">
               <th
                 scope="col"
                 className="w-full px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase"
               >
-                Table
+                {t('columns.table')}
               </th>
               <th
                 scope="col"
                 className="px-3 py-2 text-right text-xs font-semibold tracking-wide text-muted-foreground uppercase"
               >
-                Seats
+                {t('columns.seats')}
               </th>
               <th
                 scope="col"
                 className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase"
               >
-                State
+                {t('columns.state')}
               </th>
               <th scope="col" className="relative px-3 py-2">
-                <span className="sr-only">Row controls</span>
+                <span className="sr-only">{admin('rowControls')}</span>
               </th>
             </tr>
           </thead>
@@ -178,7 +185,9 @@ export function TablesTable({
             {ordered.length === 0 ? (
               <tr className={ROW_LINE}>
                 <td colSpan={TABLE_COLUMNS} className="px-3">
-                  <span className="text-sm text-muted-foreground">No tables yet.</span>
+                  {/* An invitation rather than a statement of absence: «Добавить стол» is at
+                      the top of this screen, and the line points at it. */}
+                  <span className="text-sm text-muted-foreground">{t('noTables')}</span>
                 </td>
               </tr>
             ) : null}
@@ -212,6 +221,10 @@ function TableRow(props: RowProps) {
 }
 
 function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
+  const t = useTranslations('admin.tables');
+  const actions = useTranslations('admin.actions');
+  const { refuse } = useRefusal();
+  const named = t('table', { number: table.number });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const edit = useRef<HTMLButtonElement>(null);
@@ -238,7 +251,7 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
     } catch (error) {
       // Named for the press that was refused. "Couldn't save." describes an act the operator never
       // asked for: this control opens no editor and there is nothing here to save.
-      setNotice(refusal(error, isActive ? 'activate the table' : 'deactivate the table'));
+      setNotice(refuse(error, isActive ? 'activate' : 'deactivate'));
     } finally {
       setBusy(false);
     }
@@ -247,10 +260,13 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
   return (
     <tr className={ROW_LINE}>
       <th scope="row" className={cn(ROW_HEAD, 'border-transparent')}>
-        <span className="block truncate text-sm font-semibold">Table {table.number}</span>
+        <span className="block truncate text-sm font-semibold">{named}</span>
         {/* The label earns its line only when it says something the number does not: a restaurant
-            that never renamed its tables would otherwise read "Table 4" twice in every row. */}
-        {table.label === '' || table.label === `Table ${table.number}` ? null : (
+            that never renamed its tables would otherwise read «Стол 4» twice in every row.
+            Compared with the whitespace flattened on both sides, because «Стол 7» binds its number
+            with U+00A0 while a label typed by a person — or written by the seed — carries an
+            ordinary space, and one invisible byte is not a different name. */}
+        {table.label === '' || flat(table.label) === flat(named) ? null : (
           <span className="block truncate text-sm text-muted-foreground">{table.label}</span>
         )}
       </th>
@@ -259,9 +275,9 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
         {/* Active is the quiet case; out of service is the exception an operator scans for, so
             only that one wears a chip. The same rule the menu applies to a sold-out dish. */}
         {table.isActive ? (
-          <span className="text-sm text-muted-foreground">Active</span>
+          <span className="text-sm text-muted-foreground">{t('active')}</span>
         ) : (
-          <Badge variant="secondary">Inactive</Badge>
+          <Badge variant="secondary">{t('inactive')}</Badge>
         )}
       </td>
       {/* A minimum the three controls fit on one line in. The first column is `w-full` and takes
@@ -282,7 +298,7 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
         ) : null}
         <QrActions table={table} fetcher={fetcher}>
           <Button type="button" ref={edit} variant="outline" disabled={busy} onClick={onEdit}>
-            Edit
+            {actions('edit')}
           </Button>
           <Button
             type="button"
@@ -291,7 +307,7 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
             aria-busy={busy || undefined}
             onClick={() => void setActive(!table.isActive)}
           >
-            {table.isActive ? 'Deactivate' : 'Activate'}
+            {table.isActive ? t('deactivate') : t('activate')}
           </Button>
         </QrActions>
       </td>
@@ -300,6 +316,9 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
 }
 
 function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowProps) {
+  const t = useTranslations('admin.tables');
+  const actions = useTranslations('admin.actions');
+  const { refuse, refuseDelete } = useRefusal();
   const numberId = useId();
   const labelId = useId();
   const seatsId = useId();
@@ -316,7 +335,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
     const seats = Number(draft.seats);
     if (label === '' || badNumber(draft.number) || badNumber(draft.seats)) {
       setInvalid(true);
-      setNotice(INCOMPLETE);
+      setNotice(t('incomplete'));
       return;
     }
     setInvalid(false);
@@ -344,7 +363,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
     } catch (error) {
       // The row must never sit showing values the server does not hold.
       setDraft(draftOf(table));
-      setNotice(refusal(error));
+      setNotice(refuse(error));
     } finally {
       setBusy(false);
     }
@@ -361,7 +380,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
       });
       onDeleted();
     } catch (error) {
-      setNotice(deleteRefusal(error, IN_USE));
+      setNotice(refuseDelete(error, t('inUse')));
     } finally {
       setBusy(false);
     }
@@ -373,7 +392,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
         <th scope="row" className={cn(ROW_HEAD, 'border-primary')}>
           <div className="flex items-center gap-2">
             <Label htmlFor={numberId} className="sr-only">
-              Number
+              {t('number')}
             </Label>
             <Input
               id={numberId}
@@ -387,7 +406,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
               onChange={(event) => change({ number: event.target.value })}
             />
             <Label htmlFor={labelId} className="sr-only">
-              Label
+              {t('label')}
             </Label>
             {/* The label is what an operator came to change: the number is usually already right,
                 and on a new table it has been filled in for them. */}
@@ -403,7 +422,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
         </th>
         <td className="px-3 text-right">
           <Label htmlFor={seatsId} className="sr-only">
-            Seats
+            {t('seats')}
           </Label>
           <Input
             id={seatsId}
@@ -419,7 +438,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
         </td>
         <td className="px-3">
           <span className="text-sm text-muted-foreground">
-            {table.isActive ? 'Active' : 'Inactive'}
+            {table.isActive ? t('active') : t('inactive')}
           </span>
         </td>
         <RowActions busy={busy} onSave={() => void save()} onCancel={onCancel} />
@@ -436,7 +455,7 @@ function EditRow({ table, isNew, fetcher, onCancel, onSaved, onDeleted }: RowPro
               disabled={busy}
               onClick={() => void remove()}
             >
-              Delete
+              {actions('delete')}
             </Button>
           </div>
         </td>

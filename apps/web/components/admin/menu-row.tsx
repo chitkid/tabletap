@@ -7,6 +7,7 @@ import {
   type MenuItemWrite,
 } from '@tabletap/shared';
 import { Badge, Button, Input, Label, Textarea, cn } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState } from 'react';
 import { z } from 'zod';
 import { clientFetch } from '../../lib/api';
@@ -18,9 +19,8 @@ import {
   RowActions,
   RowNotice,
   asJson,
-  deleteRefusal,
   invalidAttr,
-  refusal,
+  useRefusal,
 } from './row-editor';
 
 const ItemResponseSchema = z.object({ item: MenuItemDtoSchema });
@@ -37,9 +37,6 @@ export const ROW_LINE = 'h-14 border-b border-border/50';
  * `ROW_LINE` for the same reason: the tables screen has to be able to match it rather than keep a
  * copy that nothing stops from drifting. */
 export const ROW_HEAD = 'relative max-w-0 border-l-2 px-3 text-left font-normal';
-
-const IN_USE = 'This dish is on an order. Mark it sold out instead.';
-const INCOMPLETE = "Couldn't save. Give the dish a name and a price.";
 
 /**
  * What `save` refuses about the price, so the message and the mark on the input cannot disagree.
@@ -103,7 +100,15 @@ export function MenuRow(props: RowProps) {
 }
 
 function ReadRow({ item, currency, focusOnRead, onEdit }: RowProps) {
-  const detail = [item.description, item.allergens.join(', ')].filter((part) => part !== '');
+  const t = useTranslations('admin.menu');
+  const actions = useTranslations('admin.actions');
+  // `allergens` is a shared namespace rather than an admin one: the guest's dish card prints the
+  // same nine words. The enum in @tabletap/shared is nine English identifiers and is a key, never
+  // something anybody reads.
+  const allergen = useTranslations('allergens');
+  const detail = [item.description, item.allergens.map((name) => allergen(name)).join(', ')].filter(
+    (part) => part !== '',
+  );
   const edit = useRef<HTMLButtonElement>(null);
   // Save and Cancel take the row's controls away with them. Focus goes back to the button that
   // opened the row, so a keyboard hand carries on from where it was instead of at the page top.
@@ -123,16 +128,19 @@ function ReadRow({ item, currency, focusOnRead, onEdit }: RowProps) {
       </td>
       <td className="px-3">
         {/* Available is the quiet case: it reads as a word, not as something to press. Sold out
-            is the exception an operator is scanning for, so only that one wears a chip. */}
+            is the exception an operator is scanning for, so only that one wears a chip. Both are
+            the words for *this dish* and stay singular; the column heading above them is «Наличие»,
+            which names the field rather than a group, so the plural/singular split the kitchen
+            board holds between `kitchen-board.tsx` and `ticket-card.tsx` does not arise here. */}
         {item.isAvailable ? (
-          <span className="text-sm text-muted-foreground">Available</span>
+          <span className="text-sm text-muted-foreground">{t('available')}</span>
         ) : (
-          <Badge variant="secondary">Sold out</Badge>
+          <Badge variant="secondary">{t('soldOut')}</Badge>
         )}
       </td>
       <td className="px-3 text-right">
         <Button type="button" ref={edit} variant="outline" onClick={onEdit}>
-          Edit
+          {actions('edit')}
         </Button>
       </td>
     </tr>
@@ -149,6 +157,10 @@ function EditRow({
   onDeleted,
   onPhotoChanged,
 }: RowProps) {
+  const t = useTranslations('admin.menu');
+  const actions = useTranslations('admin.actions');
+  const allergen = useTranslations('allergens');
+  const { refuse, refuseDelete } = useRefusal();
   const nameId = useId();
   const priceId = useId();
   const descriptionId = useId();
@@ -166,7 +178,7 @@ function EditRow({
     const sortOrder = Number(draft.sortOrder);
     if (name === '' || badPrice(draft.price) || !Number.isFinite(sortOrder)) {
       setInvalid(true);
-      setNotice(INCOMPLETE);
+      setNotice(t('dishIncomplete'));
       return;
     }
     setInvalid(false);
@@ -201,7 +213,7 @@ function EditRow({
       // The row must never sit showing values the server does not hold, so the draft goes back to
       // the dish as it stands and the line says what was refused.
       setDraft(draftOf(item));
-      setNotice(refusal(error));
+      setNotice(refuse(error));
     } finally {
       setBusy(false);
     }
@@ -218,7 +230,7 @@ function EditRow({
       });
       onDeleted(item.id);
     } catch (error) {
-      setNotice(deleteRefusal(error, IN_USE));
+      setNotice(refuseDelete(error, t('dishInUse')));
     } finally {
       setBusy(false);
     }
@@ -229,7 +241,7 @@ function EditRow({
       <tr className={cn(ROW_LINE, 'bg-secondary/60')}>
         <th scope="row" className={cn(ROW_HEAD, 'border-primary')}>
           <Label htmlFor={nameId} className="sr-only">
-            Name
+            {t('name')}
           </Label>
           <Input
             id={nameId}
@@ -241,7 +253,7 @@ function EditRow({
         </th>
         <td className="relative px-3 text-right">
           <Label htmlFor={priceId} className="sr-only">
-            Price
+            {t('price')}
           </Label>
           <Input
             id={priceId}
@@ -263,12 +275,12 @@ function EditRow({
           <Button
             type="button"
             role="switch"
-            aria-label="Available"
+            aria-label={t('available')}
             variant={draft.isAvailable ? 'outline' : 'secondary'}
             aria-checked={draft.isAvailable}
             onClick={() => change({ isAvailable: !draft.isAvailable })}
           >
-            {draft.isAvailable ? 'Available' : 'Sold out'}
+            {draft.isAvailable ? t('available') : t('soldOut')}
           </Button>
         </td>
         <RowActions busy={busy} onSave={() => void save()} onCancel={onCancel} />
@@ -278,33 +290,33 @@ function EditRow({
           <RowNotice notice={notice} />
           <div data-panel className={cn('grid gap-4 md:grid-cols-2', PANEL_OPENS)}>
             <div className="flex flex-col gap-2">
-              <Label htmlFor={descriptionId}>Description</Label>
+              <Label htmlFor={descriptionId}>{t('description')}</Label>
               <Textarea
                 id={descriptionId}
                 value={draft.description}
                 onChange={(event) => change({ description: event.target.value })}
               />
               <fieldset className="mt-2">
-                <legend className="mb-2 text-sm font-medium">Allergens</legend>
+                <legend className="mb-2 text-sm font-medium">{t('allergens')}</legend>
                 <div className="flex flex-wrap gap-x-4 gap-y-2">
-                  {ALLERGENS.map((allergen) => (
+                  {ALLERGENS.map((name) => (
                     <label
-                      key={allergen}
+                      key={name}
                       className="flex h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-card"
                     >
                       <input
                         type="checkbox"
                         className="size-4 accent-primary"
-                        checked={draft.allergens.includes(allergen)}
+                        checked={draft.allergens.includes(name)}
                         onChange={(event) =>
                           change({
                             allergens: event.target.checked
-                              ? [...draft.allergens, allergen]
-                              : draft.allergens.filter((value) => value !== allergen),
+                              ? [...draft.allergens, name]
+                              : draft.allergens.filter((value) => value !== name),
                           })
                         }
                       />
-                      {allergen}
+                      {allergen(name)}
                     </label>
                   ))}
                 </div>
@@ -322,7 +334,7 @@ function EditRow({
                 />
               )}
               <div className="flex max-w-xs flex-col gap-2">
-                <Label htmlFor={sortId}>Sort order</Label>
+                <Label htmlFor={sortId}>{t('sortOrder')}</Label>
                 <Input
                   id={sortId}
                   type="number"
@@ -338,7 +350,7 @@ function EditRow({
                   disabled={busy}
                   onClick={() => void remove()}
                 >
-                  Delete
+                  {actions('delete')}
                 </Button>
               </div>
             </div>
