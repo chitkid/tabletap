@@ -428,9 +428,12 @@ describe('payments', () => {
    */
   describe('the line item a payment provider shows the guest', () => {
     it('names the table and the order in Russian, with the copy contract’s bound spaces', () => {
-      // Transcribed rather than derived, because there is nothing here to derive it from: this app
-      // cannot import the web's dictionary, and that is the whole reason the string lives here.
-      // The two U+00A0 are built from their code point so they are visible in this file.
+      // Transcribed rather than derived, on purpose and not for want of a source: this is the
+      // external anchor for the sentence, the one assertion that fails when the words change at
+      // all. `ru.dictionary.test.ts` is the other half — it compares this same string with
+      // `guest.pay.terminalHeading` in the web's dictionary, which this comment used to say could
+      // not be done from here. The two U+00A0 are built from their code point so they are visible
+      // in this file.
       const nbsp = String.fromCharCode(0xa0);
       expect(checkoutLineName({ number: 12, tableNumber: 7 })).toBe(
         `Стол${nbsp}7 · Заказ №${nbsp}12`,

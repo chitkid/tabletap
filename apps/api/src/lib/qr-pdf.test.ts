@@ -210,8 +210,9 @@ describe('renderQrSheet', () => {
     // the label a person typed into the admin. Pinned as literals rather than imported from the
     // module that writes them: a test comparing the module with itself passes on any wording,
     // English included. The heading binds the number to the noun with U+00A0, as the copy contract
-    // asks and as `admin.tables.table` already does on screen, while the label carries the plain
-    // space it was typed with - so both spaces have to survive into the file as themselves.
+    // asks and as `admin.tables.table` already does on screen — `ru.dictionary.test.ts` is what
+    // compares the two, so that claim is no longer prose — while the label carries the plain space
+    // it was typed with, so both spaces have to survive into the file as themselves.
     //
     // Asserted against the runs joined rather than one at a time, so that a failure prints the
     // whole sheet the way a reader shows it: «Стол 7» being absent says far less than whatever

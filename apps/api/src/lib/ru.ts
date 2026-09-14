@@ -15,8 +15,13 @@
  * key is for a developer reading a log. The strings below are the exceptions, and they are
  * exceptions for one reason each time: **something other than the web tier draws them.** Stripe
  * prints the checkout line on its own hosted page; pdfkit prints the sheet onto paper. Neither asks
- * the web for words, so neither can be reached by the web's dictionary, and this app cannot import
- * it — a Fastify service does not read a Next app's messages.
+ * the web for words, so neither can be reached by the web's dictionary, and this app must not
+ * import it at run time — a Fastify service does not read a Next app's messages.
+ *
+ * A *test* may, and one does: `ru.dictionary.test.ts` is the single place in this app that reads
+ * `apps/web/messages/ru.json`, and it holds the four sentences below that claim to match one there.
+ * A second importer anywhere in `apps/api` is the signal that those sentences should move into
+ * `@tabletap/shared`, which both tiers already depend on, rather than that the rule has softened.
  *
  * `lib/payments.ts` used to carry the first of these alone, with a note saying that a second one
  * appearing would turn the note into a dictionary. Task 13 added six, so this is that dictionary:
@@ -41,11 +46,12 @@ const asRussianDate = (isoDay: string): string => isoDay.split('-').reverse().jo
  * for the same order — «Стол 7 · Заказ № 12» — so switching a deployment from the demo provider to
  * Stripe does not change what the payment step is called.
  *
- * **That match is unguarded, and cannot be guarded from here.** `payments.test.ts` pins this string
- * and pins that `startPayment` hands it to the provider, but nothing compares it with
- * `guest.pay.terminalHeading`: this app cannot import the web's dictionary, which is the same
- * reason the string lives here at all. If the terminal's heading is reworded, reword this too — a
- * reviewer is what stands between them, not a test.
+ * **That match is guarded by `ru.dictionary.test.ts`, and by nothing else.** That file is the one
+ * place in this app that reads the web's dictionary, and it reads it only in a test. What this
+ * module must not do — and does not do — is import it at *run time*: a Fastify service does not
+ * read a Next app's messages, which is why the string lives here at all. This comment used to say
+ * the match "cannot be guarded from here", and that was wrong in the reassuring direction: a
+ * reviewer, not a test, is what stood between the two homes for as long as it stood there.
  */
 export const checkoutLineName = (order: { number: number; tableNumber: number }): string =>
   `Стол\u00a0${order.tableNumber} · Заказ №\u00a0${order.number}`;
@@ -63,14 +69,17 @@ export const qrSheet = {
   /**
    * A card's heading. The non-breaking space is the copy contract's — it binds the number to the
    * noun — and it is the same binding `admin.tables.table` makes on screen, so the card on the
-   * table and the row in the admin name the table identically.
+   * table and the row in the admin name the table identically. `ru.dictionary.test.ts` compares
+   * the two.
    */
   table: (number: number): string => `Стол\u00a0${number}`,
   /**
    * **The sentence a guest reads off the card**, and the reason this task existed: it was English,
    * and the face it was set in could not have drawn it in Russian. The verbs are the landing
    * page's — «выберите блюда и оформите заказ» — because a guest who read the site and a guest who
-   * only sat down are being told to do the same thing.
+   * only sat down are being told to do the same thing. `ru.dictionary.test.ts` holds that clause
+   * against `landing.hero.subtitle` and `landing.meta.description`, with U+00A0 flattened: the two
+   * homes differ by one bound space inside the clause, and that file says why it is left alone.
    */
   instruction: 'Отсканируйте код камерой телефона, выберите блюда и оформите заказ.',
   /**
@@ -79,6 +88,8 @@ export const qrSheet = {
    * QR-коды» and `admin.qr.reissued` ends «Распечатайте QR-коды заново», three lines away in the
    * dictionary. «лист» is accurate Russian for a sheet of paper and a word this product uses
    * nowhere else, which is reason enough not to introduce it on the one surface a guest holds.
+   * `ru.dictionary.test.ts` reads the noun out of `admin.tables.printQr` and requires it here, so
+   * renaming the document in the admin cannot leave the printed sheet behind.
    */
   nothingToPrint: 'Добавьте стол или включите отключённый — и распечатайте QR-коды заново.',
   /**
