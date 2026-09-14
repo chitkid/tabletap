@@ -165,16 +165,59 @@ describe('a refusal the server sent', () => {
   });
 
   /**
-   * Three refusals the server can name and the admin surface can also raise on its own. They say
-   * the same thing in the same words on purpose — the situation is one situation — and that is
-   * exactly why they have to be pinned: they are byte-identical, so a reword of either side leaves
-   * the other behind with nothing failing, and a substring assertion cannot tell the two apart at
-   * all. (It could not: `menu-row.test.tsx` and `menu-table.test.tsx` both stayed green with
-   * `refuseDelete`'s `IN_USE` branch removed, until they were changed to compare whole strings.)
+   * **Every sentence that lives in two dictionary namespaces at once.**
+   *
+   * `api.ts`'s doc comment has the rule that produces them: staff read the server's own `errors.*`
+   * sentence, a guest reads the surface's own words in the context they are standing in. When the
+   * situation is one situation, the two come out identical — and that is exactly why they have to
+   * be pinned, because a reword of either side then leaves the other behind with nothing failing,
+   * and a substring assertion cannot tell the two apart at all. (It could not: `menu-row.test.tsx`
+   * and `menu-table.test.tsx` both stayed green with `refuseDelete`'s `IN_USE` branch removed,
+   * until they were changed to compare whole strings.)
+   *
+   * This covered the three `IN_USE` pairs and stated the reasoning perfectly while applying it to
+   * three of nine. Of the six it did not cover, **two had already drifted**: `guest.claim.invalid`
+   * and `guest.claim.notFound` were truncated copies of `errors.qrInvalid` and
+   * `errors.tableUnavailable` that had lost their remedy clause — «Попросите у сотрудников новый»,
+   * «Обратитесь к сотрудникам зала» — leaving a guest standing at a table with a phone told that
+   * the code is invalid and nothing else, while the server had a better sentence ready. Restored,
+   * and now pinned with the rest.
    */
-  it('keeps the three IN_USE refusals identical on both sides', () => {
-    expect(ru.errors.itemInUse).toBe(ru.admin.menu.dishInUse);
-    expect(ru.errors.categoryInUse).toBe(ru.admin.menu.categoryInUse);
-    expect(ru.errors.tableInUse).toBe(ru.admin.tables.inUse);
+  it('keeps every sentence that lives in two namespaces identical on both sides', () => {
+    // Whole-object equality rather than eight `toBe`s: a failure names every pair that moved.
+    expect({
+      itemInUse: ru.admin.menu.dishInUse,
+      categoryInUse: ru.admin.menu.categoryInUse,
+      tableInUse: ru.admin.tables.inUse,
+      itemsSoldOut: ru.guest.checkout.soldOutSome,
+      basketAlreadySent: ru.guest.checkout.conflict,
+      qrExpired: ru.guest.claim.expired,
+      qrInvalid: ru.guest.claim.invalid,
+      tableUnavailable: ru.guest.claim.notFound,
+    }).toEqual({
+      itemInUse: ru.errors.itemInUse,
+      categoryInUse: ru.errors.categoryInUse,
+      tableInUse: ru.errors.tableInUse,
+      itemsSoldOut: ru.errors.itemsSoldOut,
+      basketAlreadySent: ru.errors.basketAlreadySent,
+      qrExpired: ru.errors.qrExpired,
+      qrInvalid: ru.errors.qrInvalid,
+      tableUnavailable: ru.errors.tableUnavailable,
+    });
+  });
+
+  /**
+   * The ninth pair, and the one that is deliberately **not** identical — named here so the
+   * difference is a decision rather than the silence the eight above used to sit in.
+   *
+   * `admin.photo.off` drops `errors.photoUploadDisabled`'s «Обратитесь к тому, кто её
+   * разворачивал.» The reader is an operator looking at a control that is switched off, not a
+   * guest who is stuck, so the merge review ruled it a Minor that ships; `docs/backlog.md` carries
+   * it. This asserts the *prefix* relation that is true today, so the shared half still cannot
+   * drift and the missing half is visible in one place.
+   */
+  it('names the one pair that is deliberately not identical', () => {
+    expect(ru.errors.photoUploadDisabled.startsWith(ru.admin.photo.off)).toBe(true);
+    expect(ru.errors.photoUploadDisabled).not.toBe(ru.admin.photo.off);
   });
 });

@@ -123,8 +123,8 @@
     "claim": {
       "finding": "Finding your table…",
       "expired": "This QR code has expired. Ask staff for a new one.",
-      "invalid": "This QR code is not valid.",
-      "notFound": "This table is not available right now.",
+      "invalid": "This QR code is not valid. Ask staff for a new one.",
+      "notFound": "This table is not available. Ask a member of the floor staff.",
       "unreachable": "Can't reach the server. Check the connection and try again.",
       "retry": "Try again",
       "home": "Back to the start"

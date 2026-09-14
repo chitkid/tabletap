@@ -6,12 +6,33 @@ export const GUEST_COOKIE = 'tt_guest';
 
 export class ApiError extends Error {
   /**
-   * `messageKey` is the half the interface renders, through `errors.*` in `messages/ru.json`.
    * `message` is the API's own English sentence and is for a log, a console and a stack: **no
    * surface renders it.** The gate in `apps/web/i18n/no-orphan-strings.test.ts` cannot see this
    * distinction — the sentence is not in this source tree at all — so the two call sites that used
    * to interpolate it (`components/admin/row-editor.tsx`, `lib/demo-links.ts`) carry the proof in
    * their own tests instead.
+   *
+   * `messageKey` is the half the interface may render, through `errors.*` in `messages/ru.json`.
+   *
+   * **Two mechanisms, and which one a surface uses is a decision about the reader.** This used to
+   * be stated as a flat fact — "`messageKey` is the half the interface renders" — and four of the
+   * six call sites do something else, so a reader who believed it and then opened
+   * `claim-table.tsx` could not tell which was the mistake. The rule the six actually follow:
+   *
+   * - **Staff read the server's own sentence.** `errors.*` is written for somebody who can act on
+   *   what the API refused, and who has the vocabulary for it. `components/admin/row-editor.tsx`
+   *   and `lib/demo-links.ts` render `messageKey` through `errors.*` directly.
+   * - **A guest reads the surface's own words, in the context they are standing in.** A guest at a
+   *   table with a phone needs the sentence that fits the screen they are on, not the one that
+   *   fits every caller of the endpoint. So `components/claim-table.tsx`,
+   *   `components/checkout/checkout-screen.tsx` and `components/kitchen/kitchen-board.tsx` map
+   *   `err.code` into a surface-local block, and `components/login-form.tsx` maps the HTTP status,
+   *   because better-auth sends no key at all.
+   *
+   * The cost of the second is that a sentence can exist in two dictionary namespaces at once, and
+   * a reword of either side leaves the other behind with nothing failing. `lib/api.test.ts` pins
+   * every such pair that is byte-identical today; the pair that is *deliberately* different is
+   * named there too, so the difference is a decision and not drift.
    *
    * `null` means the envelope named no refusal this build knows: an API older than this web tier,
    * an API newer than it, or a failure that never produced an envelope. Every reader turns that
