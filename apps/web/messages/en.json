@@ -171,7 +171,7 @@
     "empty": {
       "new": "No new tickets.",
       "cooking": "Nothing is cooking.",
-      "ready": "Everything has gone out."
+      "ready": "Everything has been served."
     },
     "ticket": {
       "heading": "Table {table} · #{number}",

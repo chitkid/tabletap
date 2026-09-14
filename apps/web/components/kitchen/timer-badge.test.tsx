@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement, ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import ru from '../../messages/ru.json';
-import { LATE_AFTER_MS, WARN_AFTER_MS } from '../../lib/timer-threshold';
+import { LATE_AFTER_MS, WARN_AFTER_MS, formatTimer } from '../../lib/timer-threshold';
 import { TimerBadge } from './timer-badge';
 
 /**
@@ -35,8 +35,13 @@ const plain = (s: string) => s.split(NBSP).join(' ');
  */
 const SLACK = 1;
 const LONGEST = Math.max(...Object.values(ru.kitchen.timer).map((s) => s.length));
-/** `mm:ss`. */
-const DIGITS = 5;
+const HOUR_MS = 60 * 60_000;
+/**
+ * Derived from the formatter, never typed: `formatTimer` returns `h:mm:ss` from an hour old
+ * onwards, so the slot has to hold seven characters and not the five `mm:ss` needs. Changing the
+ * format without changing the slot has to be a failing test rather than a slow surprise.
+ */
+const DIGITS = formatTimer(HOUR_MS).length;
 
 const slot = (name: string): Element => {
   const el = screen.getByRole('timer').querySelector(`[data-timer='${name}']`);
@@ -47,7 +52,17 @@ const slot = (name: string): Element => {
 const classesOf = (el: Element) => el.getAttribute('class') ?? '';
 const minWidthOf = (el: Element) => el.getAttribute('style') ?? '';
 
-const AT = { ok: 65_000, warn: WARN_AFTER_MS, late: LATE_AFTER_MS + 60_000 } as const;
+/**
+ * One age per threshold, plus the hour-old ticket that is the same threshold in the formatter's
+ * other form. Nothing takes a forgotten `ready` ticket off the board, so `hour` is reachable on
+ * an ordinary service and belongs in every loop the other three are in.
+ */
+const AT = {
+  ok: 65_000,
+  warn: WARN_AFTER_MS,
+  late: LATE_AFTER_MS + 60_000,
+  hour: HOUR_MS + 11 * 60_000,
+} as const;
 
 describe('TimerBadge', () => {
   it('says the age, and says nothing more while the ticket is inside its window', () => {
@@ -109,8 +124,15 @@ describe('TimerBadge', () => {
       unmount();
     }
   });
-  /** 9:59 → 10:00 is one more digit, and it lands inside the late threshold's own window. */
-  it('reserves the digits for the widest time inside an hour', () => {
+  /**
+   * Two steps, not one. 9:59 → 10:00 is a digit and lands inside the late threshold's own window;
+   * 59:59 → 1:00:00 is two more and lands wherever a ticket is forgotten, which nothing on this
+   * board prevents. The slot is sized from `formatTimer` so both are covered by construction.
+   */
+  it('reserves the digits for the widest form formatTimer produces, not the widest hour', () => {
+    expect(formatTimer(HOUR_MS)).toHaveLength(7);
+    expect(formatTimer(59 * 60_000 + 59_000)).toHaveLength(5);
+    expect(DIGITS).toBe(7);
     for (const elapsedMs of Object.values(AT)) {
       const { unmount } = render(<TimerBadge elapsedMs={elapsedMs} />);
       expect(minWidthOf(slot('digits'))).toContain(`min-width: ${DIGITS + SLACK}ch`);
@@ -121,7 +143,8 @@ describe('TimerBadge', () => {
   it('renders the same three boxes at every threshold', () => {
     const boxes = (elapsedMs: number) => {
       const { unmount } = render(<TimerBadge elapsedMs={elapsedMs} />);
-      const seen = [...screen.getByRole('timer').querySelectorAll('[data-timer]')].map((el) => [
+      const badge = screen.getByRole('timer');
+      const seen = [...badge.querySelectorAll('[data-timer]')].map((el) => [
         el.getAttribute('data-timer'),
         classesOf(el),
         minWidthOf(el),
@@ -130,7 +153,40 @@ describe('TimerBadge', () => {
       return seen;
     };
     expect(boxes(AT.ok)).toHaveLength(3);
-    expect(boxes(AT.warn)).toEqual(boxes(AT.ok));
-    expect(boxes(AT.late)).toEqual(boxes(AT.ok));
+    for (const elapsedMs of [AT.warn, AT.late, AT.hour]) {
+      expect(boxes(elapsedMs)).toEqual(boxes(AT.ok));
+    }
+  });
+  /**
+   * **The premise every reservation above rests on, asserted rather than assumed.**
+   *
+   * A `ch` is the advance of the digit zero. In a monospaced face every character is that wide,
+   * so a character count is a width and the slots hold what they claim to. In a proportional
+   * face it is not: the digits stop agreeing with their own reservation and the badge starts
+   * moving the board again, while every other test in this file stays green because they read
+   * the slots and not the face.
+   *
+   * Found by a reviewer swapping `font-mono` for `font-sans` and watching all 51 kitchen tests
+   * pass - the same vacuity Task 5's drift guard had. This is the assertion that goes red.
+   */
+  it('keeps the monospaced face that makes a character count a width', () => {
+    for (const elapsedMs of Object.values(AT)) {
+      const { unmount } = render(<TimerBadge elapsedMs={elapsedMs} />);
+      const badge = screen.getByRole('timer');
+      expect(classesOf(badge).split(' ')).toContain('font-mono');
+      // and nothing inside overrides it out from under the reservations it carries. Compared
+      // as whole class names rather than by regex: a `font-*` needle written as a pattern is
+      // one escape away from matching nothing at all, which is the failure mode this whole
+      // test is about - and is what the first draft of this line actually did.
+      for (const name of ['digits', 'suffix']) {
+        const reserved = slot(name);
+        expect(badge.contains(reserved)).toBe(true);
+        const face = classesOf(reserved)
+          .split(' ')
+          .filter((c) => c.startsWith('font-'));
+        expect(face).toEqual([]);
+      }
+      unmount();
+    }
   });
 });

@@ -25,8 +25,19 @@ function Mark({ threshold }: { threshold: Threshold }) {
   );
 }
 
-/** `mm:ss` — the widest time inside an hour, and the one 9:59 → 10:00 would otherwise widen. */
-const DIGITS = 5;
+/**
+ * The widest form `formatTimer` produces: `h:mm:ss`, seven characters, which is what it returns
+ * from an hour old onwards. `mm:ss` is **not** enough — it would move the board again at
+ * 1:00:00, which is the same defect this component exists to remove arriving an hour later
+ * instead of five minutes later, and nothing takes a forgotten `ready` ticket off the board, so
+ * an hour-old ticket is an ordinary service rather than an edge case.
+ *
+ * `timer-badge.test.tsx` derives this from `formatTimer` itself rather than trusting the number,
+ * so changing the format without changing the slot is a failing test. The one step left is
+ * 10:00:00, where the hour reaches two digits; task-6-report.md §10.2 has the number and the
+ * levers.
+ */
+const DIGITS = 7;
 /**
  * One character of slack on every reservation, and it is not a fudge.
  *
@@ -49,13 +60,17 @@ const SLACK = 1;
  * of the ticket's life and nothing it does moves the board:
  *
  * - the mark's box, above;
- * - the digits. Past an hour `formatTimer` goes to `h:mm:ss` and the slot grows once; no ticket
- *   on this board lives that long, and reserving for it would cost two characters on every
- *   ticket that does not;
- * - the suffix, in as many `ch` as the longest word the dictionary has for a threshold. The
- *   badge is monospace, so a character is a `ch` and the character count is the width — and
- *   taking it from the dictionary rather than from a number typed here means a translator who
- *   writes a longer word than «опоздание» widens the slot instead of breaking the promise.
+ * - the digits, in the widest form `formatTimer` produces rather than the widest one a ticket
+ *   usually reaches;
+ * - the suffix, in as many `ch` as the longest word the dictionary has for a threshold. Taking
+ *   it from the dictionary rather than from a number typed here means a translator who writes a
+ *   longer word than «опоздание» widens the slot instead of breaking the promise.
+ *
+ * **All of it rests on `font-mono` below, and that is a load-bearing class rather than a
+ * styling choice.** `ch` is the advance of the digit zero: in a monospaced face every character
+ * is that wide, so a character count is a width. In a proportional face it is not, the digits
+ * stop agreeing with their own reservation, and every promise above quietly stops holding while
+ * the page still looks fine. `timer-badge.test.tsx` asserts the face for exactly that reason.
  */
 export function TimerBadge({ elapsedMs }: { elapsedMs: number }) {
   const t = useTranslations('kitchen.timer');
