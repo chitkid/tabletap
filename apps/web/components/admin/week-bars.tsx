@@ -1,4 +1,5 @@
 import type { DashboardResponse } from '@tabletap/shared';
+import { useTranslations } from 'next-intl';
 
 const EMPTY = 'No orders yet.';
 
@@ -24,8 +25,6 @@ function labelsFor(date: string): { full: string; weekday: string } {
   return { full: FULL.format(when), weekday: WEEKDAY.format(when) };
 }
 
-const counted = (orders: number) => `${orders} paid ${orders === 1 ? 'order' : 'orders'}`;
-
 /**
  * Seven days of paid orders as plain CSS bars — a list of days, each a percentage of the busiest
  * one. No chart library and no canvas: seven numbers do not need a rendering engine, and a list
@@ -36,6 +35,7 @@ const counted = (orders: number) => `${orders} paid ${orders === 1 ? 'order' : '
  * would stop a change at the far end from silently drawing the week backwards.
  */
 export function WeekBars({ week }: { week: DashboardResponse['week'] }) {
+  const t = useTranslations('admin');
   const days = [...week].sort((a, b) => a.date.localeCompare(b.date));
   const busiest = days.reduce((top, day) => Math.max(top, day.orders), 0);
 
@@ -53,7 +53,7 @@ export function WeekBars({ week }: { week: DashboardResponse['week'] }) {
             return (
               <li
                 key={day.date}
-                aria-label={`${full}: ${counted(day.orders)}`}
+                aria-label={`${full}: ${t('dayOrders', { n: day.orders })}`}
                 className="flex min-w-0 flex-1 flex-col gap-2"
               >
                 {/* The track is the definite height the bar's percentage resolves against. */}

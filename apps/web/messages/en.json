@@ -43,9 +43,13 @@
     },
     "footer": "Source, ADRs and the case study live in the repository README."
   },
-  "guest": {},
+  "guest": {
+    "basketItems": "{n, plural, one {# item} other {# items}}"
+  },
   "kitchen": {},
-  "admin": {},
+  "admin": {
+    "dayOrders": "{n, plural, one {# order} other {# orders}}"
+  },
   "common": {},
   "status": {}
 }

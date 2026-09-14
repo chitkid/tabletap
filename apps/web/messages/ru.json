@@ -43,9 +43,13 @@
     },
     "footer": "Исходный код, решения и разбор проекта — в README репозитория."
   },
-  "guest": {},
+  "guest": {
+    "basketItems": "{n, plural, one {# позиция} few {# позиции} many {# позиций} other {# позиции}}"
+  },
   "kitchen": {},
-  "admin": {},
+  "admin": {
+    "dayOrders": "{n, plural, one {# заказ} few {# заказа} many {# заказов} other {# заказа}}"
+  },
   "common": {},
   "status": {}
 }

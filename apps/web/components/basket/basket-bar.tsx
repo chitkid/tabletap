@@ -1,5 +1,6 @@
 'use client';
 import { Button } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import type { RefObject } from 'react';
 import { formatCents } from '../../lib/money';
 
@@ -24,6 +25,7 @@ export function BasketBar({
   onOpen: () => void;
   openerRef?: RefObject<HTMLButtonElement | null>;
 }) {
+  const t = useTranslations('guest');
   return (
     <section
       role="region"
@@ -33,7 +35,7 @@ export function BasketBar({
     >
       <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
         <span className="font-semibold">
-          {`${count} ${count === 1 ? 'item' : 'items'} · ${formatCents(totalCents, currency)}`}
+          {`${t('basketItems', { n: count })} · ${formatCents(totalCents, currency)}`}
         </span>
         <Button type="button" ref={openerRef} onClick={onOpen}>
           View basket
