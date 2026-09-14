@@ -502,3 +502,14 @@ single shared rate-limit bucket — rather than repeated here.
   product's stated small breakpoint is 375 px, where the rail (including this stage) is clean.
   Trigger: a decision to support phones narrower than 375 px, or a redesign of the rail's label
   wrapping (e.g. `hyphens-auto`, or breaking longer stage words across a line on purpose).
+
+- **IBM Plex Mono is named in the design documents and has never been loaded.** `next/font` registers
+  PT Sans Narrow and IBM Plex Sans in `apps/web/app/layout.tsx` and nothing registers a mono face, so
+  every `font-mono` site falls back to the system monospace. This predates the Russian localisation
+  milestone and was not caused by it — found during that milestone's closing documentation sweep,
+  which is the first time anyone read the design documents against the code that serves them. Two
+  ways out and they are not equivalent: load the face, or stop naming it and let the design documents
+  say what actually ships. Decide which before adding a third `font-mono` call site. Trigger: any
+  work that touches numerals, timers or the money column, all of which the milestone moved to
+  IBM Plex Sans with `tabular-nums` for a separate reason (the mono zero carries a dot the owner
+  rejected) — so the question of what `font-mono` is even for is now open.
