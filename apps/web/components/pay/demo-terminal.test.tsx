@@ -60,9 +60,11 @@ describe('DemoTerminal', () => {
     // `toHaveTextContent` and `getByText` collapse U+00A0, so these fixtures carry plain spaces.
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Стол 7 · Заказ № 42');
     expect(screen.getByText('28 $')).toBeInTheDocument();
-    // The terminal keeps saying what it is. A fake card machine that hides being fake is the one
-    // thing docs/design/02b-copy-ru.md's "read as a real restaurant's" must not be read to mean.
-    expect(screen.getByText('Это демонстрация. Никакой карты, никаких денег.')).toBeInTheDocument();
+    // The terminal keeps promising that nothing is charged, which is the one sentence the
+    // "read as a real restaurant's" clean-up must not be read to take away: the others announced
+    // a demonstration, this one stops a person believing they were charged 28 $. Composed from
+    // the dictionary rather than typed, so it cannot drift from it by a character.
+    expect(screen.getByText(ru.guest.pay.disclaimer)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: PAY_28 })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Отклонить' })).toBeInTheDocument();
   });

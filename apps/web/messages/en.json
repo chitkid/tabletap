@@ -112,7 +112,7 @@
       "opening": "Opening payment…",
       "failed": "Couldn't start the payment. Try again.",
       "terminalHeading": "Table {table} · Order #{number}",
-      "disclaimer": "This is a demo. No card, no money.",
+      "disclaimer": "No money is charged, and no card is needed.",
       "decline": "Decline",
       "taking": "Taking the payment…",
       "declining": "Declining the payment…",

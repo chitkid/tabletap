@@ -35,10 +35,14 @@ const WORKING: Record<Outcome, 'taking' | 'declining'> = {
  * real bank page is a lie. Decline sits beside Pay at the same size: the unhappy path is part
  * of what this demo is showing, not something to hide.
  *
- * The disclaimer is the one "this is a demonstration" line the copy contract's clean-up does not
- * take away. That clean-up is about the landing reading as a real restaurant's page; a fake card
- * machine that stops saying it is fake is not the same thing, and is the lie the design spec
- * forbids.
+ * **The disclaimer survives the clean-up that removed every other "this is a demonstration"
+ * line, and it survives without the word.** The others announced a demonstration to someone who
+ * had not asked; this one prevents a false belief about money. A button reading «Оплатить 1 250 ₽»
+ * on a drawn card terminal forms two beliefs in the person pressing it — that they are being
+ * charged, and that they will need their card — and this sentence is the only thing that stops
+ * both. So it says the two facts and names no demonstration: «Деньги не списываются, карта не
+ * нужна.» Ruled by the controller, 2026-09-14. Do not delete it while removing demo notices; a
+ * fake card machine that stops saying nothing is charged is the lie the design spec forbids.
  */
 export function DemoTerminal({
   order,
@@ -131,7 +135,9 @@ export function DemoTerminal({
           ))}
         </div>
 
-        {/* Where a bank page would put the card number, this one puts the truth. */}
+        {/* Where a bank page would put the card number, this one puts the truth: nothing is
+            charged and no card is needed. See the note above this component for why this line
+            outlived every other sentence that said what the deployment is. */}
         <p className="text-center text-sm text-muted-foreground">{t('disclaimer')}</p>
 
         {/* Two equal columns, and the padding is trimmed from the button default: on the
