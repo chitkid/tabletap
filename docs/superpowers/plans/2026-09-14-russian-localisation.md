@@ -465,4 +465,5 @@ Fix the rows rather than the base class: `flex-wrap` where buttons sit side by s
 3. Final whole-branch review (`superpowers:requesting-code-review`, most capable model) over `merge-base(main, HEAD)..HEAD`.
 4. One fix wave, one scoped re-review, adjudicate residuals.
 5. `superpowers:finishing-a-development-branch` with the pre-selected option: merge into `main` (fast-forward), delete the branch, the worktree and the plan's SDD workspace.
-6. Update the spec status, push, watch CI and the deploy workflow, confirm the live site answers in Russian, retake the screenshots, update memory.
+6. **Correct every document that describes the old landing.** `README.md` names it in six places and two of them now assert the opposite of what ships (`:50`, `:183`: the sign-in buttons no longer disappear under `DEMO_MODE=false`, because the staff band is deliberately ungated). The README legitimately describes the project, the demo and the stack — that is what a README is for, and it is not the page a guest reads — so this is a correction of false statements, not a rewrite. Check `docs/case-study.md` and `docs/adr/` for the same staleness.
+7. Update the spec status, push, watch CI and the deploy workflow, confirm the live site answers in Russian, retake the screenshots, update memory.
