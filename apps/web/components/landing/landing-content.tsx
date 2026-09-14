@@ -4,11 +4,19 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Entrance } from '../entrance';
 
-/** The three plates beside the headline are the only decoration on the page. */
+/**
+ * The three plates beside the headline are the only decoration on the page.
+ *
+ * `seed` is pinned and `name` is not what draws them: `planPlate` takes `seed ?? name`, so the
+ * English seeds keep these three shapes byte-identical to what the page has always drawn while the
+ * names read as the rest of the product does. The names are unread here — the row is `aria-hidden`
+ * and each plate is `decorative` — but `Plate` is the same component that labels a dish when it
+ * stands alone, and a Latin `name` on it is a Latin accessible name one prop away.
+ */
 const PLATES = [
-  { name: 'Flatbread', kind: 'flatbread' as const },
-  { name: 'Grain bowl', kind: 'bowl' as const },
-  { name: 'Lemonade', kind: 'drink' as const },
+  { name: 'Лепёшка', seed: 'Flatbread', kind: 'flatbread' as const },
+  { name: 'Миска с крупой', seed: 'Grain bowl', kind: 'bowl' as const },
+  { name: 'Лимонад', seed: 'Lemonade', kind: 'drink' as const },
 ];
 
 /**
@@ -105,6 +113,7 @@ export function LandingContent({
                     <Plate
                       key={plate.kind}
                       name={plate.name}
+                      seed={plate.seed}
                       kind={plate.kind}
                       decorative
                       className="size-12"
