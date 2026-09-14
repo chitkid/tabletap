@@ -131,7 +131,16 @@ describe('PayButton', () => {
 
   it('says so when the session could not be opened, and stays pressable', async () => {
     const user = userEvent.setup();
-    const fetcher = vi.fn().mockRejectedValue(new ApiError(409, 'PAYMENT_REQUIRED', 'not waiting'));
+    const fetcher = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiError(
+          409,
+          'PAYMENT_REQUIRED',
+          'orderNotAwaitingPayment',
+          'This order is not waiting for payment.',
+        ),
+      );
     const navigate = vi.fn();
     render(
       withProvider(

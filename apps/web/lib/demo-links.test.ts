@@ -77,10 +77,16 @@ describe('loadDemoLinks', () => {
     const said = 'The demo landing needs an active table 7. Restore it in the admin.';
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => json(409, { error: { code: 'CONFLICT', message: said } })),
+      vi.fn(async () =>
+        json(409, {
+          error: { code: 'CONFLICT', messageKey: 'demoTableMissing', message: said },
+        }),
+      ),
     );
     const loadDemoLinks = await loadResult();
-    expect(await loadDemoLinks()).toEqual({ links: null, notice: said });
+    // The key, not the sentence: the landing has the words for it and this module has no request
+    // context to look them up in. The English goes to the server log and no further.
+    expect(await loadDemoLinks()).toEqual({ links: null, notice: 'demoTableMissing' });
   });
 
   it('says the links are unavailable when the API cannot be reached at all', async () => {
@@ -93,6 +99,7 @@ describe('loadDemoLinks', () => {
     const loadDemoLinks = await loadResult();
     const result = await loadDemoLinks();
     expect(result.links).toBeNull();
-    expect(result.notice).toBe('The demo links are unavailable right now.');
+    // The one key the API never sends, because an API that cannot be reached names nothing.
+    expect(result.notice).toBe('unreachable');
   });
 });

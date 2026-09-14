@@ -80,7 +80,11 @@ describe('RushButton', () => {
   });
   it('says when a rush is already running', async () => {
     const user = userEvent.setup();
-    const fetcher = vi.fn().mockRejectedValue(new ApiError(409, 'CONFLICT', 'busy'));
+    const fetcher = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiError(409, 'CONFLICT', 'rushAlreadyRunning', 'A rush is already running.'),
+      );
     render(<RushButton fetcher={fetcher} />);
     await user.click(screen.getByRole('button', { name: START }));
     expect(await screen.findByRole('status')).toHaveTextContent(plain(ru.kitchen.rush.running));

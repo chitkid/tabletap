@@ -35,6 +35,7 @@ const fill = (message: string, values: Record<string, string | number>) =>
   message.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key]));
 const Q = ru.admin.qr;
 const R = ru.admin.refusal;
+const E = ru.errors;
 
 const QUESTION = plain(fill(Q.question, { number: 7 }));
 const REISSUED = plain(fill(Q.reissued, { number: 7 }));
@@ -126,7 +127,14 @@ describe('QrActions', () => {
     const user = userEvent.setup();
     const fetcher = vi
       .fn()
-      .mockRejectedValue(new ApiError(409, 'CONFLICT', 'Someone else changed this table.'));
+      .mockRejectedValue(
+        new ApiError(
+          409,
+          'CONFLICT',
+          'tableChanged',
+          'This table changed while you were editing it. Reload and try again.',
+        ),
+      );
     render(
       <QrActions table={table} fetcher={fetcher}>
         {sibling}
@@ -136,19 +144,15 @@ describe('QrActions', () => {
     await user.click(screen.getByRole('button', { name: Q.reissue }));
     await user.click(screen.getByRole('button', { name: Q.confirm }));
 
-    // The frame and the verb are Russian; the server's own sentence is left exactly as it arrived,
-    // because it has no key yet — that is Task 12's, and inventing a Russian one here would put
-    // words in the API's mouth. The refusal is named for the act, not for a save.
+    // The frame, the verb and the server's own half are all the dictionary's: the second half is
+    // resolved from the refusal's key, and the English sentence that arrived with it stays in the
+    // log. The refusal is named for the act, not for a save.
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
-        plain(
-          fill(R.withReason, {
-            verb: R.verb.reissueCode,
-            message: 'Someone else changed this table.',
-          }),
-        ),
+        plain(fill(R.withReason, { verb: R.verb.reissueCode, message: E.tableChanged })),
       ),
     );
+    expect(screen.getByRole('status').textContent).not.toContain('Reload and try again');
     expect(screen.queryByText(REISSUED)).toBeNull();
     expect(screen.getByRole('button', { name: Q.reissue })).toBeInTheDocument();
   });

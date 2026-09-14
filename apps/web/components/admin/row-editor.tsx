@@ -38,14 +38,19 @@ export const invalidAttr = (when: boolean): true | undefined => when || undefine
 export type RefusalVerb = 'save' | 'delete' | 'activate' | 'deactivate' | 'reissueCode';
 
 /**
- * What went wrong, and then whatever the server said, because the server said it best.
+ * What went wrong, and then what the server said about it — now in Russian on both sides.
  *
- * **Half of this sentence is Russian and half of it is not, on purpose.** The frame and the verb
- * come from `admin.refusal`; `error.message` is the API's own English sentence, passed through
- * exactly as it arrived. The API has no message keys yet — that is Task 12 of this milestone,
- * which gives all 53 `AppError` call sites one — and writing a Russian sentence here would put
- * words in the API's mouth that it never said. When those keys land, the second half is resolved
- * from them and this interpolation keeps working unchanged.
+ * **The whole sentence is the dictionary's.** The frame and the verb come from `admin.refusal`,
+ * and the second half is resolved from `error.messageKey` through `errors.*`. `error.message` is
+ * still there and is still English; it is the developer's copy of the refusal and nothing renders
+ * it. That is the shape Task 12 of this milestone put in place, and it is the only way the
+ * interface can stay Russian for a sentence that is composed in another process: no source scan
+ * can reach a string that is never in this source tree.
+ *
+ * A key this build does not know — an API newer or older than the web tier, or a failure that
+ * produced no envelope at all — falls back to `tryAgain`, the same whole Russian sentence a thrown
+ * `TypeError` gets. That is the fallback being a refusal rather than a hole: never the key's own
+ * name, and never the English behind it.
  *
  * `verb` is the caller's, because this is reused by controls that are not saves: a refused
  * «Отключить» and a refused «Перевыпустить QR-код» would both read «Не удалось сохранить.»
@@ -57,11 +62,14 @@ export type RefusalVerb = 'save' | 'delete' | 'activate' | 'deactivate' | 'reiss
  */
 export function useRefusal() {
   const t = useTranslations('admin.refusal');
-  /** A refusal the server explained, or one it did not. */
-  const refuse = (error: unknown, verb: RefusalVerb = 'save') =>
-    error instanceof ApiError
-      ? t('withReason', { verb: t(`verb.${verb}`), message: error.message })
-      : t('tryAgain', { verb: t(`verb.${verb}`) });
+  const tError = useTranslations('errors');
+  /** A refusal the server named, or one it did not. */
+  const refuse = (error: unknown, verb: RefusalVerb = 'save') => {
+    const key = error instanceof ApiError ? error.messageKey : null;
+    return key === null
+      ? t('tryAgain', { verb: t(`verb.${verb}`) })
+      : t('withReason', { verb: t(`verb.${verb}`), message: tError(key) });
+  };
   /**
    * A refused delete. `IN_USE` is the one failure with a way out, and the way out differs by row —
    * empty the category, or mark the dish sold out — so the caller supplies that sentence in the

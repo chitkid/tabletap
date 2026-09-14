@@ -113,7 +113,14 @@ describe('DemoTerminal', () => {
     const user = userEvent.setup();
     const fetcher = vi
       .fn()
-      .mockRejectedValueOnce(new ApiError(409, 'PAYMENT_REQUIRED', 'no payment to complete'))
+      .mockRejectedValueOnce(
+        new ApiError(
+          409,
+          'PAYMENT_REQUIRED',
+          'noPaymentToComplete',
+          'This order has no payment to complete.',
+        ),
+      )
       .mockResolvedValueOnce({ url: '/pay/o1' })
       .mockResolvedValueOnce({ ok: true });
     const navigate = vi.fn();

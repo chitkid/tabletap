@@ -1,4 +1,8 @@
-import { DemoLinksResponseSchema, type DemoLinksResponse } from '@tabletap/shared';
+import {
+  DemoLinksResponseSchema,
+  type DemoLinksResponse,
+  type ErrorMessageKey,
+} from '@tabletap/shared';
 import { ApiError, apiFetch } from './api';
 
 /**
@@ -10,7 +14,13 @@ import { ApiError, apiFetch } from './api';
 const CACHE_MS = 30_000;
 let cached: { value: DemoLinksResponse; expiresAt: number } | null = null;
 
-const UNAVAILABLE = 'The demo links are unavailable right now.';
+/**
+ * The API said nothing at all - the fetch threw, or answered something that was not an envelope.
+ * `unreachable` is the one `ErrorMessageKey` the API never sends, for exactly this: an API that
+ * cannot be reached cannot name its own refusal, and the landing still has to say something. It
+ * resolves through the same `errors.*` block as every key the API does send.
+ */
+const UNAVAILABLE: ErrorMessageKey = 'unreachable';
 
 /**
  * Two different nulls, and the landing acts on the difference.
@@ -23,10 +33,16 @@ const UNAVAILABLE = 'The demo links are unavailable right now.';
  * an admin renumbered or deactivated table 7, which `GET /api/demo/links` answers 409 for. Reading
  * that as "demo mode is off" would take the cards, the QR and the sign-in buttons off the landing
  * with nothing said about why, and one press in the admin can cause it.
+ *
+ * It is a **key**, not a sentence. This module runs on the server with no request context of its
+ * own, and the sentence it used to carry was English on a Russian page - the one user-visible
+ * English string `apps/web/i18n/no-orphan-strings.test.ts` names and deliberately does not chase,
+ * because it lives outside the component tree that gate walks. `LandingContent` resolves the key
+ * through the dictionary at the point of render, where the translations are.
  */
 export interface DemoLinksResult {
   links: DemoLinksResponse | null;
-  notice: string | null;
+  notice: ErrorMessageKey | null;
 }
 
 export async function loadDemoLinks(): Promise<DemoLinksResult> {
@@ -38,10 +54,15 @@ export async function loadDemoLinks(): Promise<DemoLinksResult> {
     return { links, notice: null };
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return { links: null, notice: null };
+    // The English sentence goes to the server's log, where a developer wants it, and no further.
     console.warn('demo links unavailable:', err instanceof Error ? err.message : err);
-    // The server said it best when it said anything at all; a thrown fetch says only that the API
-    // could not be reached, which is not a sentence to put in front of a visitor.
-    return { links: null, notice: err instanceof ApiError ? err.message : UNAVAILABLE };
+    // The server named the refusal when it answered at all. A thrown fetch names nothing, and so
+    // does an envelope carrying a key this build has never heard of: both take `unreachable`,
+    // which is true of each - the API had nothing to say that this page could say on its behalf.
+    return {
+      links: null,
+      notice: err instanceof ApiError ? (err.messageKey ?? UNAVAILABLE) : UNAVAILABLE,
+    };
   }
 }
 

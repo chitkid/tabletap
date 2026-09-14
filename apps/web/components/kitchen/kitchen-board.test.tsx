@@ -201,7 +201,7 @@ describe('KitchenBoard', () => {
     const socket = fakeSocket();
     const { ApiError } = await import('../../lib/api');
     const fetcher = vi.fn().mockRejectedValue(
-      new ApiError(409, 'INVALID_TRANSITION', 'This order is cooking now.', {
+      new ApiError(409, 'INVALID_TRANSITION', 'orderMovedAlready', 'This order is cooking now.', {
         from: 'placed',
         to: 'cooking',
         current: 'cooking',
@@ -451,7 +451,9 @@ describe('KitchenBoard', () => {
     const { ApiError } = await import('../../lib/api');
     const fetcher = vi
       .fn()
-      .mockRejectedValue(new ApiError(403, 'FORBIDDEN', 'A waiter may not start cooking.'));
+      .mockRejectedValue(
+        new ApiError(403, 'FORBIDDEN', 'noAccess', 'You do not have access to this.'),
+      );
     render(
       <KitchenBoard
         initialOrders={[order('o1')]}

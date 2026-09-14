@@ -43,6 +43,7 @@ const fill = (message: string, values: Record<string, string | number>) =>
 const M = ru.admin.menu;
 const ACT = ru.admin.actions;
 const R = ru.admin.refusal;
+const E = ru.errors;
 
 /**
  * The word the availability switch is showing. Both words live in the control at all times so it
@@ -208,7 +209,14 @@ describe('MenuRow', () => {
     const onSaved = vi.fn();
     const fetcher = vi
       .fn()
-      .mockRejectedValue(new ApiError(409, 'CONFLICT', 'Someone else changed this dish.'));
+      .mockRejectedValue(
+        new ApiError(
+          409,
+          'CONFLICT',
+          'itemChanged',
+          'This item changed while you were editing it. Reload and try again.',
+        ),
+      );
     render(<Harness fetcher={fetcher} onSaved={onSaved} />);
 
     await user.click(screen.getByRole('button', { name: ACT.edit }));
@@ -217,16 +225,17 @@ describe('MenuRow', () => {
     await user.click(screen.getByRole('switch', { name: M.available }));
     await user.click(screen.getByRole('button', { name: ACT.save }));
 
-    // The frame «Не удалось {verb}. {message}» and the verb are Russian; the server's own sentence
-    // arrives in English and is passed through untouched. Giving it a key is Task 12's work, and
-    // writing a Russian sentence here would put words in the API's mouth.
+    // Both halves are Russian now. The frame «Не удалось {verb}. {message}» and the verb come from
+    // `admin.refusal`; the second half is resolved from the refusal's key through `errors.*`. The
+    // API's own English sentence arrived on the same error and is not on screen - the assertion
+    // below is what says so, and it is the only thing that can, because that sentence is composed
+    // in another process and no source scan in this repository can reach it.
     await waitFor(() =>
       expect(noticeOf()).toHaveTextContent(
-        plain(
-          fill(R.withReason, { verb: R.verb.save, message: 'Someone else changed this dish.' }),
-        ),
+        plain(fill(R.withReason, { verb: R.verb.save, message: E.itemChanged })),
       ),
     );
+    expect(noticeOf().textContent).not.toContain('Reload and try again');
     expect(screen.getByLabelText(M.name)).toHaveValue(dish.name);
     expect(screen.getByLabelText(M.price)).toHaveValue(12);
     expect(screen.getByRole('switch', { name: M.available })).toBeChecked();
@@ -337,7 +346,12 @@ describe('MenuRow', () => {
     const fetcher = vi
       .fn()
       .mockRejectedValue(
-        new ApiError(409, 'IN_USE', 'This item appears on an order. Mark it sold out instead.'),
+        new ApiError(
+          409,
+          'IN_USE',
+          'itemInUse',
+          'This item appears on an order. Mark it sold out instead.',
+        ),
       );
     render(<Harness fetcher={fetcher} onDeleted={onDeleted} />);
 

@@ -248,7 +248,9 @@ describe('MenuTable', () => {
     const user = userEvent.setup();
     const fetcher = vi
       .fn()
-      .mockRejectedValue(new ApiError(409, 'IN_USE', 'This category holds items. Empty it first.'));
+      .mockRejectedValue(
+        new ApiError(409, 'IN_USE', 'categoryInUse', 'This category holds items. Empty it first.'),
+      );
     render(<MenuTable initial={menu} fetcher={fetcher} />);
 
     await user.click(editorFor('Закуски'));

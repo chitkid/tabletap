@@ -1,13 +1,26 @@
-import { ErrorEnvelopeSchema, type ErrorCode } from '@tabletap/shared';
+import { ErrorEnvelopeSchema, type ErrorCode, type ErrorMessageKey } from '@tabletap/shared';
 import type { ZodType } from 'zod';
 
 export const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 export const GUEST_COOKIE = 'tt_guest';
 
 export class ApiError extends Error {
+  /**
+   * `messageKey` is the half the interface renders, through `errors.*` in `messages/ru.json`.
+   * `message` is the API's own English sentence and is for a log, a console and a stack: **no
+   * surface renders it.** The gate in `apps/web/i18n/no-orphan-strings.test.ts` cannot see this
+   * distinction — the sentence is not in this source tree at all — so the two call sites that used
+   * to interpolate it (`components/admin/row-editor.tsx`, `lib/demo-links.ts`) carry the proof in
+   * their own tests instead.
+   *
+   * `null` means the envelope named no refusal this build knows: an API older than this web tier,
+   * an API newer than it, or a failure that never produced an envelope. Every reader turns that
+   * into its own whole Russian sentence rather than into English.
+   */
   constructor(
     public readonly status: number,
     public readonly code: ErrorCode | 'UNKNOWN',
+    public readonly messageKey: ErrorMessageKey | null,
     message: string,
     public readonly details?: unknown,
   ) {
@@ -29,10 +42,14 @@ async function parseResponse<T>(res: Response, schema: ZodType<T>): Promise<T> {
     throw new ApiError(
       res.status,
       env.data.error.code,
+      // `undefined` from the schema (absent, or a key this build does not know - the envelope
+      // catches that rather than failing) becomes `null` here, so a reader has one absence to
+      // handle rather than two spellings of it.
+      env.data.error.messageKey ?? null,
       env.data.error.message,
       env.data.error.details,
     );
-  throw new ApiError(res.status, 'UNKNOWN', `Request failed with status ${res.status}`);
+  throw new ApiError(res.status, 'UNKNOWN', null, `Request failed with status ${res.status}`);
 }
 
 /** Server components: talk to the API directly and forward the guest cookie. */

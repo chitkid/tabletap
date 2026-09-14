@@ -1,4 +1,4 @@
-import type { DemoLinksResponse } from '@tabletap/shared';
+import type { DemoLinksResponse, ErrorMessageKey } from '@tabletap/shared';
 import { buttonVariants, cn, Plate } from '@tabletap/ui';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -51,10 +51,15 @@ export function LandingContent({
    * Null both when the links are here and when there is nothing to say, so the page stays a
    * restaurant's page. This is the only reader of that two-null distinction: without it the one
    * way in disappears and nothing on the page says why.
+   *
+   * A key, not a sentence: the API composed this refusal in another process, and the words for it
+   * are the dictionary's. `lib/demo-links.ts` says why the resolution happens here rather than
+   * there.
    */
-  notice?: string | null;
+  notice?: ErrorMessageKey | null;
 }) {
   const t = useTranslations('landing');
+  const tError = useTranslations('errors');
   // `t.raw` is next-intl's escape hatch for a message that is a list rather than a string. Its
   // return is untyped, so the shape is named once here instead of at the point of use.
   const steps: string[] = t.raw('howItWorks.steps');
@@ -80,7 +85,7 @@ export function LandingContent({
               this is read on arrival rather than announced as a change. */}
           {links === null && notice !== null ? (
             <p role="status" className="text-sm text-muted-foreground">
-              {notice}
+              {tError(notice)}
             </p>
           ) : null}
 

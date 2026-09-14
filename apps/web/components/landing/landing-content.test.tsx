@@ -129,10 +129,27 @@ describe('LandingContent', () => {
     // Demo mode is on and the links still could not be built - an admin renumbered or deactivated
     // table 7. Blanking the way in and saying nothing is what this is here to stop; it is the
     // reason lib/demo-links.ts tells its two nulls apart, and this is that contract's one reader.
-    const said = 'The demo landing needs an active table 7. Restore it in the admin.';
-    render(withProvider(<LandingContent links={null} notice={said} />));
-    expect(screen.getByRole('status')).toHaveTextContent(said);
+    //
+    // A key, not the API's sentence. The sentence is English and it is composed in another
+    // process, which is why this was the last user-visible English string on a Russian page and
+    // why no source scan could ever have found it.
+    render(withProvider(<LandingContent links={null} notice="demoTableMissing" />));
+    expect(screen.getByRole('status')).toHaveTextContent(plain(ru.errors.demoTableMissing));
     expect(screen.queryByRole('link', { name: fill(L.guestCta, { table: 7 }) })).toBeNull();
+  });
+
+  it('answers a refusal the API could not name with a whole Russian sentence', () => {
+    // The fetch threw, or the envelope carried a key this build has never heard of. Either way
+    // lib/demo-links.ts hands over `unreachable` - the one key the API never sends, because an API
+    // that cannot be reached names nothing.
+    render(withProvider(<LandingContent links={null} notice="unreachable" />));
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent(plain(ru.errors.unreachable));
+    // The key's own name, because that is the only English this paragraph can now produce: the
+    // prop is typed as a key, so the API's sentence cannot reach here even by mistake, and an
+    // assertion against that sentence would pass whether or not the key was resolved. This one
+    // goes red the moment the component renders `{notice}` instead of `{tError(notice)}`.
+    expect(status.textContent).not.toContain('unreachable');
   });
 
   it('hands the page to a first-paint entrance, as its grandchildren', () => {

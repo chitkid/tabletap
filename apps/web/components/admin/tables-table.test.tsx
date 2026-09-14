@@ -40,6 +40,7 @@ const TB = ru.admin.tables;
 const Q = ru.admin.qr;
 const ACT = ru.admin.actions;
 const R = ru.admin.refusal;
+const E = ru.errors;
 
 const named = (number: number) => plain(fill(TB.table, { number }));
 const rowFor = (label: string) => screen.getByText(label).closest('tr') as HTMLElement;
@@ -119,7 +120,9 @@ describe('TablesTable', () => {
     const user = userEvent.setup();
     const fetcher = vi
       .fn()
-      .mockRejectedValue(new ApiError(409, 'IN_USE', 'This table has orders on it.'));
+      .mockRejectedValue(
+        new ApiError(409, 'IN_USE', 'tableInUse', 'This table has orders. Deactivate it instead.'),
+      );
     render(<TablesTable initial={tables} fetcher={fetcher} />);
 
     await user.click(within(rowFor('Терраса 7')).getByRole('button', { name: ACT.edit }));
@@ -128,7 +131,7 @@ describe('TablesTable', () => {
     const notice = await screen.findByText(plain(TB.inUse));
     expect(notice).toHaveAttribute('role', 'status');
     // `IN_USE` is answered in the operator's words, so the server's English never lands.
-    expect(notice.textContent).not.toContain('This table has orders on it.');
+    expect(notice.textContent).not.toContain('Deactivate it instead');
     expect(fetcher.mock.calls[0]?.[0]).toBe(`/api/tables/${U(7)}`);
     expect(fetcher.mock.calls[0]?.[1]).toMatchObject({ init: { method: 'DELETE' } });
     expect(screen.getByLabelText(TB.label)).toHaveValue('Терраса 7');
@@ -138,19 +141,26 @@ describe('TablesTable', () => {
     const user = userEvent.setup();
     const fetcher = vi
       .fn()
-      .mockRejectedValue(new ApiError(409, 'CONFLICT', 'Someone else changed this table.'));
+      .mockRejectedValue(
+        new ApiError(
+          409,
+          'CONFLICT',
+          'tableChanged',
+          'This table changed while you were editing it. Reload and try again.',
+        ),
+      );
     render(<TablesTable initial={tables} fetcher={fetcher} />);
 
     await user.click(within(rowFor('Терраса 7')).getByRole('button', { name: TB.deactivate }));
 
-    // Named for the press that was refused, not for a save: this control opens no editor. The
-    // frame and the verb are the dictionary's; the server's sentence is passed through untouched
-    // because it has no key yet — that is Task 12's.
+    // Named for the press that was refused, not for a save: this control opens no editor. Every
+    // word is the dictionary's - the frame and the verb from `admin.refusal`, the second half
+    // resolved from the refusal's key - and the API's English sentence stays in the log.
     const notice = await within(rowFor('Терраса 7')).findByText(
       plain(
         fill(R.withReason, {
           verb: R.verb.deactivate,
-          message: 'Someone else changed this table.',
+          message: E.tableChanged,
         }),
       ),
     );
@@ -162,15 +172,20 @@ describe('TablesTable', () => {
     const user = userEvent.setup();
     const fetcher = vi
       .fn()
-      .mockRejectedValue(new ApiError(409, 'CONFLICT', 'Someone else changed this table.'));
+      .mockRejectedValue(
+        new ApiError(
+          409,
+          'CONFLICT',
+          'tableChanged',
+          'This table changed while you were editing it. Reload and try again.',
+        ),
+      );
     render(<TablesTable initial={tables} fetcher={fetcher} />);
 
     await user.click(within(rowFor('У окна 3')).getByRole('button', { name: TB.activate }));
 
     const notice = await within(rowFor('У окна 3')).findByText(
-      plain(
-        fill(R.withReason, { verb: R.verb.activate, message: 'Someone else changed this table.' }),
-      ),
+      plain(fill(R.withReason, { verb: R.verb.activate, message: E.tableChanged })),
     );
     expect(notice).toHaveAttribute('role', 'status');
   });
@@ -188,13 +203,20 @@ describe('TablesTable', () => {
     // The question takes the row's controls away with it. The refusal is about the press before
     // it, so it has to survive that swap rather than land in a paragraph nothing is showing.
     await user.click(within(rowFor('Терраса 7')).getByRole('button', { name: Q.reissue }));
-    refuse(new ApiError(409, 'CONFLICT', 'Someone else changed this table.'));
+    refuse(
+      new ApiError(
+        409,
+        'CONFLICT',
+        'tableChanged',
+        'This table changed while you were editing it. Reload and try again.',
+      ),
+    );
 
     const notice = await within(rowFor('Терраса 7')).findByText(
       plain(
         fill(R.withReason, {
           verb: R.verb.deactivate,
-          message: 'Someone else changed this table.',
+          message: E.tableChanged,
         }),
       ),
     );
