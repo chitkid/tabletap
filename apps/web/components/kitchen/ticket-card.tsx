@@ -1,6 +1,7 @@
 'use client';
 import type { OrderDto, OrderStatus } from '@tabletap/shared';
 import { Button, StatusBadge, cn } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
 import { BUMP_LABEL, NEXT_STATUS } from '../../lib/board-store';
 import { thresholdFor, timerStartOf } from '../../lib/timer-threshold';
@@ -43,6 +44,9 @@ export function TicketCard({
   onBump: (order: OrderDto, to: OrderStatus) => void;
   onCancel: (order: OrderDto) => void;
 }) {
+  // The board's own column of the glossary: the staff are told what the order is, so `ready` here
+  // is «Готов» and not the guest's «Готов — сейчас принесут». The rest of this surface is Task 6's.
+  const status = useTranslations('status.kitchen');
   const [confirming, setConfirming] = useState(false);
   // Opening and dismissing the confirm unmounts the control that was just pressed, which drops
   // keyboard focus to the document. A cook working a bump bar would land back at the page top.
@@ -103,7 +107,7 @@ export function TicketCard({
       </ul>
       {order.note ? <p className="text-sm text-muted-foreground">{`Note: ${order.note}`}</p> : null}
       <footer className="mt-auto flex flex-wrap items-center justify-between gap-3">
-        <StatusBadge status={order.status} />
+        <StatusBadge status={order.status} label={status(order.status)} />
         <div className="flex flex-wrap gap-2">
           {cancellable && !confirming ? (
             <Button

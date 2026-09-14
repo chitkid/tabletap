@@ -1,11 +1,17 @@
 import { OrderResponseSchema, type OrderDto } from '@tabletap/shared';
+import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { notFound, redirect } from 'next/navigation';
 import { OrderLive } from '../../../components/order/order-live';
 import { ApiError, apiFetch } from '../../../lib/api';
 import { guestCookie } from '../../../lib/guest-cookie';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Your order · Little Furnace' };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('guest.meta');
+  return { title: t('order') };
+}
 
 export default async function OrderPage({
   params,

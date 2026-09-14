@@ -1,9 +1,27 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { NextIntlClientProvider } from 'next-intl';
+import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../lib/api';
+import { formatCents } from '../../lib/money';
+import ru from '../../messages/ru.json';
 import { restoreFromBackForwardCache } from '../../test/bfcache';
 import { PayButton } from './pay-button';
+
+// `useTranslations` resolves through `NextIntlClientProvider` in every environment vitest runs in.
+const withProvider = (ui: ReactElement) => (
+  <NextIntlClientProvider locale="ru" messages={ru}>
+    {ui}
+  </NextIntlClientProvider>
+);
+
+/**
+ * `getByRole`'s name matcher normalises with the identity function, so the accessible name has to
+ * carry the real U+00A0 `Intl.NumberFormat` puts before the currency symbol. Composed rather than
+ * typed, because an invisible byte in a hand-written fixture drifts silently.
+ */
+const PAY_28 = ru.guest.pay.pay.replace('{amount}', formatCents(2800, 'USD'));
 
 describe('PayButton', () => {
   it('opens a payment session and follows the url the API answers with', async () => {
@@ -11,15 +29,17 @@ describe('PayButton', () => {
     const fetcher = vi.fn().mockResolvedValue({ url: '/pay/o1' });
     const navigate = vi.fn();
     render(
-      <PayButton
-        orderId="o1"
-        totalCents={2800}
-        currency="USD"
-        fetcher={fetcher}
-        navigate={navigate}
-      />,
+      withProvider(
+        <PayButton
+          orderId="o1"
+          totalCents={2800}
+          currency="USD"
+          fetcher={fetcher}
+          navigate={navigate}
+        />,
+      ),
     );
-    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
+    await user.click(screen.getByRole('button', { name: PAY_28 }));
     expect(fetcher).toHaveBeenCalledWith(
       '/api/orders/o1/payment',
       expect.objectContaining({ init: expect.objectContaining({ method: 'POST' }) }),
@@ -32,15 +52,17 @@ describe('PayButton', () => {
     const fetcher = vi.fn().mockResolvedValue({ url: 'https://checkout.stripe.com/c/pay/cs_test' });
     const navigate = vi.fn();
     render(
-      <PayButton
-        orderId="o1"
-        totalCents={2800}
-        currency="USD"
-        fetcher={fetcher}
-        navigate={navigate}
-      />,
+      withProvider(
+        <PayButton
+          orderId="o1"
+          totalCents={2800}
+          currency="USD"
+          fetcher={fetcher}
+          navigate={navigate}
+        />,
+      ),
     );
-    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
+    await user.click(screen.getByRole('button', { name: PAY_28 }));
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/cs_test'),
     );
@@ -56,16 +78,18 @@ describe('PayButton', () => {
     );
     const navigate = vi.fn();
     render(
-      <PayButton
-        orderId="o1"
-        totalCents={2800}
-        currency="USD"
-        fetcher={fetcher}
-        navigate={navigate}
-      />,
+      withProvider(
+        <PayButton
+          orderId="o1"
+          totalCents={2800}
+          currency="USD"
+          fetcher={fetcher}
+          navigate={navigate}
+        />,
+      ),
     );
-    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
-    const busy = await screen.findByRole('button', { name: 'Opening payment…' });
+    await user.click(screen.getByRole('button', { name: PAY_28 }));
+    const busy = await screen.findByRole('button', { name: 'Открываем оплату…' });
     expect(busy).toBeDisabled();
     // The second press the name promises. fireEvent rather than user-event, which refuses to
     // click through `pointer-events: none`: the point here is that the disabled button itself
@@ -81,20 +105,22 @@ describe('PayButton', () => {
     const fetcher = vi.fn().mockResolvedValue({ url: '/pay/o1' });
     const navigate = vi.fn();
     render(
-      <PayButton
-        orderId="o1"
-        totalCents={2800}
-        currency="USD"
-        fetcher={fetcher}
-        navigate={navigate}
-      />,
+      withProvider(
+        <PayButton
+          orderId="o1"
+          totalCents={2800}
+          currency="USD"
+          fetcher={fetcher}
+          navigate={navigate}
+        />,
+      ),
     );
-    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
+    await user.click(screen.getByRole('button', { name: PAY_28 }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/pay/o1'));
     // Pressing Back from the terminal restores this page with the state it left with, which is
     // mid-navigation. Without the reset the only way to pay is disabled, for good.
     restoreFromBackForwardCache();
-    const pay = screen.getByRole('button', { name: 'Pay 28 $' });
+    const pay = screen.getByRole('button', { name: PAY_28 });
     expect(pay).toBeEnabled();
     await user.click(pay);
     expect(fetcher).toHaveBeenCalledTimes(2);
@@ -105,19 +131,21 @@ describe('PayButton', () => {
     const fetcher = vi.fn().mockRejectedValue(new ApiError(409, 'PAYMENT_REQUIRED', 'not waiting'));
     const navigate = vi.fn();
     render(
-      <PayButton
-        orderId="o1"
-        totalCents={2800}
-        currency="USD"
-        fetcher={fetcher}
-        navigate={navigate}
-      />,
+      withProvider(
+        <PayButton
+          orderId="o1"
+          totalCents={2800}
+          currency="USD"
+          fetcher={fetcher}
+          navigate={navigate}
+        />,
+      ),
     );
-    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
+    await user.click(screen.getByRole('button', { name: PAY_28 }));
     expect(await screen.findByRole('status')).toHaveTextContent(
-      "Couldn't start the payment. Try again.",
+      'Не удалось открыть оплату. Попробуйте ещё раз.',
     );
-    expect(screen.getByRole('button', { name: 'Pay 28 $' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: PAY_28 })).toBeEnabled();
     expect(navigate).not.toHaveBeenCalled();
   });
 });

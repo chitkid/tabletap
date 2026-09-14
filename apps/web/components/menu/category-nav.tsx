@@ -1,13 +1,15 @@
 import type { MenuResponse } from '@tabletap/shared';
+import { useTranslations } from 'next-intl';
 
 /**
  * In-page anchors rather than a client-side tab state: the section headings are the real
  * destinations, so the browser's own scrolling and the back button already do the work.
  */
 export function CategoryNav({ categories }: { categories: MenuResponse['categories'] }) {
+  const t = useTranslations('guest.menu');
   return (
     <nav
-      aria-label="Menu sections"
+      aria-label={t('sections')}
       className="sticky top-0 z-10 -mx-4 overflow-x-auto bg-background/95 px-4 py-2 backdrop-blur"
     >
       <ul className="flex gap-2">

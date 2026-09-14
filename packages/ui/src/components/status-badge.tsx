@@ -1,16 +1,6 @@
 import type { OrderStatus } from '@tabletap/shared';
 import { cn } from '../lib/utils';
 
-const LABEL: Record<OrderStatus, string> = {
-  draft: 'Draft',
-  placed: 'Placed',
-  paid: 'Paid',
-  cooking: 'Cooking',
-  ready: 'Ready',
-  served: 'Served',
-  cancelled: 'Cancelled',
-};
-
 /**
  * Static class strings so Tailwind can see them; the foreground follows docs/design/components.md,
  * where each pairing is chosen by measured contrast against its own fill rather than by taste.
@@ -33,8 +23,24 @@ export const STATUS_STYLE: Record<OrderStatus, string> = {
   cancelled: 'bg-status-cancelled text-primary-foreground',
 };
 
-/** Colour is never the only carrier: the label is always present. */
-export function StatusBadge({ status, className }: { status: OrderStatus; className?: string }) {
+/**
+ * Colour is never the only carrier: the label is always present.
+ *
+ * The word is a required prop with no default, because one status does not have one word. The copy
+ * contract's glossary gives `ready` as «Готов — сейчас принесут» to a guest and «Готов» to the
+ * kitchen — the guest is told what happens to them, the staff what the order is — so a table
+ * living here would have to pick a surface to be wrong on. `status` still chooses the fill, which
+ * is the part that genuinely is the same on both.
+ */
+export function StatusBadge({
+  status,
+  label,
+  className,
+}: {
+  status: OrderStatus;
+  label: string;
+  className?: string;
+}) {
   return (
     <span
       data-slot="status-badge"
@@ -45,7 +51,7 @@ export function StatusBadge({ status, className }: { status: OrderStatus; classN
         className,
       )}
     >
-      {LABEL[status]}
+      {label}
     </span>
   );
 }

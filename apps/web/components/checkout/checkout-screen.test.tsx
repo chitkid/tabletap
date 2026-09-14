@@ -1,11 +1,21 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { MenuResponse } from '@tabletap/shared';
+import { NextIntlClientProvider } from 'next-intl';
+import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const replace = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+import ru from '../../messages/ru.json';
 import { CheckoutScreen } from './checkout-screen';
 import { addItem, cartStorageKey } from '../../lib/cart';
+
+// `useTranslations` resolves through `NextIntlClientProvider` in every environment vitest runs in.
+const withProvider = (ui: ReactElement) => (
+  <NextIntlClientProvider locale="ru" messages={ru}>
+    {ui}
+  </NextIntlClientProvider>
+);
 
 const U = (n: number) => `018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f${n.toString(16).padStart(2, '0')}`;
 const menu: MenuResponse = {
@@ -81,12 +91,12 @@ describe('CheckoutScreen', () => {
       'fetch',
       vi.fn(async () => json(201, orderBody)),
     );
-    render(<CheckoutScreen menu={menu} tableId="t1" />);
+    render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
     expect(screen.getByText('2 × House Lemonade')).toBeInTheDocument();
-    expect(screen.getByText('Total')).toBeInTheDocument();
+    expect(screen.getByText('Итого')).toBeInTheDocument();
     expect(screen.getByText('13 $')).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText('Note for the kitchen'), 'No ice');
-    await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
+    await userEvent.type(screen.getByLabelText('Заметка к заказу'), 'No ice');
+    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith(`/orders/${U(9)}`));
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
     expect(url).toBe('/api/orders');
@@ -115,11 +125,13 @@ describe('CheckoutScreen', () => {
       )
       .mockResolvedValueOnce(json(201, orderBody));
     vi.stubGlobal('fetch', f);
-    render(<CheckoutScreen menu={menu} tableId="t1" />);
-    await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
-    expect(await screen.findByText('Sold out today. Remove it to continue.')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Cold Brew' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
+    render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
+    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
+    expect(
+      await screen.findByText('Сегодня закончилось. Уберите из корзины, чтобы продолжить.'),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Убрать «Cold Brew»' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
     await vi.waitFor(() => expect(f).toHaveBeenCalledTimes(2));
     const keys = f.mock.calls.map((c) =>
       new Headers((c[1] as RequestInit).headers).get('idempotency-key'),
@@ -135,8 +147,8 @@ describe('CheckoutScreen', () => {
       'fetch',
       vi.fn(async () => json(201, orderBody)),
     );
-    render(<CheckoutScreen menu={menu} tableId="t1" />);
-    await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
+    render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
+    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith(`/orders/${U(9)}`));
     const headers = new Headers(vi.mocked(fetch).mock.calls[0]?.[1]?.headers);
     expect(headers.get('idempotency-key')).toMatch(
@@ -148,16 +160,16 @@ describe('CheckoutScreen', () => {
       'fetch',
       vi.fn(async () => json(409, { error: { code: 'CONFLICT', message: 'x' } })),
     );
-    render(<CheckoutScreen menu={menu} tableId="t1" />);
-    await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
+    render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
+    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
     expect(
       await screen.findByText(
-        'This basket was already sent from another table. Go back to the menu and start again.',
+        'Эта корзина уже отправлена с другого стола. Вернитесь в меню и начните заново.',
       ),
     ).toBeInTheDocument();
   });
   it('keeps the status line in the layout while it is empty', () => {
-    render(<CheckoutScreen menu={menu} tableId="t1" />);
+    render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
     expect(screen.getByRole('status')).toHaveTextContent('');
   });
   it('sends an ended session back to the start and explains other failures', async () => {
@@ -165,13 +177,13 @@ describe('CheckoutScreen', () => {
       'fetch',
       vi.fn(async () => json(401, { error: { code: 'UNAUTHORIZED', message: 'x' } })),
     );
-    render(<CheckoutScreen menu={menu} tableId="t1" />);
-    await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
+    render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
+    await userEvent.click(screen.getByRole('button', { name: 'Оформить заказ' }));
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/session-ended'));
   });
   it('redirects to the menu when the basket is empty', () => {
     localStorage.clear();
-    render(<CheckoutScreen menu={menu} tableId="t1" />);
+    render(withProvider(<CheckoutScreen menu={menu} tableId="t1" />));
     expect(replace).toHaveBeenCalledWith('/menu');
   });
 });

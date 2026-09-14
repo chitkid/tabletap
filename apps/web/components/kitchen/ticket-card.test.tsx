@@ -1,8 +1,25 @@
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen, type RenderOptions } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { OrderDto } from '@tabletap/shared';
+import { NextIntlClientProvider } from 'next-intl';
+import type { ReactElement, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import ru from '../../messages/ru.json';
 import { TicketCard } from './ticket-card';
+
+/**
+ * A ticket's status badge reads from the dictionary, because the glossary gives the board and the
+ * guest different words for the same status - docs/design/02b-copy-ru.md. `useTranslations`
+ * resolves through `NextIntlClientProvider` in every environment vitest runs in, so every render
+ * here goes through it. The rest of this surface's wording is Task 6's.
+ */
+const withIntl = ({ children }: { children: ReactNode }) => (
+  <NextIntlClientProvider locale="ru" messages={ru}>
+    {children}
+  </NextIntlClientProvider>
+);
+const render = (ui: ReactElement, options?: RenderOptions) =>
+  rtlRender(ui, { wrapper: withIntl, ...options });
 
 const T0 = Date.parse('2026-09-03T10:00:00Z');
 const order = (patch: Partial<OrderDto> = {}): OrderDto => ({

@@ -29,7 +29,7 @@ export function BasketBar({
   return (
     <section
       role="region"
-      aria-label="Basket"
+      aria-label={t('basket.region')}
       aria-live="polite"
       className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background p-4"
     >
@@ -38,7 +38,7 @@ export function BasketBar({
           {`${t('basketItems', { n: count })} · ${formatCents(totalCents, currency)}`}
         </span>
         <Button type="button" ref={openerRef} onClick={onOpen}>
-          View basket
+          {t('basket.open')}
         </Button>
       </div>
     </section>

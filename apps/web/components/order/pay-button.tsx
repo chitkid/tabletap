@@ -1,6 +1,7 @@
 'use client';
 import { PaymentSessionResponseSchema } from '@tabletap/shared';
 import { Button } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { clientFetch } from '../../lib/api';
 import { formatCents } from '../../lib/money';
@@ -28,6 +29,7 @@ export function PayButton({
   fetcher?: typeof clientFetch;
   navigate?: (href: string) => void;
 }) {
+  const t = useTranslations('guest.pay');
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -63,12 +65,12 @@ export function PayButton({
         aria-busy={busy || undefined}
         onClick={() => void start()}
       >
-        {busy ? 'Opening payment…' : `Pay ${formatCents(totalCents, currency)}`}
+        {busy ? t('opening') : t('pay', { amount: formatCents(totalCents, currency) })}
       </Button>
       {/* Always in the layout, empty when there is nothing to say: a line that appears only on
           failure moves the button out from under the thumb that just pressed it. */}
       <p role="status" aria-live="polite" className="min-h-6 text-sm">
-        {failed ? "Couldn't start the payment. Try again." : ''}
+        {failed ? t('failed') : ''}
       </p>
     </div>
   );

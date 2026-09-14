@@ -38,12 +38,134 @@
     }
   },
   "guest": {
-    "basketItems": "{n, plural, one {# item} other {# items}}"
+    "basketItems": "{n, plural, one {# item} other {# items}}",
+    "table": "Table {number}",
+    "menu": {
+      "sections": "Menu sections",
+      "loading": "Opening the menu…",
+      "allergens": "Contains {list}",
+      "noAllergens": "No listed allergens",
+      "soldOut": "Sold out today",
+      "add": "Add",
+      "addDish": "Add {name}",
+      "addOneMore": "Add one more {name}",
+      "removeOne": "Remove one {name}"
+    },
+    "basket": {
+      "region": "Basket",
+      "open": "View basket",
+      "title": "Your basket",
+      "description": "Anything else?",
+      "empty": "Nothing in the basket yet. Pick a dish from the menu.",
+      "subtotal": "Subtotal · {amount}",
+      "checkout": "Go to checkout",
+      "keepBrowsing": "Keep browsing",
+      "gone": "No longer on the menu",
+      "soldOutLine": "Sold out today. Remove it to continue.",
+      "remove": "Remove",
+      "removeDish": "Remove {name}",
+      "removeThis": "Remove this item"
+    },
+    "checkout": {
+      "title": "Your order",
+      "linesHeading": "What you are ordering",
+      "total": "Total",
+      "noteLabel": "Note for the kitchen",
+      "submit": "Place order",
+      "submitting": "Sending to the kitchen…",
+      "soldOutSome": "Some items are sold out today. Remove them to continue.",
+      "unreachable": "Can't reach the server. Check the connection and try again.",
+      "rateLimited": "Too many orders in a minute. Wait a moment and try again.",
+      "validationFailed": "Something in the basket is not right. Go back to the menu.",
+      "conflict": "This basket was already sent from another table. Go back to the menu and start again."
+    },
+    "order": {
+      "headline": {
+        "placed": "Order #{number} is waiting for payment.",
+        "paid": "Order #{number} sent to the kitchen.",
+        "cooking": "Order #{number} is being made.",
+        "ready": "Order #{number} is ready.",
+        "served": "Order #{number} was served. Enjoy.",
+        "cancelled": "Order #{number} was cancelled."
+      },
+      "linesHeading": "What you ordered",
+      "total": "Total · {amount}",
+      "noteHeading": "Note for the kitchen",
+      "backToMenu": "Back to menu",
+      "placedAgo": "Placed {elapsed}",
+      "progress": "Order progress",
+      "stageDone": "Done",
+      "stageNow": "Now",
+      "stageToCome": "To come",
+      "cleared": "This order is no longer active. Scan the code on your table to start again.",
+      "paymentReceived": "Payment received. Confirming…",
+      "paymentDeclined": "Payment declined. Try again."
+    },
+    "elapsed": {
+      "now": "just now",
+      "minutes": "{n} min ago",
+      "hours": "{h} h ago",
+      "hoursMinutes": "{h} h {m} min ago"
+    },
+    "pay": {
+      "pay": "Pay {amount}",
+      "opening": "Opening payment…",
+      "failed": "Couldn't start the payment. Try again.",
+      "terminalHeading": "Table {table} · Order #{number}",
+      "disclaimer": "This is a demo. No card, no money.",
+      "decline": "Decline",
+      "taking": "Taking the payment…",
+      "declining": "Declining the payment…",
+      "declined": "Payment declined.",
+      "unreachable": "Couldn't reach the terminal. Try again.",
+      "backToOrder": "Back to your order"
+    },
+    "claim": {
+      "finding": "Finding your table…",
+      "expired": "This QR code has expired. Ask staff for a new one.",
+      "invalid": "This QR code is not valid.",
+      "notFound": "This table is not available right now.",
+      "unreachable": "Can't reach the server. Check the connection and try again.",
+      "retry": "Try again",
+      "home": "Back to the start"
+    },
+    "sessionEnded": {
+      "heading": "Your time at the table has run out.",
+      "text": "Scan the code on your table to start again.",
+      "home": "Back to the start"
+    },
+    "meta": {
+      "menu": "Menu · Little Furnace",
+      "checkout": "Checkout · Little Furnace",
+      "order": "Your order · Little Furnace",
+      "pay": "Pay for your order · Little Furnace",
+      "sessionEnded": "Session ended · Little Furnace",
+      "table": "Your table · Little Furnace"
+    }
   },
   "kitchen": {},
   "admin": {
     "dayOrders": "{n, plural, one {# order} other {# orders}}"
   },
   "common": {},
-  "status": {}
+  "status": {
+    "guest": {
+      "draft": "Waiting for payment",
+      "placed": "Waiting for payment",
+      "paid": "Sent to the kitchen",
+      "cooking": "Cooking",
+      "ready": "Ready — on its way",
+      "served": "Served",
+      "cancelled": "Cancelled"
+    },
+    "kitchen": {
+      "draft": "Draft",
+      "placed": "Waiting for payment",
+      "paid": "New",
+      "cooking": "Cooking",
+      "ready": "Ready",
+      "served": "Served",
+      "cancelled": "Cancelled"
+    }
+  }
 }

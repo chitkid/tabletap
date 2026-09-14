@@ -1,7 +1,17 @@
 import { render } from '@testing-library/react';
 import type { MenuResponse } from '@tabletap/shared';
+import { NextIntlClientProvider } from 'next-intl';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import ru from '../../messages/ru.json';
 import MenuPage from './page';
+
+// `useTranslations` resolves through `NextIntlClientProvider` in every environment vitest runs in.
+const withProvider = (ui: ReactElement) => (
+  <NextIntlClientProvider locale="ru" messages={ru}>
+    {ui}
+  </NextIntlClientProvider>
+);
 
 const U = (n: number) => `018f0d38-8d5d-7c6e-8f6a-1b2c3d4e5f${n.toString(16).padStart(2, '0')}`;
 const menu: MenuResponse = {
@@ -36,7 +46,7 @@ vi.mock('../../lib/guest-menu', () => ({
 describe('the menu page', () => {
   beforeEach(() => localStorage.clear());
   it('hands the menu screen a first-paint entrance, so its sections arrive one after another', async () => {
-    const { container } = render(await MenuPage());
+    const { container } = render(withProvider(await MenuPage()));
     const entrance = container.querySelector('[data-entrance="menu"]');
     expect(entrance).not.toBeNull();
     // The cascade lands on the wrapper's grandchildren; the screen owns the element between.

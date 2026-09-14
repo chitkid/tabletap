@@ -1,6 +1,7 @@
 'use client';
 import { PaymentSessionResponseSchema, type OrderDto } from '@tabletap/shared';
 import { Button } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useState } from 'react';
 import { z } from 'zod';
@@ -21,11 +22,23 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', ''];
 
 const goTo = (href: string) => window.location.assign(href);
 
+/** Which message in `guest.pay` says an attempt of each kind is under way. */
+type Outcome = 'paid' | 'declined';
+const WORKING: Record<Outcome, 'taking' | 'declining'> = {
+  paid: 'taking',
+  declined: 'declining',
+};
+
 /**
  * The restaurant's own terminal, honestly fake (design spec §3). There is no bank chrome, no
  * card number to type and no payment-network mark, because a portfolio screen that imitates a
  * real bank page is a lie. Decline sits beside Pay at the same size: the unhappy path is part
  * of what this demo is showing, not something to hide.
+ *
+ * The disclaimer is the one "this is a demonstration" line the copy contract's clean-up does not
+ * take away. That clean-up is about the landing reading as a real restaurant's page; a fake card
+ * machine that stops saying it is fake is not the same thing, and is the lie the design spec
+ * forbids.
  */
 export function DemoTerminal({
   order,
@@ -38,7 +51,8 @@ export function DemoTerminal({
   fetcher?: typeof clientFetch;
   navigate?: (href: string) => void;
 }) {
-  const [busy, setBusy] = useState<'paid' | 'declined' | null>(null);
+  const t = useTranslations('guest.pay');
+  const [busy, setBusy] = useState<Outcome | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const amount = formatCents(order.totalCents, currency);
 
@@ -51,7 +65,7 @@ export function DemoTerminal({
     setMessage(null);
   });
 
-  const complete = (outcome: 'paid' | 'declined') =>
+  const complete = (outcome: Outcome) =>
     fetcher('/api/payments/demo/complete', {
       schema: CompleteResponseSchema,
       init: {
@@ -61,12 +75,12 @@ export function DemoTerminal({
       },
     });
 
-  const settle = async (outcome: 'paid' | 'declined') => {
+  const settle = async (outcome: Outcome) => {
     setBusy(outcome);
     // Both buttons go quiet the moment one is pressed, so without this the terminal would look
     // broken rather than busy for the length of the round trip. The labels stay as they are —
     // a guest who pressed Decline should still be reading the word they pressed.
-    setMessage(outcome === 'paid' ? 'Taking the payment…' : 'Declining the payment…');
+    setMessage(t(WORKING[outcome]));
     try {
       try {
         await complete(outcome);
@@ -86,12 +100,12 @@ export function DemoTerminal({
       // Said before the trip back, not after: `/orders/<id>` is server-rendered on every visit,
       // so this line is on screen for the whole of that round trip and the guest is never
       // looking at a terminal that has quietly stopped meaning anything.
-      if (outcome === 'declined') setMessage('Payment declined.');
+      if (outcome === 'declined') setMessage(t('declined'));
       navigate(`/orders/${order.id}?paid=${outcome === 'paid' ? '1' : '0'}`);
     } catch {
       // Nothing was settled, so both buttons stay live: this is a retry, not a dead end.
       setBusy(null);
-      setMessage("Couldn't reach the terminal. Try again.");
+      setMessage(t('unreachable'));
     }
   };
 
@@ -100,7 +114,9 @@ export function DemoTerminal({
       <div className="flex flex-col gap-5 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-md">
         {/* The readout: sunken, the way the screen on a real terminal sits below its shell. */}
         <div className="flex flex-col items-center gap-1 rounded-md bg-secondary px-4 py-5 text-secondary-foreground">
-          <h1 className="text-sm font-semibold">{`Table ${order.tableNumber} · Order #${order.number}`}</h1>
+          <h1 className="text-sm font-semibold">
+            {t('terminalHeading', { table: order.tableNumber, number: order.number })}
+          </h1>
           <p className="font-display text-4xl font-semibold tabular-nums">{amount}</p>
         </div>
 
@@ -116,13 +132,11 @@ export function DemoTerminal({
         </div>
 
         {/* Where a bank page would put the card number, this one puts the truth. */}
-        <p className="text-center text-sm text-muted-foreground">
-          This is a demo. No card, no money.
-        </p>
+        <p className="text-center text-sm text-muted-foreground">{t('disclaimer')}</p>
 
         {/* Two equal columns, and the padding is trimmed from the button default: on the
             narrowest phone a column is barely wider than the label, and a four-figure total
-            such as `Pay $2,300.00` needs more room than `px-4` leaves it. */}
+            such as «Оплатить 2 300 ₽» needs more room than `px-4` leaves it. */}
         <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
@@ -131,7 +145,7 @@ export function DemoTerminal({
             aria-busy={busy === 'paid' || undefined}
             onClick={() => void settle('paid')}
           >
-            {`Pay ${amount}`}
+            {t('pay', { amount })}
           </Button>
           <Button
             type="button"
@@ -141,7 +155,7 @@ export function DemoTerminal({
             aria-busy={busy === 'declined' || undefined}
             onClick={() => void settle('declined')}
           >
-            Decline
+            {t('decline')}
           </Button>
         </div>
 
@@ -154,7 +168,7 @@ export function DemoTerminal({
           on the guest surface, but the padding makes it a thumb-sized target rather than a bare
           line of text — this is the one screen where missing the way out costs money. */}
       <Link href={`/orders/${order.id}`} className="self-center py-3 underline underline-offset-4">
-        Back to your order
+        {t('backToOrder')}
       </Link>
     </main>
   );

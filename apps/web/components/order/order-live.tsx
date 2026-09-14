@@ -1,18 +1,17 @@
 'use client';
 import type { OrderDto, OrderStatus } from '@tabletap/shared';
 import { MOTION, cn } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { createSocket, type AppSocket } from '../../lib/socket';
-import { OrderScreen, headlineFor } from './order-screen';
+import { OrderScreen, useHeadline } from './order-screen';
 
-/** The five stages a guest's order passes through, in the order it passes through them. */
-const STAGES = [
-  { status: 'placed', label: 'Placed' },
-  { status: 'paid', label: 'Paid' },
-  { status: 'cooking', label: 'Cooking' },
-  { status: 'ready', label: 'Ready' },
-  { status: 'served', label: 'Served' },
-] as const;
+/**
+ * The five stages a guest's order passes through, in the order it passes through them. The label
+ * is the status itself, worded by the glossary's guest column — the rail is a picture of the same
+ * statuses the badge names, and a second set of words for them would be a second glossary.
+ */
+const STAGES = ['placed', 'paid', 'cooking', 'ready', 'served'] as const;
 
 /**
  * How far along the rail an order has got. A draft reads as placed: a guest never sees a draft
@@ -44,15 +43,17 @@ const POPS = 'transition-[opacity,scale] duration-[var(--motion-base)] ease-[var
  * only when the kitchen moves the order on, which is the whole reason it is here.
  */
 function OrderProgress({ status }: { status: OrderStatus }) {
+  const t = useTranslations('guest.order');
+  const stage = useTranslations('status.guest');
   if (status === 'cancelled') return null;
   const reached = REACHED[status];
   return (
-    <ol aria-label="Order progress" className="grid w-full grid-cols-5">
-      {STAGES.map((stage, index) => {
+    <ol aria-label={t('progress')} className="grid w-full grid-cols-5">
+      {STAGES.map((name, index) => {
         const done = index <= reached;
         return (
           <li
-            key={stage.status}
+            key={name}
             aria-current={index === reached ? 'step' : undefined}
             className="relative flex flex-col items-center gap-2"
           >
@@ -82,12 +83,16 @@ function OrderProgress({ status }: { status: OrderStatus }) {
               style={index > 0 ? { transitionDelay: MOTION.base } : undefined}
             />
             <span className={cn('text-xs', done ? 'text-foreground' : 'text-muted-foreground')}>
-              {stage.label}
+              {stage(name)}
             </span>
             {/* On screen a stage says where it stands with a filled dot and a lit label. Colour is
                 not an answer on its own, so the same fact is here in a word as well. */}
             <span className="sr-only">
-              {index < reached ? 'Done' : index === reached ? 'Now' : 'To come'}
+              {index < reached
+                ? t('stageDone')
+                : index === reached
+                  ? t('stageNow')
+                  : t('stageToCome')}
             </span>
           </li>
         );
@@ -109,6 +114,8 @@ export function OrderLive({
   paidStatus?: 'received' | 'declined';
   socketFactory?: () => AppSocket;
 }) {
+  const t = useTranslations('guest.order');
+  const headlineFor = useHeadline();
   const [order, setOrder] = useState(initial);
   const [cleared, setCleared] = useState(false);
   useEffect(() => {
@@ -136,14 +143,14 @@ export function OrderLive({
   }, [initial.id, socketFactory]);
   // Neither notice is about an order that has stopped waiting for payment. A guest who paid in
   // one tab and declined in another would otherwise be told the payment failed, directly above a
-  // headline saying the kitchen has the order and a badge reading Paid.
+  // headline saying the kitchen has the order and a badge reading «Отправлен на кухню».
   const notice =
     order.status !== 'placed'
       ? null
       : paidStatus === 'declined'
-        ? 'Payment declined. Try again.'
+        ? t('paymentDeclined')
         : paidStatus === 'received'
-          ? 'Payment received. Confirming…'
+          ? t('paymentReceived')
           : null;
   return (
     <>
@@ -156,9 +163,13 @@ export function OrderLive({
         // `OrderScreen` renders its own live region (the elapsed-time clock); once the order is
         // gone that clock is no longer telling the truth, so the cleared notice replaces the
         // whole receipt — landmark included — rather than sitting on top of it.
+        //
+        // This is where the hourly reset is explained now. The landing used to warn about it in
+        // advance; a guest reads it here once, when it is true, and it says what to do rather
+        // than naming the machinery that did it.
         <main className="mx-auto w-full max-w-2xl px-4 py-6">
           <p role="status" aria-live="polite" className="text-muted-foreground">
-            This order was cleared by the hourly demo reset.
+            {t('cleared')}
           </p>
         </main>
       ) : (

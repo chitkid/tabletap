@@ -1,10 +1,28 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { OrderDto } from '@tabletap/shared';
+import { NextIntlClientProvider } from 'next-intl';
+import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../lib/api';
+import { formatCents } from '../../lib/money';
+import ru from '../../messages/ru.json';
 import { restoreFromBackForwardCache } from '../../test/bfcache';
 import { DemoTerminal } from './demo-terminal';
+
+// `useTranslations` resolves through `NextIntlClientProvider` in every environment vitest runs in.
+const withProvider = (ui: ReactElement) => (
+  <NextIntlClientProvider locale="ru" messages={ru}>
+    {ui}
+  </NextIntlClientProvider>
+);
+
+/**
+ * `getByRole`'s name matcher normalises with the identity function, so the accessible name has to
+ * carry the real U+00A0 `Intl.NumberFormat` puts before the currency symbol. Composed rather than
+ * typed, because an invisible byte in a hand-written fixture drifts silently.
+ */
+const PAY_28 = ru.guest.pay.pay.replace('{amount}', formatCents(2800, 'USD'));
 
 const order: OrderDto = {
   id: 'o1',
@@ -34,20 +52,31 @@ function bodyOf(call: unknown): unknown {
 
 describe('DemoTerminal', () => {
   it('shows the table, the order, the amount and says plainly what it is', () => {
-    render(<DemoTerminal order={order} currency="USD" fetcher={vi.fn()} navigate={vi.fn()} />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Table 7 · Order #42');
+    render(
+      withProvider(
+        <DemoTerminal order={order} currency="USD" fetcher={vi.fn()} navigate={vi.fn()} />,
+      ),
+    );
+    // `toHaveTextContent` and `getByText` collapse U+00A0, so these fixtures carry plain spaces.
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Стол 7 · Заказ № 42');
     expect(screen.getByText('28 $')).toBeInTheDocument();
-    expect(screen.getByText('This is a demo. No card, no money.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Pay 28 $' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Decline' })).toBeInTheDocument();
+    // The terminal keeps saying what it is. A fake card machine that hides being fake is the one
+    // thing docs/design/02b-copy-ru.md's "read as a real restaurant's" must not be read to mean.
+    expect(screen.getByText('Это демонстрация. Никакой карты, никаких денег.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: PAY_28 })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Отклонить' })).toBeInTheDocument();
   });
 
   it('settles the attempt as paid and returns to the order', async () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockResolvedValue({ ok: true });
     const navigate = vi.fn();
-    render(<DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />);
-    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
+    render(
+      withProvider(
+        <DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />,
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: PAY_28 }));
     expect(fetcher).toHaveBeenCalledWith(
       '/api/payments/demo/complete',
       expect.objectContaining({ init: expect.objectContaining({ method: 'POST' }) }),
@@ -60,10 +89,14 @@ describe('DemoTerminal', () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockResolvedValue({ ok: true });
     const navigate = vi.fn();
-    render(<DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />);
-    await user.click(screen.getByRole('button', { name: 'Decline' }));
+    render(
+      withProvider(
+        <DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />,
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: 'Отклонить' }));
     expect(bodyOf(fetcher.mock.calls[0]?.[1])).toEqual({ orderId: 'o1', outcome: 'declined' });
-    expect(await screen.findByText('Payment declined.')).toHaveAttribute('role', 'status');
+    expect(await screen.findByText('Оплата отклонена.')).toHaveAttribute('role', 'status');
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/orders/o1?paid=0'));
   });
 
@@ -75,8 +108,12 @@ describe('DemoTerminal', () => {
       .mockResolvedValueOnce({ url: '/pay/o1' })
       .mockResolvedValueOnce({ ok: true });
     const navigate = vi.fn();
-    render(<DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />);
-    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
+    render(
+      withProvider(
+        <DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />,
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: PAY_28 }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/orders/o1?paid=1'));
     expect(fetcher.mock.calls[1]?.[0]).toBe('/api/orders/o1/payment');
     expect(fetcher.mock.calls[2]?.[0]).toBe('/api/payments/demo/complete');
@@ -86,44 +123,59 @@ describe('DemoTerminal', () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockRejectedValue(new Error('offline'));
     const navigate = vi.fn();
-    render(<DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />);
-    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
-    expect(await screen.findByText("Couldn't reach the terminal. Try again.")).toHaveAttribute(
-      'role',
-      'status',
+    render(
+      withProvider(
+        <DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />,
+      ),
     );
-    expect(screen.getByRole('button', { name: 'Pay 28 $' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Decline' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: PAY_28 }));
+    expect(
+      await screen.findByText('Не удалось связаться с терминалом. Попробуйте ещё раз.'),
+    ).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: PAY_28 })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Отклонить' })).toBeEnabled();
     expect(navigate).not.toHaveBeenCalled();
   });
 
   it('says an attempt is under way while both buttons are quiet', async () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockReturnValue(new Promise(() => {}));
-    render(<DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={vi.fn()} />);
-    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
-    expect(await screen.findByText('Taking the payment…')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Pay 28 $' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Decline' })).toBeDisabled();
+    render(
+      withProvider(
+        <DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={vi.fn()} />,
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: PAY_28 }));
+    expect(await screen.findByText('Проводим оплату…')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: PAY_28 })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Отклонить' })).toBeDisabled();
   });
 
   it('comes back usable when the browser hands the page back', async () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockResolvedValue({ ok: true });
     const navigate = vi.fn();
-    render(<DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />);
-    await user.click(screen.getByRole('button', { name: 'Pay 28 $' }));
+    render(
+      withProvider(
+        <DemoTerminal order={order} currency="USD" fetcher={fetcher} navigate={navigate} />,
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: PAY_28 }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/orders/o1?paid=1'));
     // Back from the receipt restores the terminal exactly as it left: quiet, and still claiming
     // to be taking a payment that finished. Both are stale, and both have to go.
     restoreFromBackForwardCache();
-    expect(screen.getByRole('button', { name: 'Pay 28 $' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Decline' })).toBeEnabled();
-    expect(screen.queryByText('Taking the payment…')).toBeNull();
+    expect(screen.getByRole('button', { name: PAY_28 })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Отклонить' })).toBeEnabled();
+    expect(screen.queryByText('Проводим оплату…')).toBeNull();
   });
 
   it('does not offer a keypad key to anyone reading the page', () => {
-    render(<DemoTerminal order={order} currency="USD" fetcher={vi.fn()} navigate={vi.fn()} />);
+    render(
+      withProvider(
+        <DemoTerminal order={order} currency="USD" fetcher={vi.fn()} navigate={vi.fn()} />,
+      ),
+    );
     expect(screen.getAllByRole('button')).toHaveLength(2);
     expect(screen.queryByRole('textbox')).toBeNull();
   });

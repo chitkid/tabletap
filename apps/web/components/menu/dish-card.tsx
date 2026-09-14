@@ -1,6 +1,7 @@
 'use client';
 import type { MenuItemDto } from '@tabletap/shared';
 import { Button, Plate, cn, kindFromCategory } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { formatCents } from '../../lib/money';
 import { QuantityStepper } from './quantity-stepper';
 
@@ -19,8 +20,13 @@ export function DishCard({
   onAdd: () => void;
   onSetQuantity: (q: number) => void;
 }) {
+  const t = useTranslations('guest.menu');
+  // «Аллергены не указаны» rather than «аллергенов нет»: the menu says nothing about this dish,
+  // which is not the same promise as the dish containing nothing.
   const allergens =
-    item.allergens.length > 0 ? `Contains ${item.allergens.join(', ')}` : 'No listed allergens';
+    item.allergens.length > 0
+      ? t('allergens', { list: item.allergens.join(', ') })
+      : t('noAllergens');
   // A sold-out card takes the muted fill from docs/design/components.md, and with it the rule that
   // --muted-foreground must never sit on --muted (4.48:1). Its secondary lines keep their size but
   // take the full-strength ink; hierarchy is carried by type size, not by a failing contrast.
@@ -53,10 +59,12 @@ export function DishCard({
         <div className="mt-auto flex items-center justify-between gap-3 pt-2">
           <span className="font-semibold">{formatCents(item.priceCents, currency)}</span>
           {!item.isAvailable ? (
-            <span className="text-sm font-semibold">Sold out today</span>
+            <span className="text-sm font-semibold">{t('soldOut')}</span>
           ) : quantity === 0 ? (
-            <Button type="button" aria-label={`Add ${item.name}`} onClick={onAdd}>
-              Add
+            // The dish name rides in ёлочки as an appositive, so a name the dictionary cannot
+            // decline still reads as Russian: «Добавить «Салат Цезарь»».
+            <Button type="button" aria-label={t('addDish', { name: item.name })} onClick={onAdd}>
+              {t('add')}
             </Button>
           ) : (
             <QuantityStepper name={item.name} value={quantity} onChange={onSetQuantity} />

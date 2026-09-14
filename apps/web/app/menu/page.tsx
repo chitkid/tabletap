@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { Entrance } from '../../components/entrance';
 import { MenuScreen } from '../../components/menu/menu-screen';
@@ -5,7 +7,11 @@ import { guestCookie } from '../../lib/guest-cookie';
 import { loadGuestMenu } from '../../lib/guest-menu';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Menu · Little Furnace' };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('guest.meta');
+  return { title: t('menu') };
+}
 
 export default async function MenuPage() {
   const cookie = await guestCookie();

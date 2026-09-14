@@ -1,10 +1,12 @@
 import type { MenuResponse } from '@tabletap/shared';
+import { NextIntlClientProvider } from 'next-intl';
 import { act } from 'react';
 import { hydrateRoot } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const replace = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+import ru from '../../messages/ru.json';
 import { CheckoutScreen } from './checkout-screen';
 import { addItem, cartStorageKey } from '../../lib/cart';
 
@@ -46,12 +48,17 @@ describe('CheckoutScreen hydration', () => {
     localStorage.setItem(cartStorageKey('t1'), JSON.stringify(addItem({ items: {} }, U(3), 2)));
   });
   it('does not bounce a full basket back to the menu while hydrating', async () => {
-    const html = renderToString(<CheckoutScreen menu={menu} tableId="t1" />);
+    const tree = (
+      <NextIntlClientProvider locale="ru" messages={ru}>
+        <CheckoutScreen menu={menu} tableId="t1" />
+      </NextIntlClientProvider>
+    );
+    const html = renderToString(tree);
     const container = document.createElement('div');
     container.innerHTML = html;
     document.body.appendChild(container);
     await act(async () => {
-      hydrateRoot(container, <CheckoutScreen menu={menu} tableId="t1" />);
+      hydrateRoot(container, tree);
     });
     expect(container.textContent).toContain('2 × House Lemonade');
     expect(replace).not.toHaveBeenCalled();

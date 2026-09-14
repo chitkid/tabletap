@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import ru from '../../messages/ru.json';
 import { MenuScreen } from './menu-screen';
 
-// `BasketBar`, nested inside `MenuScreen`, reads its count through `useTranslations`, which needs
+// Every screen on the guest surface reads its words through `useTranslations`, which needs
 // `NextIntlClientProvider` in every environment vitest runs in.
 const withProvider = (ui: ReactElement) => (
   <NextIntlClientProvider locale="ru" messages={ru}>
@@ -63,37 +63,39 @@ describe('MenuScreen', () => {
   it('renders sections with navigation, builds a basket and opens the sheet', async () => {
     render(withProvider(<MenuScreen menu={menu} tableId="t1" tableNumber={7} />));
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Little Furnace');
-    expect(screen.getByText('Table 7')).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Menu sections' })).toBeInTheDocument();
+    // `guest.table` binds the number to «Стол» with U+00A0; `getByText` collapses it, so this
+    // fixture carries a plain space on purpose.
+    expect(screen.getByText('Стол 7')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Разделы меню' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Drinks' })).toHaveAttribute(
       'href',
       '#category-' + U(4),
     );
-    expect(screen.queryByRole('region', { name: 'Basket' })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Add Margherita Flatbread' }));
+    expect(screen.queryByRole('region', { name: 'Корзина' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить «Margherita Flatbread»' }));
     await userEvent.click(
-      screen.getByRole('button', { name: 'Add one more Margherita Flatbread' }),
+      screen.getByRole('button', { name: 'Добавить ещё одну порцию «Margherita Flatbread»' }),
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Add House Lemonade' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить «House Lemonade»' }));
     // `basketItems` binds the count to its noun with a non-breaking space, but `toHaveTextContent`
-    // collapses U+00A0 to a plain space before matching - this plain space is correct as is.
-    expect(screen.getByRole('region', { name: 'Basket' })).toHaveTextContent('3 позиции · 28 $');
-    await userEvent.click(screen.getByRole('button', { name: 'View basket' }));
-    expect(screen.getByRole('dialog', { name: 'Your basket' })).toBeInTheDocument();
+    // collapses U+00A0 to a plain space - this plain space is correct as is.
+    expect(screen.getByRole('region', { name: 'Корзина' })).toHaveTextContent('3 позиции · 28 $');
+    await userEvent.click(screen.getByRole('button', { name: 'Открыть корзину' }));
+    expect(screen.getByRole('dialog', { name: 'Ваша корзина' })).toBeInTheDocument();
   });
 
   it('returns focus to the basket bar however the sheet is closed', async () => {
     render(withProvider(<MenuScreen menu={menu} tableId="t1" tableNumber={7} />));
-    await userEvent.click(screen.getByRole('button', { name: 'Add House Lemonade' }));
-    const viewBasket = screen.getByRole('button', { name: 'View basket' });
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить «House Lemonade»' }));
+    const viewBasket = screen.getByRole('button', { name: 'Открыть корзину' });
 
     await userEvent.click(viewBasket);
-    expect(screen.getByRole('dialog', { name: 'Your basket' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Ваша корзина' })).toBeInTheDocument();
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(document.activeElement).toBe(viewBasket));
 
     await userEvent.click(viewBasket);
-    await userEvent.click(screen.getByRole('button', { name: 'Keep browsing' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Продолжить выбор' }));
     await waitFor(() => expect(document.activeElement).toBe(viewBasket));
   });
 });

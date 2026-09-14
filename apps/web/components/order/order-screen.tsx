@@ -1,31 +1,34 @@
-import type { OrderDto } from '@tabletap/shared';
+import type { OrderDto, OrderStatus } from '@tabletap/shared';
 import { StatusBadge } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { formatCents } from '../../lib/money';
 import { ElapsedSince } from './elapsed-since';
 import { PayButton } from './pay-button';
 
+/**
+ * Which sentence in `guest.order.headline` a status earns.
+ *
+ * 'draft' and 'placed' both read as owing money. A guest never sees 'draft' (the order does not
+ * exist for them until it is placed), and since M4 the kitchen only receives an order once it is
+ * paid — so the difference a guest must see in the first line is between an order that is waiting
+ * for money and one that is already with the kitchen.
+ */
+const HEADLINE: Record<OrderStatus, string> = {
+  draft: 'placed',
+  placed: 'placed',
+  paid: 'paid',
+  cooking: 'cooking',
+  ready: 'ready',
+  served: 'served',
+  cancelled: 'cancelled',
+};
+
 /** The one-line status a guest reads first, in the brand voice, for every stage of the order. */
-export function headlineFor(order: OrderDto): string {
-  switch (order.status) {
-    case 'paid':
-      return `Order #${order.number} sent to the kitchen.`;
-    case 'cooking':
-      return `Order #${order.number} is being made.`;
-    case 'ready':
-      return `Order #${order.number} is ready.`;
-    case 'served':
-      return `Order #${order.number} was served. Enjoy.`;
-    case 'cancelled':
-      return `Order #${order.number} was cancelled.`;
-    // 'draft' and 'placed' both read as owing money. A guest never sees 'draft' (the order does
-    // not exist for them until it is placed), and since M4 the kitchen only receives an order
-    // once it is paid — so the difference a guest must see in the first line is between an
-    // order that is waiting for money and one that is already with the kitchen.
-    default:
-      return `Order #${order.number} is waiting for payment.`;
-  }
+export function useHeadline(): (order: OrderDto) => string {
+  const t = useTranslations('guest.order.headline');
+  return (order) => t(HEADLINE[order.status], { number: order.number });
 }
 
 /**
@@ -55,6 +58,12 @@ export function OrderScreen({
    */
   rail?: ReactNode;
 }) {
+  const t = useTranslations('guest');
+  // The badge takes the glossary's guest column: `ready` is «Готов — сейчас принесут» here and
+  // «Готов» on the kitchen board, because the guest is told what happens to them and the staff
+  // what the order is.
+  const status = useTranslations('status.guest');
+  const headlineFor = useHeadline();
   // `undefined` rather than a nullish check, so a caller can pass `null` to mean "no control"
   // and still get the default by leaving the prop off.
   const pay =
@@ -69,8 +78,8 @@ export function OrderScreen({
       <header className="flex flex-col gap-3">
         <h1 className="font-display text-3xl font-semibold">{headlineFor(order)}</h1>
         <div className="flex flex-wrap items-center gap-3">
-          <StatusBadge status={order.status} />
-          <span className="text-muted-foreground">{`Table ${order.tableNumber}`}</span>
+          <StatusBadge status={order.status} label={status(order.status)} />
+          <span className="text-muted-foreground">{t('table', { number: order.tableNumber })}</span>
         </div>
         <ElapsedSince iso={order.placedAt ?? order.createdAt} />
       </header>
@@ -84,7 +93,7 @@ export function OrderScreen({
         className="rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm"
       >
         <h2 id="order-lines-heading" className="sr-only">
-          What you ordered
+          {t('order.linesHeading')}
         </h2>
         <ul>
           {order.items.map((item) => (
@@ -99,20 +108,22 @@ export function OrderScreen({
         </ul>
         {/* One text node, as on the basket bar and in the sheet: a bare figure repeated beside a
             label reads as a second amount to anyone scanning the column. */}
-        <p className="pt-3 font-semibold">{`Total · ${formatCents(order.totalCents, currency)}`}</p>
+        <p className="pt-3 font-semibold">
+          {t('order.total', { amount: formatCents(order.totalCents, currency) })}
+        </p>
       </section>
 
       {order.note !== null && order.note !== '' ? (
         <section aria-labelledby="order-note-heading" className="flex flex-col gap-1">
           <h2 id="order-note-heading" className="font-semibold">
-            Note for the kitchen
+            {t('order.noteHeading')}
           </h2>
           <p>{order.note}</p>
         </section>
       ) : null}
 
       <Link href="/menu" className="underline underline-offset-4">
-        Back to menu
+        {t('order.backToMenu')}
       </Link>
     </main>
   );

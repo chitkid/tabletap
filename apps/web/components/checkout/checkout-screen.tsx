@@ -1,6 +1,7 @@
 'use client';
 import { IDEMPOTENCY_KEY_HEADER, OrderDtoSchema, type MenuResponse } from '@tabletap/shared';
 import { Button, Label, Textarea } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
@@ -20,22 +21,25 @@ import { randomUuid } from '../../lib/uuid';
 const NOTE_MAX_LENGTH = 280;
 const NOTE_COUNTER_ID = 'note-counter';
 
-const SOLD_OUT_LINE = 'Sold out today. Remove it to continue.';
-const SOLD_OUT_SOME = 'Some items are sold out today. Remove them to continue.';
-const UNREACHABLE = "Can't reach the server. Check the connection and try again.";
-const TOO_MANY = 'Too many orders in a minute. Wait a moment and try again.';
-const MESSAGE: Record<string, string> = {
-  ITEM_UNAVAILABLE: SOLD_OUT_SOME,
-  VALIDATION_FAILED: 'Something in the basket is not right. Go back to the menu.',
-  RATE_LIMITED: TOO_MANY,
-  CONFLICT: 'This basket was already sent from another table. Go back to the menu and start again.',
+/**
+ * Which key in `guest.checkout` explains a refusal. The sentences themselves live in the
+ * dictionary; what a component knows is which of them applies. The union is spelled out so a key
+ * that leaves the dictionary is a compile error here rather than a missing-message warning in
+ * front of a guest.
+ */
+type MessageKey = 'soldOutSome' | 'validationFailed' | 'rateLimited' | 'conflict' | 'unreachable';
+const MESSAGE_KEY: Record<string, MessageKey> = {
+  ITEM_UNAVAILABLE: 'soldOutSome',
+  VALIDATION_FAILED: 'validationFailed',
+  RATE_LIMITED: 'rateLimited',
+  CONFLICT: 'conflict',
 };
 
-function messageFor(err: unknown): string {
-  if (!(err instanceof ApiError)) return UNREACHABLE;
+function messageKeyFor(err: unknown): MessageKey {
+  if (!(err instanceof ApiError)) return 'unreachable';
   // A bare 429 from a proxy in front of the API carries no envelope, so the status is the
   // second witness for the one failure a guest is most likely to cause themselves.
-  return MESSAGE[err.code] ?? (err.status === 429 ? TOO_MANY : UNREACHABLE);
+  return MESSAGE_KEY[err.code] ?? (err.status === 429 ? 'rateLimited' : 'unreachable');
 }
 
 /** Only the ids are read here: the names on screen come from the menu the guest is looking at. */
@@ -51,11 +55,12 @@ const UnavailableDetailsSchema = z.object({
 const PlacedOrderSchema = z.object({ order: OrderDtoSchema.pick({ id: true }) });
 
 export function CheckoutScreen({ menu, tableId }: { menu: MenuResponse; tableId: string }) {
+  const t = useTranslations('guest.checkout');
   const router = useRouter();
   const { cart, remove, clear } = useCart(tableId);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [messageKey, setMessageKey] = useState<MessageKey | null>(null);
   const [flagged, setFlagged] = useState<ReadonlySet<string>>(() => new Set());
 
   // `useRouter()` may hand back a fresh object on any render; naming it as an effect dependency
@@ -114,7 +119,7 @@ export function CheckoutScreen({ menu, tableId }: { menu: MenuResponse; tableId:
 
   async function placeOrder() {
     setSubmitting(true);
-    setMessage(null);
+    setMessageKey(null);
     setFlagged(new Set());
     const trimmed = note.trim();
     try {
@@ -155,7 +160,7 @@ export function CheckoutScreen({ menu, tableId }: { menu: MenuResponse; tableId:
         if (details.success)
           setFlagged(new Set(details.data.unavailable.map((item) => item.menuItemId)));
       }
-      setMessage(messageFor(err));
+      setMessageKey(messageKeyFor(err));
     }
   }
 
@@ -163,18 +168,19 @@ export function CheckoutScreen({ menu, tableId }: { menu: MenuResponse; tableId:
 
   // A sold-out line always has a way out of the dead end it creates: the line says what to do,
   // and the message beside the disabled button says it again for anyone who never saw the line.
-  const status = message ?? (blocked ? SOLD_OUT_SOME : '');
+  const key: MessageKey | null = messageKey ?? (blocked ? 'soldOutSome' : null);
+  const status = key === null ? '' : t(key);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6">
-      <h1 className="font-display text-3xl font-semibold">Your order</h1>
+      <h1 className="font-display text-3xl font-semibold">{t('title')}</h1>
 
       <section
         aria-labelledby="checkout-lines-heading"
         className="rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm"
       >
         <h2 id="checkout-lines-heading" className="sr-only">
-          What you are ordering
+          {t('linesHeading')}
         </h2>
         <ul>
           {lines.map((line) => (
@@ -188,13 +194,13 @@ export function CheckoutScreen({ menu, tableId }: { menu: MenuResponse; tableId:
           ))}
         </ul>
         <div className="flex items-baseline justify-between gap-3 pt-3 font-semibold">
-          <span>Total</span>
+          <span>{t('total')}</span>
           <span>{formatCents(cartTotalCents(cart, menu), currency)}</span>
         </div>
       </section>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="note">Note for the kitchen</Label>
+        <Label htmlFor="note">{t('noteLabel')}</Label>
         <Textarea
           id="note"
           name="note"
@@ -215,7 +221,7 @@ export function CheckoutScreen({ menu, tableId }: { menu: MenuResponse; tableId:
           aria-busy={submitting || undefined}
           onClick={() => void placeOrder()}
         >
-          {submitting ? 'Sending to the kitchen…' : 'Place order'}
+          {submitting ? t('submitting') : t('submit')}
         </Button>
         {/* Always in the layout, empty when there is nothing to say: a paragraph that appears
             only on failure moves the button under the thumb that just pressed it. */}
@@ -238,11 +244,12 @@ function CheckoutLine({
   soldOut: boolean;
   onRemove: () => void;
 }) {
+  const t = useTranslations('guest.basket');
   const name = line.item?.name ?? null;
   return (
     <li className="flex flex-col gap-2 border-b border-border py-3 first:pt-0 last:border-b-0 last:pb-0">
       <div className="flex items-baseline justify-between gap-3">
-        <span>{name === null ? 'No longer on the menu' : `${line.quantity} × ${name}`}</span>
+        <span>{name === null ? t('gone') : `${line.quantity} × ${name}`}</span>
         {line.item !== null ? (
           <span className="font-semibold">{formatCents(line.lineTotalCents, currency)}</span>
         ) : null}
@@ -252,15 +259,15 @@ function CheckoutLine({
           {/* The instruction sits on the line it is about, not only in the summary above the
               button: the guest reads down the basket, and this is where the problem is. A line
               whose dish has left the menu says so in place of its name and needs no second
-              sentence — "sold out today" would be the wrong reason. */}
-          {name === null ? <span /> : <p className="text-sm">{SOLD_OUT_LINE}</p>}
+              sentence — "закончилось сегодня" would be the wrong reason. */}
+          {name === null ? <span /> : <p className="text-sm">{t('soldOutLine')}</p>}
           <Button
             type="button"
             variant="ghost"
-            aria-label={`Remove ${name ?? 'this item'}`}
+            aria-label={name === null ? t('removeThis') : t('removeDish', { name })}
             onClick={onRemove}
           >
-            Remove
+            {t('remove')}
           </Button>
         </div>
       ) : null}

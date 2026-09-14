@@ -1,10 +1,16 @@
+import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { CheckoutScreen } from '../../components/checkout/checkout-screen';
 import { guestCookie } from '../../lib/guest-cookie';
 import { loadGuestMenu } from '../../lib/guest-menu';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Checkout · Little Furnace' };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('guest.meta');
+  return { title: t('checkout') };
+}
 
 /**
  * The basket lives in the browser, but its prices do not: the menu is fetched again here so the

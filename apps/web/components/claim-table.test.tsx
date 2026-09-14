@@ -1,11 +1,20 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { StrictMode } from 'react';
+import { NextIntlClientProvider } from 'next-intl';
+import { StrictMode, type ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const replace = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+import ru from '../messages/ru.json';
 import { ClaimTable } from './claim-table';
+
+// `useTranslations` resolves through `NextIntlClientProvider` in every environment vitest runs in.
+const withProvider = (ui: ReactElement) => (
+  <NextIntlClientProvider locale="ru" messages={ru}>
+    {ui}
+  </NextIntlClientProvider>
+);
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -25,8 +34,8 @@ describe('ClaimTable', () => {
         }),
       ),
     );
-    render(<ClaimTable token="abc" />);
-    expect(screen.getByRole('status')).toHaveTextContent('Finding your table…');
+    render(withProvider(<ClaimTable token="abc" />));
+    expect(screen.getByRole('status')).toHaveTextContent('Ищем ваш стол…');
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/menu'));
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe('/api/guest/claim');
   });
@@ -39,9 +48,11 @@ describe('ClaimTable', () => {
     );
     vi.stubGlobal('fetch', f);
     render(
-      <StrictMode>
-        <ClaimTable token="abc" />
-      </StrictMode>,
+      withProvider(
+        <StrictMode>
+          <ClaimTable token="abc" />
+        </StrictMode>,
+      ),
     );
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/menu'));
     expect(f).toHaveBeenCalledTimes(1);
@@ -57,11 +68,12 @@ describe('ClaimTable', () => {
         }),
       );
     vi.stubGlobal('fetch', f);
-    render(<ClaimTable token="abc" />);
+    render(withProvider(<ClaimTable token="abc" />));
+    // `getByText` collapses the U+00A0 binding «у» to its noun, so this fixture is a plain space.
     expect(
-      await screen.findByText('This QR code has expired. Ask staff for a new one.'),
+      await screen.findByText('Срок действия QR-кода истёк. Попросите у сотрудников новый.'),
     ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Попробовать ещё раз' }));
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/menu'));
   });
   it('maps the other failures', async () => {
@@ -69,9 +81,10 @@ describe('ClaimTable', () => {
       'fetch',
       vi.fn(async () => json(404, { error: { code: 'NOT_FOUND', message: 'x' } })),
     );
-    render(<ClaimTable token="abc" />);
-    expect(await screen.findByText('This table is not available right now.')).toBeInTheDocument();
-    // Try again cannot help a table that is gone: there has to be a way off this screen.
-    expect(screen.getByRole('link', { name: 'Back to the start' })).toHaveAttribute('href', '/');
+    render(withProvider(<ClaimTable token="abc" />));
+    expect(await screen.findByText('Этот стол сейчас недоступен.')).toBeInTheDocument();
+    // Try again cannot help a table that is gone: there has to be a way off this screen. The name
+    // is read from the dictionary because `getByRole` does not collapse its U+00A0.
+    expect(screen.getByRole('link', { name: ru.guest.claim.home })).toHaveAttribute('href', '/');
   });
 });

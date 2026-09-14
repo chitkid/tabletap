@@ -24,9 +24,9 @@ describe('BasketBar', () => {
         <BasketBar count={2} totalCents={2600} currency="USD" onOpen={() => undefined} />,
       ),
     );
-    const region = screen.getByRole('region', { name: 'Basket' });
+    const region = screen.getByRole('region', { name: 'Корзина' });
     expect(region).toHaveTextContent('2 позиции · 26 $');
-    expect(screen.getByRole('button', { name: 'View basket' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Открыть корзину' })).toBeInTheDocument();
   });
   it('uses the singular for one item', () => {
     render(
@@ -34,7 +34,7 @@ describe('BasketBar', () => {
         <BasketBar count={1} totalCents={400} currency="USD" onOpen={() => undefined} />,
       ),
     );
-    expect(screen.getByRole('region', { name: 'Basket' })).toHaveTextContent('1 позиция · 4 $');
+    expect(screen.getByRole('region', { name: 'Корзина' })).toHaveTextContent('1 позиция · 4 $');
   });
   it('uses the genitive plural from five upward, the form a binary rule would miss', () => {
     render(
@@ -42,6 +42,6 @@ describe('BasketBar', () => {
         <BasketBar count={5} totalCents={1000} currency="USD" onOpen={() => undefined} />,
       ),
     );
-    expect(screen.getByRole('region', { name: 'Basket' })).toHaveTextContent('5 позиций · 10 $');
+    expect(screen.getByRole('region', { name: 'Корзина' })).toHaveTextContent('5 позиций · 10 $');
   });
 });

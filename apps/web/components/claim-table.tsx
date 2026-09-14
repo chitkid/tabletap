@@ -1,26 +1,30 @@
 'use client';
 import { ClaimResponseSchema } from '@tabletap/shared';
 import { Button } from '@tabletap/ui';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, clientFetch } from '../lib/api';
 
-const MESSAGE: Record<string, string> = {
-  TOKEN_EXPIRED: 'This QR code has expired. Ask staff for a new one.',
-  TOKEN_INVALID: 'This QR code is not valid.',
-  NOT_FOUND: 'This table is not available right now.',
+/** Which sentence in `guest.claim` a refusal earns; the words live in the dictionary. */
+type MessageKey = 'expired' | 'invalid' | 'notFound' | 'unreachable';
+const MESSAGE_KEY: Record<string, MessageKey> = {
+  TOKEN_EXPIRED: 'expired',
+  TOKEN_INVALID: 'invalid',
+  NOT_FOUND: 'notFound',
 };
-const UNREACHABLE = "Can't reach the server. Check the connection and try again.";
 
-function messageFor(err: unknown): string {
-  return err instanceof ApiError ? (MESSAGE[err.code] ?? UNREACHABLE) : UNREACHABLE;
+function messageKeyFor(err: unknown): MessageKey {
+  return err instanceof ApiError ? (MESSAGE_KEY[err.code] ?? 'unreachable') : 'unreachable';
 }
 
 export function ClaimTable({ token }: { token: string }) {
+  const t = useTranslations('guest.claim');
+  const brand = useTranslations('landing');
   const router = useRouter();
   const [attempt, setAttempt] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   // `useRouter()` can hand back a fresh object on any render, and naming it as a dependency
   // below would re-run the effect — re-POSTing the claim — every time. Reading it through a ref
   // keeps the promise honest: the table is claimed once per visit, and once more per Try again.
@@ -60,34 +64,34 @@ export function ClaimTable({ token }: { token: string }) {
         if (alive.current) routerRef.current.replace('/menu');
       })
       .catch((err: unknown) => {
-        if (alive.current) setError(messageFor(err));
+        if (alive.current) setErrorKey(messageKeyFor(err));
       });
     return stop;
   }, [token, attempt]);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 p-6">
-      <h1 className="font-display text-3xl font-semibold">Little Furnace</h1>
-      {error === null ? (
+      <h1 className="font-display text-3xl font-semibold">{brand('brand')}</h1>
+      {errorKey === null ? (
         <p role="status" aria-live="polite" className="text-muted-foreground">
-          Finding your table…
+          {t('finding')}
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          <p role="alert">{error}</p>
+          <p role="alert">{t(errorKey)}</p>
           <Button
             type="button"
             onClick={() => {
-              setError(null);
+              setErrorKey(null);
               setAttempt((n) => n + 1);
             }}
           >
-            Try again
+            {t('retry')}
           </Button>
           {/* Try again cannot mend an expired code or a table that is gone, and this screen is
               the whole app for a guest who arrived by scanning: give it an exit. */}
           <Link href="/" className="underline underline-offset-4">
-            Back to the start
+            {t('home')}
           </Link>
         </div>
       )}

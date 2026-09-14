@@ -1,5 +1,6 @@
 'use client';
 import type { MenuResponse } from '@tabletap/shared';
+import { useTranslations } from 'next-intl';
 import { useRef, useState } from 'react';
 import { cartLines, cartTotalCents, countItems, useCart } from '../../lib/cart';
 import { BasketBar } from '../basket/basket-bar';
@@ -16,6 +17,7 @@ export function MenuScreen({
   tableId: string;
   tableNumber: number;
 }) {
+  const t = useTranslations('guest');
   const { cart, add, setQuantity, remove } = useCart(tableId);
   const [open, setOpen] = useState(false);
   // The bar opens the sheet and the sheet gives focus back to it; the ref is the only thing the
@@ -28,7 +30,7 @@ export function MenuScreen({
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-6 pb-28">
       <header className="flex items-baseline justify-between gap-4">
         <h1 className="font-display text-3xl font-semibold">{menu.restaurant.name}</h1>
-        <span className="text-muted-foreground">{`Table ${tableNumber}`}</span>
+        <span className="text-muted-foreground">{t('table', { number: tableNumber })}</span>
       </header>
       <CategoryNav categories={menu.categories} />
       {menu.categories.map((category) => (
