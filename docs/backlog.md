@@ -50,7 +50,65 @@ Noticed while building and reviewing the M2 branch. Ordered roughly by how much 
 - `e2e/` and `scripts/` are not linted. `pnpm lint` runs each package's own ESLint, and neither directory belongs to a package; the root config additionally ignores `scripts/**`. Both hold real code now (the Playwright specs and the Lighthouse audit).
 - The seed's option object — `demoPassword`, `tableTokenSecret`, `tableTokenTtlDays`, `webOrigin` — is assembled by hand in three places (`packages/db/src/cli/seed.ts`, `apps/api/src/plugins/demo-reset.ts`, the seed tests). One helper that builds it from a config would stop the fourth caller getting it wrong.
 - `apps/web/lib/api.test.ts` puts an import between statements to keep a `vi.mock` above it. It works and it is the common workaround, but a short comment saying why would save the next reader the detour.
-- The landing's "Built with" list renders each tool as a `Badge`. Badges usually mean status; this is a list of nouns. A plain list styled the same way would say the same thing without borrowing the semantics.
+- ~~The landing's "Built with" list renders each tool as a `Badge`.~~ Moot since `163897b`: the technology list was removed from the landing along with the demo cards, when the owner ruled the site must read as a real restaurant's. There is no badge list to restyle.
+
+## Found in the final review wave, 2026-09-15
+
+Three whole-branch reviews read `feat/ru-localisation` before merge; their measurements are in
+`.superpowers/sdd/2026-09-14-russian-localisation/final-review-{broad,security,guards}.md`, which are
+committed. Everything Critical and Important was fixed in the merge wave. What follows is what was
+deliberately not, so nobody re-derives it.
+
+- **`admin.photo.off` is a truncated copy of `errors.photoUploadDisabled`.** It drops
+  «Обратитесь к тому, кто её разворачивал.» — the same shape as the two `guest.claim.*` refusals
+  that _were_ restored in the wave, and lower stakes for the same reason the merge review ruled it a
+  Minor: the reader is an operator looking at a control that is switched off, not a guest standing at
+  a table who cannot get any further. It is now the one pair `apps/web/lib/api.test.ts` pins as a
+  **prefix** rather than as an equality, so the shared half cannot drift and the missing half is
+  visible in one place. Trigger: any decision about what an operator sees when photo upload is off.
+
+- **The printed QR card and the landing bind one space differently.** `apps/api/src/lib/ru.ts`'s
+  `qrSheet.instruction` writes «выберите блюда и оформите заказ.» with a plain space after «и»;
+  `landing.hero.subtitle` and `landing.meta.description` bind it with U+00A0. `ru.dictionary.test.ts`
+  compares the clause with U+00A0 flattened and says so, because the claim being made is about the
+  verbs and because changing a sentence a guest reads is the copy owner's. The two homes are one code
+  point apart and a reader of either would not notice. Trigger: the copy owner revisiting the card,
+  or a decision about whether «и» is bound at all — the contract binds _prepositions_, and «и» is a
+  conjunction, so the landing is the side that is arguably over-applying the rule.
+
+- **Nine Minors ruled SHIP by the merge review, listed so they are not rediscovered one at a time.**
+  `.gitattributes` has `*.woff2 binary` matching zero tracked files while the two `.woff` faces this
+  milestone added match no binary rule; `qrcode` and `@types/qrcode` are dead dependencies since
+  `163897b` removed their only consumer; `rush-button.tsx:16`'s default `fetcher` is unreachable;
+  five exports are used only inside their own file (`RefusalVerb`, `BUMPABLE_STATUSES`,
+  `BumpableStatus`, `Elapsed`, `e2e/dictionary.ts`'s `ru` re-export); `NBSP` is declared 30 times,
+  `plain` 26 and `flat` 3, all behaviourally identical; `layout.test.tsx` matches source text with a
+  regex that a commented-out occurrence would satisfy and reads one file where a glob would be
+  complete by construction; `no-mixed-normalisation.test.ts`'s walk is complete by accident rather
+  than by construction (it omits `apps/web/i18n`); a fails-open `not.toMatch(/\d+(?:ms|s)/)`
+  survives in six component tests beside the positive assertion that actually catches the defect;
+  and `en.json`'s ~258 non-`errors` values are inert (their _keys_ are now gated by
+  `i18n/dictionary.test.ts`; their words are not).
+
+- **`GET /api/orders/:id` still answers 403 for a stranger's order and 404 for one that never
+  existed**, because the existence check runs before the ownership check
+  (`apps/api/src/routes/orders.ts:67` and `:74`). Its two siblings deliberately merge the cases into
+  one `orderNotFound` (`lib/payments.ts:26-28`, `routes/payments.ts:81-82`). Unchanged by this
+  milestone and small in practice — order ids are v4 UUIDs, so this confirms rather than enumerates,
+  and `apps/web/app/orders/[id]/page.tsx:34` folds 400/403/404 into `notFound()` so no browser sees
+  the difference. Moving the ownership test above the existence test is the whole fix, and it belongs
+  in a change that is about access control rather than about language.
+
+- **The scan-honesty discipline is applied to two of three siblings.** `errors.test.ts:185` and
+  `no-mixed-normalisation.test.ts:153` each assert a corpus floor with a comment explaining that a
+  negative assertion over an empty list passes for the wrong reason; `no-orphan-strings.test.ts` —
+  the most load-bearing of the three — asserts only `=== []` twice, and its comment says "69 files,
+  0 missing" while pinning neither number. Reachability is low, because `sourcesUnder` throws on a
+  missing directory, which is why the merge review ruled it a Minor. The wave's own new gates
+  (`i18n/dictionary.test.ts`, the `SHARED` map in `errors.test.ts`) were built with a floor and a
+  positive fixture from the first line; making that the repository's rule rather than four
+  independent rediscoveries is the item. The largest of the four recommendations — declare the
+  dictionary's type — shipped as `apps/web/messages.d.ts`.
 
 ## Resolved in the M2 fix wave
 

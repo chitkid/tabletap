@@ -517,16 +517,29 @@ curl -fsS --retry 10 --retry-delay 3 --retry-all-errors https://<api>/health
 
 Open `https://<web>`.
 
-**Correct:** the page renders, with the demo QR code, the guest link and the three staff role cards.
+**Correct:** the page renders as a restaurant's — «Little Furnace» and «Вход для сотрудников» in
+the header, the hero «Заказ со стола. / Через секунду он на кухне.», «Как это работает» with its
+four steps, «Часы работы», and at the foot a dark «Служебная зона» band carrying «Доска кухни» and
+«Панель администратора». **On a demo deployment the hero also carries a guest button, «Открыть меню
+стола 7».**
+
+That button is the discriminator, and it is the only one: the demo QR code, the guest link and the
+three staff role cards were removed in `163897b`, when the owner ruled that the site must read as a
+real restaurant's rather than as a demonstration of a project. Everything else on the page renders
+identically whether or not the API answered, and the «Служебная зона» band is deliberately not
+gated on the demo links at all, so the staff entrance is never missing.
 
 The landing calls `GET /api/demo/links` from the server on every render, so a page that renders
-_with_ its demo cards has already proved the web tier can reach the API. If the API had been asleep
-this first load could have taken tens of seconds — that is the tier, not a fault.
+_with_ the guest button has already proved the web tier can reach the API. If the API had been
+asleep this first load could have taken tens of seconds — that is the tier, not a fault.
 
-Two other renderings, and they mean different things. Cards missing and the page reading as a plain
-product page is the API answering 404: either `DEMO_MODE` is not `true` on Render, or the seed never
-ran. A short notice in place of the cards means the API answered something else, and check 2 is
-what will say what.
+Two other renderings, and they mean different things. **The guest button missing, with nothing
+said about why,** is the API answering 404: either `DEMO_MODE` is not `true` on Render, or the seed
+never ran. Both are indistinguishable from the demo routes not existing, on purpose
+(`apps/api/src/server.ts` registers them only in demo mode), and `apps/web/lib/demo-links.ts` folds
+that 404 into "nothing to say". **A short Russian notice above the hero, in place of the button,**
+means the API answered something else — most often 409 because an admin renumbered or deactivated
+table 7 — and check 2 is what will say which.
 
 ### 2. The rewrite reaches the API
 
@@ -553,7 +566,7 @@ restart.
 
 From the landing, follow the guest link (or scan the QR).
 
-**Correct:** the page says "Finding your table…" briefly and then the menu appears, with the seeded
+**Correct:** the page says «Ищем ваш стол…» briefly and then the menu appears, with the seeded
 dishes.
 
 This spends one of the twenty claim requests your address is allowed per minute — which matters only
@@ -572,8 +585,7 @@ polling half of what is described below.
 long-polling requests to `https://<api>/socket.io/…` before the upgrade. Either is correct;
 Socket.io starts on polling and upgrades, and a deployment that stays on polling still works.
 
-**And the connection settling.** Watch the band across the top of the board. It says **"Connecting
-to the kitchen feed…"**, and on a correct deployment it goes blank within a moment and stays blank
+**And the connection settling.** Watch the band across the top of the board. It says **«Подключаемся к доске заказов…»**, and on a correct deployment it goes blank within a moment and stays blank
 (`apps/web/components/kitchen/connection-banner.tsx` keeps the empty band in the layout on purpose,
 so the board does not jump). Blank means the socket actually connected: the board only clears it on
 Socket.io's `connect` event.
@@ -643,21 +655,22 @@ Use an invalid table token, so the action repeats without navigating away:
 https://<web>/t/not-a-real-demo-token
 ```
 
-The page claims the table on load and shows **"This QR code is not valid."** with a **Try again**
-button (`apps/web/components/claim-table.tsx`); each press re-fires the same `/api/guest/claim`
+The page claims the table on load and shows **«Этот QR-код недействителен. Попросите у сотрудников новый.»** with a
+**«Попробовать ещё раз»** button (`apps/web/components/claim-table.tsx`); each press re-fires the same `/api/guest/claim`
 through the rewrite and stays on the page.
 
 **The arithmetic.** The limit is twenty per minute (`apps/api/src/routes/guest.ts`), and the page's
-own first attempt is request one. So twenty presses of Try again make request twenty-one, and
+own first attempt is request one. So twenty presses of «Попробовать ещё раз» make request twenty-one, and
 twenty-one is the one refused. **The whole run has to finish inside a minute** — the window is a
 minute, and if it rolls mid-run the result means nothing and the run has to be repeated faster.
 
 **What a refusal looks like.** Not a message about rate limits: `claim-table.tsx` has no case for
-the rate-limited code, so it falls back to **"Can't reach the server. Check the connection and try
-again."** That reads like a dropped connection and it is the signal, not a red herring.
+the rate-limited code, so it falls back to **«Не удаётся связаться с сервером. Проверьте
+соединение и попробуйте ещё раз.»** That reads like a dropped connection and it is the signal, not
+a red herring.
 
-**On device A:** open the URL and press Try again twenty times, quickly. **Confirm device A's
-message actually changes** to "Can't reach the server. Check the connection and try again." That is
+**On device A:** open the URL and press «Попробовать ещё раз» twenty times, quickly. **Confirm
+device A's message actually changes** to the «Не удаётся связаться» sentence above. That is
 the positive control. If it never changes inside the minute, device A did not exhaust the bucket at
 all, and going on to device B would prove nothing either way — repeat it faster. If a second honest
 fast attempt still will not flip it, stop repeating: read "What it rests on" above and take the
@@ -665,10 +678,10 @@ stuck control to the causes below.
 
 **Only then, immediately, on device B:** open the same URL.
 
-**Correct:** device B's first load shows **"This QR code is not valid."** — the ordinary
+**Correct:** device B's first load shows the «Этот QR-код недействителен» sentence — the ordinary
 invalid-token message. Its bucket is its own.
 
-**The defect:** device B shows "Can't reach the server…" on its very first load. The two clients
+**The defect:** device B shows the «Не удаётся связаться» sentence on its very first load. The two clients
 shared a bucket, which means one person exploring the demo can lock everyone else out of claiming a
 table. Four causes, in the order worth trying — and a stuck device A control gets the same list:
 

@@ -1,6 +1,6 @@
-# Little Furnace — Brand Guidelines v1.3
+# Little Furnace — Brand Guidelines v1.4
 
-> Last updated: 2026-09-14 (v1.3)
+> Last updated: 2026-09-15 (v1.4)
 > Status: Active for M1–M6
 
 TableTap is the product: QR table ordering with a real-time kitchen display. Little Furnace is the seeded demo tenant that TableTap ships with — a neighbourhood wood-fired place serving flatbreads, grain bowls and a short list of sides and drinks. You order from the table and the food comes when it is ready; fast-casual pace, warm room. The name and the furnace image set the two surfaces: the kitchen surface takes the dark back-of-house character, the guest surface takes the warmth. The guest surface wears the restaurant brand; kitchen and admin wear neutral TableTap chrome — dark for kitchen, light and dense for admin — with ember as the single accent. All three come from the token base defined here. This document is the source of truth: the design system, `assets/design-tokens.json` and every UI string derive from it.
@@ -257,7 +257,9 @@ Little Furnace has a wordmark and nothing else in M1. The wordmark now ships as 
 
 ### Wordmark
 
-The wordmark is the words **Little Furnace** set in Bricolage Grotesque 700, tracking `-0.02em`, sentence-cased as written — never all caps, never all lowercase.
+The wordmark is the words **Little Furnace** set in the display face at 700, tracking `-0.02em`, sentence-cased as written — never all caps, never all lowercase.
+
+**Which display face, and why this section names two.** §2 is the authority and it says **PT Sans Narrow** since v1.3; that is what the product loads and what the guest header, the kitchen chrome and the admin chrome draw the wordmark in, as live text. The SVG at `assets/little-furnace-wordmark.svg` is older: it was cut in M6 from **Bricolage Grotesque** 700 and its letterforms are outlined paths, not live text, so it kept the shapes it was drawn with when the display face changed. Both are correct and they are correct about different things — the file is a fixed piece of artwork, the rule below is for anyone setting the words in type. Nothing is to be re-cut: a second wordmark artwork is a second brand, and this one is legible, in use and unaffected by which face a browser loads.
 
 | Context                       | Colour                                       | Minimum size |
 | ----------------------------- | -------------------------------------------- | ------------ |
@@ -270,7 +272,7 @@ Clear space around the wordmark is the cap height of the L on all four sides.
 
 ### Don'ts
 
-- Don't set the wordmark in any face other than Bricolage Grotesque.
+- Don't set the wordmark in any face other than the display face §2 names — PT Sans Narrow today. Don't re-cut `assets/little-furnace-wordmark.svg` to match it: see above.
 - Don't stretch, skew, rotate or outline it.
 - Don't colour it outside the four combinations in the table above.
 - Don't add a flame, a furnace, a chef hat or any other picture beside it as a stand-in mark.
@@ -351,9 +353,10 @@ Sentence case everywhere. No terminal full stop on a button or a single-line lab
 
 ## Changelog
 
-| Version | Date       | Changes                                                                                                                                                                                                        |
-| ------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0     | 2026-09-03 | Initial guidelines: ember, olive and ink palette with measured WCAG ratios; Bricolage Grotesque with IBM Plex Sans and IBM Plex Mono; wordmark-only logo policy; voice principles and vocabulary.              |
-| 1.1     | 2026-09-03 | Guest border #E0D8CB → #918269 and kitchen border #3D3631 → #7A6C62, so both clear the WCAG 1.4.11 3:1 non-text bar on every surface they are drawn on. Added the non-text contrast block.                     |
-| 1.2     | 2026-09-05 | The M1 debt: `assets/little-furnace-wordmark.svg` now exists. Added the TableTap mark (§3), a separate identity from the wordmark, with its own usage rules and its own component, favicon and app icon files. |
-| 1.3     | 2026-09-14 | Display face Bricolage Grotesque → PT Sans Narrow ahead of Russian localisation: Bricolage Grotesque has no Cyrillic; PT Sans Narrow is Paratype's Cyrillic face for Russian forms and timetables.             |
+| Version | Date       | Changes                                                                                                                                                                                                                                                                             |
+| ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0     | 2026-09-03 | Initial guidelines: ember, olive and ink palette with measured WCAG ratios; Bricolage Grotesque with IBM Plex Sans and IBM Plex Mono; wordmark-only logo policy; voice principles and vocabulary.                                                                                   |
+| 1.1     | 2026-09-03 | Guest border #E0D8CB → #918269 and kitchen border #3D3631 → #7A6C62, so both clear the WCAG 1.4.11 3:1 non-text bar on every surface they are drawn on. Added the non-text contrast block.                                                                                          |
+| 1.2     | 2026-09-05 | The M1 debt: `assets/little-furnace-wordmark.svg` now exists. Added the TableTap mark (§3), a separate identity from the wordmark, with its own usage rules and its own component, favicon and app icon files.                                                                      |
+| 1.3     | 2026-09-14 | Display face Bricolage Grotesque → PT Sans Narrow ahead of Russian localisation: Bricolage Grotesque has no Cyrillic; PT Sans Narrow is Paratype's Cyrillic face for Russian forms and timetables.                                                                                  |
+| 1.4     | 2026-09-15 | §3 still named Bricolage Grotesque as the wordmark's face and forbade any other, one section after §2 replaced it. Says which face applies where: the product sets the words in the §2 display face, and the M6 SVG keeps the Bricolage outlines it was cut from and is not re-cut. |
