@@ -46,7 +46,13 @@ export function StatusBadge({
       data-slot="status-badge"
       data-status={status}
       className={cn(
-        'inline-flex h-7 items-center rounded-full px-3 text-sm font-semibold',
+        // `min-h-7` and vertical padding rather than a fixed 28 px: `--status-badge-height` is
+        // surface-agnostic while the type scale sitting beside it in `packages/ui/theme.css` is
+        // not. On `[data-surface="kitchen"]` `--text-sm` is 1.125rem, so this pill draws an 18 px
+        // semibold word in a 25.2 px line box inside a 28 px round pill — 1.4 px of air above and
+        // below, which the descender of «Готовится» spends. A floor plus padding lets the pill
+        // follow the scale that was redefined under it.
+        'inline-flex min-h-7 items-center rounded-full px-3 py-0.5 text-sm font-semibold',
         STATUS_STYLE[status],
         className,
       )}

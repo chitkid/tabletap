@@ -4,8 +4,21 @@ import { Slot } from '@radix-ui/react-slot';
 
 import { cn } from '../lib/utils';
 
+/**
+ * `min-h-7` and `truncate`, not `h-7` and `overflow-hidden`.
+ *
+ * The pill was a fixed 28 px box that clipped a long label mid-glyph rather than ending it: no
+ * ellipsis, no wrap, no scroll — the last letter simply stopped. The height is a floor now, so a
+ * type scale that redefines `--text-sm` (`[data-surface="kitchen"]` does) grows the pill instead
+ * of crowding the label against the rounded edge, and `truncate` keeps `whitespace-nowrap` and
+ * `overflow-hidden` while adding the ellipsis that says a word was cut.
+ *
+ * `w-fit` means nothing is constraining it in the product today — measured, «Закончилось» draws
+ * 114.06 px with 0 px clipped at 375 px and at 1280 px — so this is what the pill does when
+ * something finally does constrain it, not a change to what it looks like now.
+ */
 const badgeVariants = cva(
-  'inline-flex h-7 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-3 text-sm font-semibold whitespace-nowrap transition-colors duration-(--duration-fast) focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive [&>svg]:pointer-events-none [&>svg]:size-3',
+  'inline-flex min-h-7 w-fit shrink-0 items-center justify-center gap-1 truncate rounded-full border border-transparent px-3 py-0.5 text-sm font-semibold transition-colors duration-(--duration-fast) focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive [&>svg]:pointer-events-none [&>svg]:size-3',
   {
     variants: {
       variant: {
