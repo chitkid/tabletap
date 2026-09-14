@@ -14,8 +14,14 @@ import { PayButton } from './pay-button';
  * exist for them until it is placed), and since M4 the kitchen only receives an order once it is
  * paid — so the difference a guest must see in the first line is between an order that is waiting
  * for money and one that is already with the kitchen.
+ *
+ * `as const satisfies` rather than `: Record<OrderStatus, string>`: the annotation widened these
+ * seven values to `string`, and `string` is not a message key. Kept narrow, `t(HEADLINE[status])`
+ * is checked against `guest.order.headline` by the compiler — a row pointing at a sentence the
+ * dictionary does not have is a compile error here rather than a key rendered in front of a guest.
+ * `satisfies` still requires all seven statuses and rejects an eighth.
  */
-const HEADLINE: Record<OrderStatus, string> = {
+const HEADLINE = {
   draft: 'placed',
   placed: 'placed',
   paid: 'paid',
@@ -23,7 +29,7 @@ const HEADLINE: Record<OrderStatus, string> = {
   ready: 'ready',
   served: 'served',
   cancelled: 'cancelled',
-};
+} as const satisfies Record<OrderStatus, string>;
 
 /** The one-line status a guest reads first, in the brand voice, for every stage of the order. */
 export function useHeadline(): (order: OrderDto) => string {
