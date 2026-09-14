@@ -249,6 +249,7 @@
       "available": "Available",
       "soldOut": "Sold out",
       "name": "Name",
+      "categoryName": "Category name",
       "price": "Price",
       "description": "Description",
       "allergens": "Allergens",

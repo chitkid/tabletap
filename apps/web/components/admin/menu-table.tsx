@@ -418,17 +418,32 @@ function CategoryEditor({
     <>
       <tr className={cn(ROW_LINE, 'border-t border-border bg-secondary/60')}>
         <th scope="rowgroup" colSpan={MENU_COLUMNS - 1} className={cn(HEAD_CELL, 'border-primary')}>
-          <Label htmlFor={nameId} className="sr-only">
-            {t('name')}
-          </Label>
-          <Input
-            id={nameId}
-            autoFocus
-            value={name}
-            aria-invalid={invalidAttr(invalid && name.trim() === '')}
-            className="max-w-sm"
-            onChange={(event) => setName(event.target.value)}
-          />
+          {/* The one label on this screen that is visible, and the only one that has to be.
+              Four of the five row-line labels are hidden because the column heading directly
+              above the input already says the word — the dish name under «Блюдо», the price under
+              «Цена». This input is not one of them: it is a *category* name, and the heading above
+              it still says «Блюдо», so a hidden label leaves the heading naming a different thing
+              than the field. Saying «Название» out loud would not fix that; the word has to be
+              «Название раздела».
+
+              Inline rather than stacked, which is what keeps `ROW_LINE`'s promise: the caption
+              and the `h-11` input sit on one line, so the row measures the same 56 px open as it
+              does closed and the table does not jump under the hand that pressed «Изменить».
+              `min-w-0` lets the input give ground to the caption instead of pushing the row
+              wider. */}
+          <div className="flex items-center gap-2">
+            <Label htmlFor={nameId} className="shrink-0">
+              {t('categoryName')}
+            </Label>
+            <Input
+              id={nameId}
+              autoFocus
+              value={name}
+              aria-invalid={invalidAttr(invalid && name.trim() === '')}
+              className="max-w-sm min-w-0"
+              onChange={(event) => setName(event.target.value)}
+            />
+          </div>
         </th>
         <RowActions busy={busy} onSave={() => void save()} onCancel={onCancel} />
       </tr>

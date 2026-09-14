@@ -87,6 +87,25 @@ describe('MenuTable', () => {
     expect(screen.getByText(plain(M.caption))).toBeInTheDocument();
   });
 
+  it('names the category field on screen, because the heading above it says «Блюдо»', async () => {
+    const user = userEvent.setup();
+    render(<MenuTable initial={menu} fetcher={vi.fn()} />);
+    await user.click(editorFor('Закуски'));
+
+    // The sixth `sr-only` label, and the one that could not stay hidden. The other five are named
+    // by the column heading directly above the input — the dish name under «Блюдо», the price
+    // under «Цена» — so hiding them only spares the operator the same word in forty rows. This
+    // input is a *category* name under a heading that says «Блюдо», so a hidden label leaves the
+    // heading naming a different thing than the field. The same three checks `photo-field.test`
+    // makes about the one other visible label on this surface.
+    const input = screen.getByLabelText(M.categoryName);
+    const label = document.querySelector(`label[for="${input.id}"]`);
+    expect(label?.tagName).toBe('LABEL');
+    expect(label?.className.split(/\s+/)).not.toContain('sr-only');
+    expect(input).not.toHaveAttribute('placeholder');
+    expect(screen.getByRole('columnheader', { name: M.columns.dish })).toBeInTheDocument();
+  });
+
   it('gives a category with no dishes a line of its own', () => {
     render(<MenuTable initial={menu} fetcher={vi.fn()} />);
     const desserts = group('Десерты');
@@ -161,7 +180,7 @@ describe('MenuTable', () => {
 
     await user.click(screen.getByRole('button', { name: M.addCategory }));
 
-    expect(screen.getByLabelText(M.name)).toHaveValue('');
+    expect(screen.getByLabelText(M.categoryName)).toHaveValue('');
     expect(screen.getByRole('button', { name: ACT.save })).toBeInTheDocument();
     // Past the highest sort order on the menu, not at the count of categories: with 0, 3 and 5 in
     // place, a count would open the new one at 3 and land it in the middle.
@@ -201,7 +220,7 @@ describe('MenuTable', () => {
     // numbered against what is actually on the menu, not against the row that is being discarded.
     await user.click(screen.getByRole('button', { name: M.addCategory }));
     await user.click(screen.getByRole('button', { name: M.addCategory }));
-    expect(screen.getAllByLabelText(M.name)).toHaveLength(1);
+    expect(screen.getAllByLabelText(M.categoryName)).toHaveLength(1);
     expect(screen.getByLabelText(M.sortOrder)).toHaveValue(6);
 
     await user.click(screen.getByRole('button', { name: ACT.cancel }));
@@ -222,7 +241,7 @@ describe('MenuTable', () => {
 
     expect(fetcher).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent(plain(M.categoryIncomplete));
-    expect(screen.getByLabelText(M.name)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText(M.categoryName)).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('keeps a category that still holds dishes and says to empty it first', async () => {
@@ -240,6 +259,6 @@ describe('MenuTable', () => {
     );
     // The way out is the operator's own sentence, so none of the server's English is on screen.
     expect(screen.getByRole('status').textContent).not.toContain('Empty it first.');
-    expect(screen.getByLabelText(M.name)).toHaveValue('Закуски');
+    expect(screen.getByLabelText(M.categoryName)).toHaveValue('Закуски');
   });
 });

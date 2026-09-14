@@ -249,6 +249,7 @@
       "available": "В наличии",
       "soldOut": "Закончилось",
       "name": "Название",
+      "categoryName": "Название раздела",
       "price": "Цена",
       "description": "Описание",
       "allergens": "Аллергены",
