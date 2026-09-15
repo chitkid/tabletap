@@ -838,6 +838,33 @@ transfer, not the response headers, so `-w '%{http_code}'` prints a status code 
 Reading the counter beats inferring it, which is how four earlier attempts at this check each
 produced an answer that did not survive its own control.
 
+### The deploy branch lives on the service, and a deleted feature branch strands it
+
+Symptom: `deploy` reaches Render, and `Wait for Render to report it live` fails in about fifty
+seconds with `build_failed` - far too fast for a Docker build. Render's own build log says:
+
+    fatal: Remote branch feat/m6-polish not found in upstream origin
+    ==> Unable to clone https://github.com/chitkid/tabletap
+
+The service was created while M6 was on `feat/m6-polish`; that branch went into the service's
+settings and stayed there when the branch was deleted at merge. **The workflow names a commit, but
+Render clones the configured branch first**, so a commit on a branch it cannot clone is
+unreachable - the build never starts, which is why it fails faster than a build could.
+
+Two things hid this for eight days. The two earlier `deploy` runs had stopped at the workflow's own
+`Not configured:` gate, so nothing ever reached Render's builder; and the branch was the one
+setting `render.yaml` did not state, so it lived only in a dashboard.
+
+The fix is one field: the service's **Settings -> Build & Deploy -> Branch**. If that field refuses
+the value - Render's branch picker offers a list it cached when it last had repository access, and
+a branch created since is not in it - run the `render-branch` workflow in GitHub Actions instead.
+It reads the branch from `render.yaml`, sets it through Render's API with the key already in the
+repository's secrets, and reads it back afterwards rather than trusting the write.
+
+Note that a public repository clones anonymously: the build log's "It looks like we don't have
+access to your repo, but we'll try to clone it anyway" is not the problem, and reconnecting the
+repository is not the fix.
+
 ### Changing an environment variable needs a redeploy, not a restart
 
 Render's **Restart service** does not pick up an edited environment variable. This was measured on

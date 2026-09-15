@@ -1,5 +1,12 @@
 # tabletap-api - Render Blueprint. The API is declared here rather than clicked together in the
 # dashboard, so the service a reader sees in this repository is the service that is running.
+#
+# 2026-09-15: the Blueprint that bound this file to the running service was deleted while chasing
+# the stranded-branch failure below, so right now this file RECORDS the service rather than driving
+# it, and the dashboard is the operative copy. Do not create a new Blueprint from it to restore
+# that: Render would create a SECOND service with a new id, while `secrets.RENDER_SERVICE_ID` still
+# names the one that is serving traffic, and the deploy workflow would keep deploying the old one.
+# Reconnecting this file to the existing service is a deliberate operation, not a click.
 # Topology and the reasons behind it: section 4 of
 # docs/superpowers/specs/2026-09-05-m6-polish-portfolio-design.md. The runbook that turns this
 # file into a running service is docs/deploy.md.
