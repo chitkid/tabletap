@@ -405,6 +405,12 @@ repository. Settings → Secrets and variables → Actions.
 The workflow's first step in each job fails with the missing names if any of these are absent, so a
 forgotten one is a clear message rather than a confusing curl error.
 
+**Each job checks only its own half, and `web` runs after `api` succeeds.** So a missing
+`WEB_ORIGIN` stays invisible until the API has deployed - `web` is skipped rather than failed, and
+reports nothing. Set all seven before the first deploy rather than discovering them one at a time:
+in practice these were found across two days, one per attempt, because each fix only revealed the
+next gate.
+
 Confirm Render's API is available on your plan and that the create-deploy endpoint still looks the
 way `deploy.yml` calls it (`https://api.render.com/v1/services/{id}/deploys`, with an optional
 `commitId`) at render.com/docs/api. If `commitId` is rejected, removing it deploys the branch head
