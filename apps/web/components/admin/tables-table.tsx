@@ -285,15 +285,23 @@ function ReadRow({ table, fetcher, focusOnRead, onEdit, onToggled }: RowProps) {
           of its widest button, «Перевыпустить QR-код» wraps under the other two in every row, and
           the confirmation's sentence wraps four times in a column too narrow to read it in.
 
-          `min-w-md` (448 px), not the `min-w-80` (320 px) this was tuned to against `Edit` /
+          `min-w-lg` (512 px), not the `min-w-80` (320 px) this was tuned to against `Edit` /
           `Deactivate` / `Reissue QR`.
           Measured in Chromium with the Russian labels on screen: «Изменить» 100.66 px,
           «Отключить» 107.47 px, «Перевыпустить QR-код» 192.05 px, two 8 px gaps — 416.18 px of
           controls against the 296 px the old minimum left them, so the third button sat under the
           other two and the row stood 97 px tall against `ROW_LINE`'s 56 px, at 375 px and at
           1280 px alike. The measurement is what settles this: Task 7 estimated the same
-          conclusion from character counts and said plainly that it had not measured. */}
-      <td className="min-w-md px-3 text-right">
+          conclusion from character counts and said plainly that it had not measured.
+
+          Those figures are Windows'. **The same three labels are 414 px on Linux** — 103 / 112 /
+          199 — which with the gaps needs 430 px, and `min-w-md` leaves only 424 px of content box.
+          So the row that fit with 7.82 px to spare on one machine wrapped on CI, where it had never
+          been run: the width was tuned to a single renderer's metrics and IBM Plex Sans rasterises
+          about 3.5% wider there. `min-w-lg` gives 488 px of content against Linux's 430 — 13% of
+          slack rather than 2% — which is the margin a figure measured on one platform needs
+          before it is used as a threshold on all of them. */}
+      <td className="min-w-lg px-3 text-right">
         {/* Mounted by the press, before there is anything to say: the refusal belongs beside the
             control that was refused, and a live region that appears with its text already in it may
             never be announced. It sits outside `QrActions` rather than among the controls it hands
