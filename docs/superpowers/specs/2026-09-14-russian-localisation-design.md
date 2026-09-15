@@ -1,7 +1,11 @@
 # Russian Localisation — Design Spec
 
-Date: 2026-09-14. Status: approved by the owner on 2026-09-14 (glossary and landing copy approved
-from `docs/design/02b-copy-ru.md`); implementation plan pending.
+Date: 2026-09-14. Status: **merged into `main` on 2026-09-15** (fast-forward). Approved by the owner
+on 2026-09-14, glossary and landing copy from `docs/design/02b-copy-ru.md`, which gained one
+owner-approved exception during implementation: the Stripe webhook's invalid-signature refusal is
+exempt from "say what to do", because its addressee is a machine and the only human who can read it
+is whoever forged the request. Eleven `/login` strings are written and **await the owner's
+approval**; the surface was never in this spec because it was never localised at all.
 Project: TableTap — QR table ordering with a live kitchen display (portfolio full-stack project).
 Milestone: the first of two agreed on 2026-09-13. The second is the redesign and its motion system.
 

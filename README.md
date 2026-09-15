@@ -18,16 +18,17 @@ The demo tenant is **Little Furnace**, a neighbourhood wood-fired place — flat
 
 ## Milestones
 
-| Milestone                    | Scope                                                                                                                  | Status    |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------- |
-| M1 Foundation                | Monorepo, schema and migrations, staff auth, guest sessions, RBAC, shared contracts, design tokens, Docker Compose, CI | Done      |
-| M2 Guest flow + demo landing | Menu, basket, order placement, illustrated dishes, demo landing with QR, hourly demo reset                             | Done      |
-| M3 Kitchen display           | Socket.io, kitchen board, order-state enforcement                                                                      | Done      |
-| M4 Payments                  | Payment port with a Stripe adapter and a demo terminal, signed webhook, idempotent settlement                          | Done      |
-| M5 Admin                     | Menu and tables edited in place, photo uploads to object storage, a printable QR sheet, revocable codes, a dashboard   | Done      |
-| M6 Polish + portfolio        | Motion, Lighthouse CI, deployment, case study                                                                          | In review |
+| Milestone                    | Scope                                                                                                                  | Status |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------ |
+| M1 Foundation                | Monorepo, schema and migrations, staff auth, guest sessions, RBAC, shared contracts, design tokens, Docker Compose, CI | Done   |
+| M2 Guest flow + demo landing | Menu, basket, order placement, illustrated dishes, demo landing with QR, hourly demo reset                             | Done   |
+| M3 Kitchen display           | Socket.io, kitchen board, order-state enforcement                                                                      | Done   |
+| M4 Payments                  | Payment port with a Stripe adapter and a demo terminal, signed webhook, idempotent settlement                          | Done   |
+| M5 Admin                     | Menu and tables edited in place, photo uploads to object storage, a printable QR sheet, revocable codes, a dashboard   | Done   |
+| M6 Polish + portfolio        | Motion, Lighthouse CI, deployment, case study                                                                          | Done   |
+| Russian localisation         | The product's language on all four surfaces: dictionary, roubles, plurals, demo data, metadata, the printed QR sheet   | Done   |
 
-M2 makes the product visible: a guest scans the QR on the table, reads the menu, fills a basket and places an order. M3 closes the loop — the ticket is on the kitchen board in well under half a second, the kitchen moves it through the statuses, and the guest's phone follows along without a reload. M4 puts the money in the middle of it: an order is placed, then paid, and only a payment event sends it to the kitchen. M5 hands the restaurant its own tool: everything the seed used to decide — the dishes, their prices and photographs, the tables and their printed codes — is now something an admin changes on screen.
+M2 makes the product visible: a guest scans the QR on the table, reads the menu, fills a basket and places an order. M3 closes the loop — the ticket is on the kitchen board in well under half a second, the kitchen moves it through the statuses, and the guest's phone follows along without a reload. M4 puts the money in the middle of it: an order is placed, then paid, and only a payment event sends it to the kitchen. M5 hands the restaurant its own tool: everything the seed used to decide — the dishes, their prices and photographs, the tables and their printed codes — is now something an admin changes on screen. M6 deploys it and writes it up. The localisation milestone then changes what the product speaks: every user-visible string moves into a dictionary the compiler checks, money becomes roubles through one `Intl` helper, plurals go through ICU rather than an `if`, the demo data reads like a Russian café's, and the printed QR sheet gains a face that can draw Cyrillic at all.
 
 ## Try the demo
 
