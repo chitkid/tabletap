@@ -1,0 +1,71 @@
+name: render-branch
+
+# Push the branch named in render.yaml onto the live Render service, by hand.
+#
+# `render.yaml` states the branch, but that key only takes effect when a Blueprint is created or
+# re-synced - an existing service keeps whatever branch its dashboard holds. The two drifted apart
+# once already and cost a deployment: the service was created while M6 was on `feat/m6-polish`,
+# that branch was deleted at merge, and every deploy afterwards died on
+# `fatal: Remote branch feat/m6-polish not found in upstream origin` before a layer was built.
+#
+# This runs only when someone asks for it. It reads the branch from render.yaml rather than taking
+# it as an input, so the file stays the single source of truth and this cannot be used to point the
+# service somewhere the repository does not admit to.
+
+on: workflow_dispatch
+
+jobs:
+  set-branch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the inputs are configured
+        env:
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -eu
+          missing=''
+          [ -n "${RENDER_SERVICE_ID}" ] || missing="${missing} secrets.RENDER_SERVICE_ID"
+          [ -n "${RENDER_API_KEY}" ] || missing="${missing} secrets.RENDER_API_KEY"
+          if [ -n "${missing}" ]; then
+            echo "Not configured:${missing}. See docs/deploy.md."
+            exit 1
+          fi
+
+      - name: Read the branch out of render.yaml
+        id: blueprint
+        run: |
+          set -eu
+          # The first `branch:` under the service, without pulling in a YAML parser for one line.
+          branch=$(grep -E '^\s*branch:\s*\S+' render.yaml | head -1 | sed -E 's/.*branch:[[:space:]]*//' | tr -d '"'"'"'')
+          if [ -z "${branch}" ]; then
+            echo "render.yaml names no branch - nothing to sync."
+            exit 1
+          fi
+          echo "render.yaml says: ${branch}"
+          echo "branch=${branch}" >> "${GITHUB_OUTPUT}"
+
+      - name: Point the service at it
+        env:
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          BRANCH: ${{ steps.blueprint.outputs.branch }}
+        run: |
+          set -eu
+          curl -fsS -X PATCH \
+            -H "authorization: Bearer ${RENDER_API_KEY}" \
+            -H "content-type: application/json" \
+            -d "{\"branch\":\"${BRANCH}\"}" \
+            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}" > /dev/null
+          # Read it back rather than trusting the write: a 200 says the request was accepted, not
+          # that this field is what changed.
+          got=$(curl -fsS -H "authorization: Bearer ${RENDER_API_KEY}" \
+            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}" | jq -r '.branch // empty')
+          echo "Render now reports branch: ${got}"
+          [ "${got}" = "${BRANCH}" ] || {
+            echo "Expected ${BRANCH}. The service did not take the change."
+            exit 1
+          }
