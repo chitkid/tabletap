@@ -35,6 +35,16 @@ services:
     # it runs after `ci` has gone green. Turning this back on reintroduces exactly the ungated
     # deploy the workflow exists to prevent.
     autoDeploy: false
+    # Stated here because leaving it to the dashboard cost a deployment. The service was created
+    # while M6 was still on `feat/m6-polish`, and that branch went into the dashboard and stayed
+    # there after the branch was deleted at merge - so the first deploy that ever reached Render's
+    # builder, four commits into the next milestone, failed with `fatal: Remote branch
+    # feat/m6-polish not found in upstream origin` before a single layer was built. The workflow
+    # names a commit; Render still clones the branch it was configured with, and a commit on a
+    # branch it cannot clone is unreachable. Editing this key does not move an existing service on
+    # its own - the Blueprint has to be re-synced, or the branch changed in the dashboard - but the
+    # file is meant to be what is running, and for eight days it was not.
+    branch: main
     envVars:
       # --- values that are not secrets, and are visible here on purpose ---
       - key: NODE_ENV
