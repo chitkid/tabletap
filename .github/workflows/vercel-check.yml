@@ -3,10 +3,17 @@ name: vercel-check
 # Ask Vercel what the stored credentials can actually see, and print the answer.
 #
 # `vercel pull` fails with one sentence - `Could not retrieve Project Settings` - for at least
-# four different reasons: a token that cannot read the team, a project id from another account, an
-# id that is a project *name* rather than a `prj_…`, and a revoked token. The workflow's own
-# configuration gate cannot tell them apart, because all four look identical to it: every value is
-# present and non-empty.
+# five different reasons: a project id from another account, an id that is a project *name* rather
+# than a `prj_…`, a revoked token, a token that cannot read the team at all, and - the one that
+# cost this repository four deploy attempts - a token scoped to a single PROJECT, which reads the
+# project and not the team it belongs to. The workflow's own configuration gate cannot tell them
+# apart, because to it all five look identical: every value present and non-empty.
+#
+# Question 4 was added after the fact, and its absence is why the first version of this file was
+# reassuring rather than useful: it asked `/v2/teams` - list every team - and a 403 there IS what a
+# team-scoped token answers by design, so the answer was read as healthy. The CLI asks
+# `/teams/<id>` - read THIS team - and that 403 is fatal. Two questions one word apart, and only
+# one of them was the one the failure turned on.
 #
 # This asks the three questions separately so the answer names the cause. It prints status codes,
 # the token's own account, the teams it can see and whether the project id resolves - never the
@@ -79,4 +86,21 @@ jobs:
           fi
 
           echo
-          echo "Read 1-3 together: a 403 at 1 is the token itself; a pass at 1 with a miss at 2 is scope; a pass at 2 with a 404 at 3 is the project id."
+          echo "== 4. Can it read THAT team? (GET /teams/<id>)  <- the one the CLI needs"
+          code=$(curl -s -o /tmp/team.json -w '%{http_code}' -H "${auth}"             "https://api.vercel.com/v2/teams/${VERCEL_ORG_ID}" || echo 000)
+          echo "HTTP ${code}"
+          if [ "${code}" = "200" ]; then
+            jq -r '"  team: " + (.slug // .name // "?")' /tmp/team.json
+            echo "  -> vercel pull can link. This is the question that decides it."
+          else
+            jq -r '"  " + .error.code + ": " + .error.message' /tmp/team.json 2>/dev/null || cat /tmp/team.json
+            echo "  -> THIS is what fails the deploy. A token scoped to a single PROJECT reads the"
+            echo "     project (3 passes) and not the team it belongs to, and the CLI needs both."
+            echo "     Create a token whose scope is the TEAM, not a project."
+          fi
+
+          echo
+          echo "Read them together. 3 and 4 are the pair that matters and they are not the same"
+          echo "question: the CLI resolves a link by reading the project AND the team. A 404 at 1"
+          echo "and a 403 at 2 are what a team-scoped token answers by design - listing every team"
+          echo "is not something it may do - so neither of those is a fault on its own. 4 is."
