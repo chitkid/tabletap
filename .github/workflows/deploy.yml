@@ -186,6 +186,27 @@ jobs:
         # step; the symptom is a red job with the CLI's own error, not a bad deployment.
         run: npm install --global vercel@latest
 
+      - name: Link the project by writing the file the CLI looks for
+        # `vercel pull` used to infer the project from VERCEL_ORG_ID and VERCEL_PROJECT_ID in the
+        # environment. On CLI 59 it stopped: every credential resolves the project against
+        # api.vercel.com (proved by .github/workflows/vercel-check.yml - GET /v9/projects/<id>
+        # answers 200 with the right name) while `vercel pull` still answers `Could not retrieve
+        # Project Settings`. That sentence is about linking, not about permission.
+        #
+        # So write the link file rather than hoping the CLI infers it. This is byte-for-byte what
+        # `vercel link` produces, it is what every version of the CLI reads, and it takes the
+        # unpinned CLI's project resolution out of the deployment's critical path - which the
+        # install step above deliberately accepts risk on, and this is that risk arriving.
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -eu
+          mkdir -p .vercel
+          printf '{"projectId":"%s","orgId":"%s"}' "${VERCEL_PROJECT_ID}" "${VERCEL_ORG_ID}" > .vercel/project.json
+          # Shape only - the ids are secrets and the file is written, not printed.
+          echo "wrote .vercel/project.json, $(wc -c < .vercel/project.json) bytes"
+
       - name: Pull the project's production settings and environment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

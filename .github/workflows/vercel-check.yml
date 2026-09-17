@@ -73,7 +73,7 @@ jobs:
           echo "HTTP ${code}"
           if [ "${code}" = "200" ]; then
             jq -r '"  project: " + .name + "  (" + .id + ")"' /tmp/project.json
-            echo "  -> All three agree. If `vercel pull` still fails, the cause is in the CLI step, not the credentials."
+            echo "  -> All three agree. If 'vercel pull' still fails, the cause is in the CLI step, not the credentials."
           else
             jq -r '"  " + .error.code + ": " + .error.message' /tmp/project.json 2>/dev/null || cat /tmp/project.json
           fi
