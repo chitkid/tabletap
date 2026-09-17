@@ -844,6 +844,35 @@ transfer, not the response headers, so `-w '%{http_code}'` prints a status code 
 Reading the counter beats inferring it, which is how four earlier attempts at this check each
 produced an answer that did not survive its own control.
 
+### `Could not retrieve Project Settings` is about the team, not the project
+
+Symptom: `deploy`'s `web` job fails in one second on `vercel pull`, with
+
+    Error: Could not retrieve Project Settings. To link your Project, remove the `.vercel`
+    directory and deploy again.
+
+The sentence reads like a permission problem with the project, and the advice at the end is for a
+developer's laptop - there is no `.vercel` directory in a fresh checkout to remove. Both mislead.
+
+Run `vercel pull --debug` and the CLI prints the three calls it makes to resolve the link:
+
+    #1 GET /v2/user                       <- 404
+    #2 GET /teams/<team_id>               <- 403 Forbidden
+    #3 GET /v9/projects/<id>?teamId=<id>  <- 200 OK
+
+**The project resolves; the team does not, and linking needs both.** A Vercel token scoped to a
+single _project_ reads that project and nothing about the team it belongs to. Create the token with
+the **team** as its scope instead. `.github/workflows/vercel-check.yml` asks all four questions
+without spending a deploy on the answer - question 4, `GET /teams/<id>`, is the one that decides
+it.
+
+Two things wasted four attempts here, and both are worth recognising rather than the specific fix.
+The first is that a token can be _correct enough to pass every check you thought to write_: the ids
+were right, the project resolved, and three separate replacements of the credentials changed
+nothing. The second is that `/v2/teams` (list every team) and `/teams/<id>` (read this one) are
+different questions, and a 403 on the first is what a properly scoped token answers by design - so
+the probe that asked it returned a reassuring answer to a question the failure did not turn on.
+
 ### The deploy branch lives on the service, and a deleted feature branch strands it
 
 Symptom: `deploy` reaches Render, and `Wait for Render to report it live` fails in about fifty
