@@ -165,6 +165,35 @@ They are replaced by explanations at the moment they apply, which is the honest 
 - **The cold start.** No warning. A loading state that reserves its space and does not pretend to be
   instant. No promise the product does not keep.
 
+## The staff sign-in, approved 2026-09-17
+
+This surface was in neither the brief nor this document, because it had never been localised at
+all — every word of it was English, including a table of refusals keyed by HTTP status and rendered
+through a variable, which is the shape a source scan cannot see. The strings below were derived
+from the editorial rules above and approved by the owner.
+
+| Where it shows           | String                                                                      |
+| ------------------------ | --------------------------------------------------------------------------- |
+| Heading                  | Вход для сотрудников                                                        |
+| Under it                 | Введите рабочую почту и пароль.                                             |
+| Fields                   | Почта · Пароль                                                              |
+| Button                   | Войти                                                                       |
+| Button, while signing in | Входим…                                                                     |
+| Status, while signing in | Входим как {name}…                                                          |
+| Status, after            | Вы вошли как {name}. Открываем служебную зону…                              |
+| Wrong credentials        | Почта и пароль не подходят. Проверьте их и попробуйте ещё раз.              |
+| Too many attempts        | Слишком много попыток входа. Подождите минуту и попробуйте ещё раз.         |
+| Server unreachable       | Не удаётся связаться с сервером. Проверьте соединение и попробуйте ещё раз. |
+
+Two of these are deliberately byte-identical to strings that already existed, so that one event is
+not described in two ways: the heading matches the landing's staff entrance, and the unreachable
+refusal matches the guest surface's.
+
+**«Почта и пароль не подходят» does not say which half is wrong, and that is not vagueness.** A refusal
+that distinguishes an unknown address from a wrong password turns the sign-in screen into a way to
+enumerate which accounts exist. The form reads only the HTTP status and writes the sentence itself,
+so better-auth's own English never reaches the screen either.
+
 ## What is not settled here
 
 The four surfaces' own strings — menu, basket, checkout, receipt, board, admin — are extracted after
