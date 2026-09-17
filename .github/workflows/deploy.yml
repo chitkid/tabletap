@@ -213,7 +213,24 @@ jobs:
         # This is what brings the three build-time NEXT_PUBLIC_* values (and API_URL) into the
         # build below. They are inlined by Next at build time, so a value that exists only at run
         # time produces a browser bundle still pointing at localhost - see docs/deploy.md.
-        run: vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
+        # `--debug` and the capture are here because this step's failures are unreadable from
+        # outside: GitHub serves Actions logs only to a signed-in viewer, while a run's
+        # ANNOTATIONS are public. Two fixes were attempted against the CLI's one-line summary
+        # and both missed, so the step now puts its own last lines where they can be read
+        # without a session, and keeps the CLI's exit code.
+        run: |
+          set -eu
+          if vercel pull --yes --debug --environment=production --token="${VERCEL_TOKEN}" > /tmp/pull.log 2>&1; then
+            tail -5 /tmp/pull.log
+            exit 0
+          fi
+          tail -40 /tmp/pull.log
+          # One annotation. awk joins the lines with the %0A that GitHub wants, and %25 goes
+          # first so an escape introduced here is not escaped again. No backslashes: they are
+          # what broke the first attempt at writing this.
+          msg=$(tail -25 /tmp/pull.log | sed "s/%/%25/g" | awk '{ printf "%s%%0A", $0 }')
+          echo "::error title=vercel pull::${msg}"
+          exit 1
 
       - name: Build
         env:
